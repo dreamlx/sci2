@@ -42,7 +42,7 @@
 
 - **操作系统**：macOS/Linux/Windows
 - **数据库**：sqlite
-- **Ruby版本**：3.0+
+- **Ruby版本**：3.4.2
 - **Rails版本**：7.0+
 - **浏览器**：Chrome 最新版、Firefox 最新版、Safari 最新版
 
