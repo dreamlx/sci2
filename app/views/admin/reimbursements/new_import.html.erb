@@ -1,0 +1,42 @@
+<h2>导入报销单</h2>
+
+<%= form_tag import_admin_reimbursements_path, multipart: true do %>
+  <div class="panel">
+    <div class="panel_contents">
+      <div class="attributes_table">
+        <table>
+          <tr>
+            <th>选择CSV文件</th>
+            <td><%= file_field_tag :file, accept: '.csv' %></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+  
+  <div class="actions">
+    <%= submit_tag "导入", class: "button" %>
+    <%= link_to "取消", admin_reimbursements_path, class: "button" %>
+  </div>
+<% end %>
+
+<div class="panel">
+  <h3>导入说明</h3>
+  <div class="panel_contents">
+    <p>CSV文件应包含以下列：</p>
+    <ul>
+      <li>报销单单号（必填）</li>
+      <li>单据名称</li>
+      <li>报销单申请人</li>
+      <li>报销单申请人工号</li>
+      <li>申请人公司</li>
+      <li>申请人部门</li>
+      <li>报销金额（单据币种）</li>
+      <li>收单状态</li>
+      <li>报销单状态</li>
+      <li>收单日期</li>
+      <li>提交报销日期</li>
+      <li>单据标签</li>
+    </ul>
+  </div>
+</div>

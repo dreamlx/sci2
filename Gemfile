@@ -24,6 +24,9 @@ gem 'kaminari'
 # State machine
 gem 'state_machines'
 
+# XLS/XLSX processing
+gem 'roo'
+
 # CSV processing
 gem 'csv'
 
