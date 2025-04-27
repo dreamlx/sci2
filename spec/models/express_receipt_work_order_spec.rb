@@ -19,8 +19,8 @@ RSpec.describe ExpressReceiptWorkOrder, type: :model do
     context "when in received state" do
       it "can transition to processed" do
         expect(work_order.status).to eq("received")
-        expect(work_order).to allow_event(:process)
-        expect(work_order).not_to allow_event(:complete)
+        expect(work_order.can_process?).to be true
+        expect(work_order.can_complete?).to be false
       end
       
       it "changes status to processed after process event" do
@@ -34,8 +34,8 @@ RSpec.describe ExpressReceiptWorkOrder, type: :model do
       
       it "can transition to completed" do
         expect(work_order.status).to eq("processed")
-        expect(work_order).to allow_event(:complete)
-        expect(work_order).not_to allow_event(:process)
+        expect(work_order.can_complete?).to be true
+        expect(work_order.can_process?).to be false
       end
       
       it "changes status to completed after complete event" do
@@ -44,7 +44,10 @@ RSpec.describe ExpressReceiptWorkOrder, type: :model do
       end
       
       it "creates an audit work order after complete event" do
-        expect { work_order.complete! }.to change(AuditWorkOrder, :count).by(1)
+        expect { 
+          work_order.complete!
+          work_order.reload
+        }.to change { work_order.audit_work_order }.from(nil)
         
         audit_work_order = work_order.audit_work_order
         expect(audit_work_order.status).to eq("pending")
@@ -58,33 +61,41 @@ RSpec.describe ExpressReceiptWorkOrder, type: :model do
     let(:work_order) { create(:express_receipt_work_order) }
     
     context "when status changes" do
+      let(:admin_user) { create(:admin_user) }
+      
       before do
-        allow(Current).to receive(:admin_user).and_return(double(id: 1))
+        allow(Current).to receive(:admin_user).and_return(admin_user)
+        work_order.update!(created_by: admin_user.id)
       end
       
       it "records status change" do
-        expect { work_order.process! }.to change(WorkOrderStatusChange, :count).by(1)
+        expect { 
+          work_order.process!
+        }.to change { WorkOrderStatusChange.where(work_order_type: 'express_receipt').count }.by(1)
         
-        status_change = work_order.work_order_status_changes.last
-        expect(status_change.work_order_type).to eq("express_receipt")
+        status_change = WorkOrderStatusChange.where(work_order_type: 'express_receipt').last
         expect(status_change.from_status).to eq("received")
         expect(status_change.to_status).to eq("processed")
-        expect(status_change.changed_by).to eq(1)
+        expect(status_change.changed_by).to eq(admin_user.id)
       end
     end
   end
   
   describe "#create_audit_work_order" do
-    let(:work_order) { create(:express_receipt_work_order, :processed, created_by: 1) }
+    let(:admin_user) { create(:admin_user) }
+    let(:work_order) { create(:express_receipt_work_order, :processed, created_by: admin_user.id) }
     
     it "creates an audit work order" do
-      expect { work_order.create_audit_work_order }.to change(AuditWorkOrder, :count).by(1)
+      expect { 
+        work_order.create_audit_work_order 
+        work_order.reload
+      }.to change { work_order.audit_work_order }.from(nil)
       
       audit_work_order = work_order.audit_work_order
       expect(audit_work_order.status).to eq("pending")
       expect(audit_work_order.reimbursement).to eq(work_order.reimbursement)
       expect(audit_work_order.express_receipt_work_order).to eq(work_order)
-      expect(audit_work_order.created_by).to eq(1)
+      expect(audit_work_order.created_by).to eq(admin_user.id)
     end
   end
 end

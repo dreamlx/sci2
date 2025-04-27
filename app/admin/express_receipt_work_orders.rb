@@ -35,6 +35,10 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
   action_item :complete, only: :show, if: proc { resource.status == "processed" } do
     link_to "完成", complete_admin_express_receipt_work_order_path(resource), method: :put
   end
+
+  action_item :export_status_changes, only: :show do
+    link_to "导出状态变更", export_status_changes_admin_express_receipt_work_order_path(resource, format: :csv)
+  end
   
   # 自定义页面
   member_action :process, method: :put do
@@ -52,6 +56,15 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
       redirect_to admin_express_receipt_work_order_path(resource), notice: "工单已完成"
     else
       redirect_to admin_express_receipt_work_order_path(resource), alert: "操作失败"
+    end
+  end
+
+  member_action :export_status_changes, method: :get do
+    @status_changes = resource.work_order_status_changes.order(changed_at: :desc)
+    respond_to do |format|
+      format.csv do
+        headers['Content-Disposition'] = "attachment; filename=\"status_changes_#{resource.id}.csv\""
+      end
     end
   end
   
@@ -91,11 +104,20 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
     end
     
     panel "状态变更历史" do
+      div class: "status-changes-header" do
+        span "状态变更历史"
+        span do
+          link_to "导出CSV", export_status_changes_admin_express_receipt_work_order_path(resource, format: :csv), class: "export-link"
+        end
+      end
+      
       table_for resource.work_order_status_changes.order(changed_at: :desc) do
         column :from_status
         column :to_status
         column :changed_at
-        column :changed_by
+        column :changed_by do |change|
+          AdminUser.find_by(id: change.changed_by)&.email || "系统"
+        end
       end
     end
     
@@ -112,6 +134,16 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
         end
       else
         para "暂无关联的审核工单"
+        if resource.status == "completed"
+          para do
+            link_to "创建审核工单", new_admin_audit_work_order_path(audit_work_order: { 
+              reimbursement_id: resource.reimbursement_id,
+              express_receipt_work_order_id: resource.id,
+              status: "pending",
+              created_by: current_admin_user.id
+            })
+          end
+        end
       end
     end
   end

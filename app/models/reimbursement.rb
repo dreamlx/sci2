@@ -11,7 +11,17 @@ class Reimbursement < ApplicationRecord
   validates :document_name, presence: true
   validates :applicant, presence: true
   validates :applicant_id, presence: true
-  
+  validates :status, presence: true, inclusion: { in: %w[processing pending closed] }
+
+  # 默认状态
+  after_initialize :set_default_status, if: :new_record?
+
+  private
+
+  def set_default_status
+    self.status ||= 'pending'
+  end
+
   # 回调
   after_create :create_audit_work_order_if_needed
   
@@ -29,7 +39,7 @@ class Reimbursement < ApplicationRecord
   end
   
   def mark_as_complete
-    update(is_complete: true, reimbursement_status: 'closed')
+    update(is_complete: true, reimbursement_status: 'closed', status: 'closed')
   end
   
   def create_audit_work_order(created_by = nil)
@@ -38,21 +48,61 @@ class Reimbursement < ApplicationRecord
       created_by: created_by
     )
   end
-  
+
+  # 获取最新的审核工单
+  def latest_audit_work_order
+    audit_work_orders.order(created_at: :desc).first
+  end
+
+  # 获取最新的快递收单工单
+  def latest_express_receipt_work_order
+    express_receipt_work_orders.order(created_at: :desc).first
+  end
+
+  # 获取未完成的沟通工单
+  def pending_communication_work_orders
+    communication_work_orders.where.not(status: ['resolved', 'unresolved', 'closed'])
+  end
+
+  # 获取费用明细总金额
+  def total_fee_amount
+    fee_details.sum(:amount)
+  end
+
+  # 获取已验证的费用明细总金额
+  def verified_fee_amount
+    fee_details.where(verification_status: 'verified').sum(:amount)
+  end
+
+  # 获取已拒绝的费用明细总金额
+  def rejected_fee_amount
+    fee_details.where(verification_status: 'rejected').sum(:amount)
+  end
+
+  # 获取待验证的费用明细总金额
+  def pending_fee_amount
+    fee_details.where(verification_status: ['pending', 'problematic']).sum(:amount)
+  end
+
+  # 检查是否所有费用明细都已验证
+  def all_fees_verified?
+    fee_details.where.not(verification_status: ['verified', 'rejected']).count.zero?
+  end
+
   private
-  
+
   def create_audit_work_order_if_needed
     # 如果是非电子发票且没有审核工单，则创建审核工单
     if !is_electronic && audit_work_orders.empty?
       create_audit_work_order
     end
   end
-  
+
   # ActiveAdmin配置
   def self.ransackable_attributes(auth_object = nil)
-    %w[id invoice_number document_name applicant applicant_id company department receipt_status reimbursement_status amount is_electronic is_complete created_at updated_at]
+    %w[id invoice_number document_name applicant applicant_id company department receipt_status reimbursement_status amount is_electronic is_complete created_at updated_at status]
   end
-  
+
   def self.ransackable_associations(auth_object = nil)
     %w[express_receipt_work_orders audit_work_orders communication_work_orders fee_details operation_histories]
   end

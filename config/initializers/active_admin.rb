@@ -1,24 +1,22 @@
 ActiveAdmin.setup do |config|
-  # 设置站点标题
+  # Set site title
   config.site_title = "SCI2工单系统"
-  
-  # 设置默认命名空间
+
+  # Set default namespace
   config.default_namespace = :admin
-  
-  # 设置根路径
+
+  # Set root path
   config.root_to = 'dashboard#index'
-  
-  # 启用批量操作
+
+  # Enable batch actions
   config.batch_actions = true
-  
-  # 设置每页显示记录数
+
+  # Set records per page
   config.default_per_page = 30
-  
-  # 设置CSV下载选项
+
+  # Set CSV download options
   config.csv_options = { col_sep: ',', force_quotes: true }
-  
-  
-  
-  # 设置注释
+
+  # Disable comments
   config.comments = false
 end

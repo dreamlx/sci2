@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_04_26_162440) do
+ActiveRecord::Schema[7.1].define(version: 2025_04_27_124700) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -84,7 +84,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_04_26_162440) do
 
   create_table "express_receipt_work_orders", force: :cascade do |t|
     t.integer "reimbursement_id"
-    t.string "status", null: false
+    t.string "status", default: "received", null: false
     t.string "tracking_number"
     t.datetime "received_at"
     t.string "courier_name"

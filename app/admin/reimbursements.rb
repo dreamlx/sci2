@@ -3,10 +3,10 @@ ActiveAdmin.register Reimbursement do
   permit_params :invoice_number, :document_name, :applicant, :applicant_id, :company, :department, 
                 :amount, :receipt_status, :reimbursement_status, :receipt_date, :submission_date, 
                 :is_electronic, :is_complete
-  
+
   # 菜单设置
   menu priority: 1, label: "报销单管理"
-  
+
   # 过滤器
   filter :invoice_number
   filter :applicant
@@ -17,7 +17,7 @@ ActiveAdmin.register Reimbursement do
   filter :is_electronic, as: :boolean
   filter :is_complete, as: :boolean
   filter :created_at
-  
+
   # 批量操作
   batch_action :mark_as_received do |ids|
     batch_action_collection.find(ids).each do |reimbursement|
@@ -25,21 +25,27 @@ ActiveAdmin.register Reimbursement do
     end
     redirect_to collection_path, notice: "已将选中的报销单标记为已收单"
   end
-  
+
   # 自定义操作
   action_item :import, only: :index do
     link_to "导入报销单", new_import_admin_reimbursements_path
   end
-  
-  # 自定义页面
+
   collection_action :new_import, method: :get do
     render "admin/reimbursements/new_import"
   end
-  
+
   collection_action :import, method: :post do
-    redirect_to admin_reimbursements_path, notice: "导入成功"
+    service = reimbursement_import_service(params[:file])
+    result = service.import
+
+    if result[:success]
+      redirect_to admin_reimbursements_path, notice: "导入成功: #{result[:created]} 创建, #{result[:updated]} 更新, #{result[:errors]} 错误."
+    else
+      redirect_to new_import_admin_reimbursements_path, alert: "导入失败: #{result[:errors].join(', ')}"
+    end
   end
-  
+
   # 列表页
   index do
     selectable_column
@@ -60,7 +66,7 @@ ActiveAdmin.register Reimbursement do
     column :created_at
     actions
   end
-  
+
   # 详情页
   show do
     tabs do
@@ -85,9 +91,9 @@ ActiveAdmin.register Reimbursement do
           row :updated_at
         end
       end
-      
-      tab "快递收单" do
-        panel "快递收单信息" do
+
+      tab "快递收单工单" do
+        panel "快递收单工单信息" do
           table_for resource.express_receipt_work_orders do
             column :id
             column :tracking_number
@@ -103,7 +109,7 @@ ActiveAdmin.register Reimbursement do
           end
         end
       end
-      
+
       tab "审核工单" do
         panel "审核工单信息" do
           table_for resource.audit_work_orders do
@@ -120,7 +126,7 @@ ActiveAdmin.register Reimbursement do
           end
         end
       end
-      
+
       tab "沟通工单" do
         panel "沟通工单信息" do
           table_for resource.communication_work_orders do
@@ -137,7 +143,7 @@ ActiveAdmin.register Reimbursement do
           end
         end
       end
-      
+
       tab "费用明细" do
         panel "费用明细信息" do
           table_for resource.fee_details do
@@ -157,9 +163,21 @@ ActiveAdmin.register Reimbursement do
           end
         end
       end
+
+      tab "操作历史" do
+        panel "操作历史信息" do
+          table_for resource.operation_histories do
+            column :id
+            column :operation_type
+            column :operation_time
+            column :operator
+            column :created_at
+          end
+        end
+      end
     end
   end
-  
+
   # 表单
   form do |f|
     f.inputs "报销单信息" do
