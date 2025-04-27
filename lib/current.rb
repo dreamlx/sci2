@@ -1,3 +1,4 @@
-module Current
-  thread_mattr_accessor :admin_user
+# lib/current.rb
+class Current < ActiveSupport::CurrentAttributes
+  attribute :admin_user
 end
