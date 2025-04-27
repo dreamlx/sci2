@@ -1,12 +1,109 @@
-# SCI2 工单系统重构 - AI 开发任务分解指南
+# SCI2 工单系统重构 - AI 开发任务分解指南 (Qwen-coder 32b 版本)
 
 ## 1. 概述
 
 本文档为使用 LLM (Large Language Model) 进行 SCI2 工单系统重构开发提供详细的任务分解指南。考虑到 AI 编程的特性、优势和局限性，我们将开发任务分解为多个层次和阶段，确保代码质量和项目理解的一致性。
+### 1.1 架构概览 (STI 版本)
+
+本项目采用单表继承 (Single Table Inheritance, STI) 架构实现工单系统，主要模型关系如下：
+
+```mermaid
+erDiagram
+    Reimbursement ||--o{ WorkOrder : "has many"
+    Reimbursement ||--o{ FeeDetail : "has many (via document_number)"
+    Reimbursement ||--o{ OperationHistory : "has many (via document_number)"
+    WorkOrder ||--o{ FeeDetailSelection : "has many (polymorphic)"
+    WorkOrder ||--o{ WorkOrderStatusChange : "has many (polymorphic)"
+    FeeDetailSelection }o--|| FeeDetail : "references"
+    CommunicationWorkOrder ||--o{ CommunicationRecord : "has many"
+    AuditWorkOrder ||--o{ CommunicationWorkOrder : "has many"
+
+    WorkOrder {
+        string type PK, FK # STI: ExpressReceiptWorkOrder, AuditWorkOrder, CommunicationWorkOrder
+        integer reimbursement_id FK
+        string status # Internal status
+        integer created_by FK # Link to AdminUser
+        # --- 共享字段 (Req 6/7) ---
+        string problem_type
+        string problem_description
+        text remark
+        string processing_opinion
+        # --- 子类特定字段 ---
+        string tracking_number # ExpressReceipt
+        datetime received_at # ExpressReceipt
+        string courier_name # ExpressReceipt
+        string audit_result # Audit
+        text audit_comment # Audit
+        datetime audit_date # Audit
+        boolean vat_verified # Audit
+        string communication_method # Communication
+        string initiator_role # Communication
+        text resolution_summary # Communication
+        integer audit_work_order_id FK # Communication link to parent AuditWO
+    }
+```
+
+### 1.2 工单类型与状态流
+
+#### 快递收单工单 (ExpressReceiptWorkOrder)
+- 导入时自动创建，状态固定为 `completed`
+- 工单操作人为导入用户
+
+#### 审核工单 (AuditWorkOrder)
+- 状态流转: `pending` → `processing` → `approved`/`rejected`
+- 必须在报销单 show 页面创建
+- 必须选择至少一条费用明细
+- 表单结构包含：费用明细选择、问题类型下拉列表、问题说明下拉列表、备注说明文本、处理意见下拉列表
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> pending
+    pending --> processing : Start Processing
+    processing --> approved : Approve
+    processing --> rejected : Reject
+    approved --> [*]
+    rejected --> [*]
+```
+
+#### 沟通工单 (CommunicationWorkOrder)
+- 状态流转: `pending` → `processing`/`needs_communication` → `approved`/`rejected`
+- 必须在报销单 show 页面创建
+- 必须选择至少一条费用明细
+- 表单结构与审核工单完全相同，唯一区别是操作人员分组不同
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> pending
+    pending --> processing : Start Processing
+    pending --> needs_communication : Need Communication
+    processing --> approved : Approve
+    processing --> rejected : Reject
+    needs_communication --> approved : Approve
+    needs_communication --> rejected : Reject
+    approved --> [*]
+    rejected --> [*]
+```
+
+### 1.3 费用明细验证流程
+
+费用明细导入后状态为 `pending`，根据审核工单和沟通工单状态变化为 `problematic` 或 `verified`：
+- 当工单状态变为 `processing` 或 `needs_communication` 时，关联费用明细状态变为 `problematic`
+- 当工单状态变为 `approved` 时，关联费用明细状态变为 `verified`
+- 当工单状态变为 `rejected` 时，关联费用明细状态变为 `problematic`
+
+### 1.4 报销单状态流程
+
+报销单内部状态流转：`pending` → `processing` → `waiting_completion` → `closed`
+- 导入后默认状态为 `pending`
+- 有工单创建或处理时状态变为 `processing`
+- 当所有费用明细状态都为 `verified` 时状态变为 `waiting_completion`
+- 当导入操作历史中包含特定条件（如审批通过）时状态变为 `closed`
 
 
 
-## 2. LLM 编程特性与策略
+## 2. LLM 编程特性与策略 (Qwen-coder Plus 版本)
 
 ### 2.1 LLM 编程优势
 
@@ -18,7 +115,6 @@
 
 ### 2.2 LLM 编程局限性
 
-- **上下文窗口限制**：无法同时处理过多的代码文件
 - **一致性挑战**：在长时间或多次交互中保持一致性可能有困难
 - **细节遗漏**：可能忽略某些边缘情况或特定实现细节
 - **测试覆盖不完整**：可能无法自动考虑所有测试场景
@@ -46,14 +142,14 @@
 - 预期输出：代码、测试或文档
 - 验收标准：功能正确性、代码质量要求
 - 依赖关系：与其他任务的前后依赖
-- 减少了具体代码的数量，更加注重结构、关键概念和实现步骤的描述
+- 减少过于具体的代码展示，更加注重结构、关键概念和实现步骤的描述
 
 ## 3. 开发环境与工具
 
 ### 3.1 项目环境
 
 - **Ruby 版本**：3.4.2
-- **Rails 版本**：7.1.5.1
+- **Rails 版本**：7.1.5.1， 使用作为用户界面 activeadmin， roo 导入xls， state_machines 作为状态机管理
 - **测试框架**：RSpec
 - **开发环境**：VSCode 集成 LLM 工具执行能力
 
@@ -232,10 +328,10 @@ LLM 在 VSCode 环境中可以执行以下操作：
 输入：导入需求和模型定义
 输出：完整的报销单导入服务
 步骤：
-1. 实现 CSV/Excel 解析功能（使用 roo gem）
-2. 实现报销单创建和更新逻辑
-3. 实现电子发票标记识别
-4. 实现非电子发票报销单自动创建审核工单功能
+1. 实现 CSV 解析功能（使用 roo gem）
+2. 实现报销单创建和更新逻辑（根据 invoice_number 查找，存在则更新）
+3. 实现电子发票标记识别（is_electronic 字段）
+4. 实现初始状态设置（pending）
 5. 实现错误处理和报告
 6. 编写 RSpec 单元测试验证功能
 ```
@@ -247,13 +343,14 @@ LLM 在 VSCode 环境中可以执行以下操作：
 输入：导入需求和模型定义
 输出：完整的快递收单导入服务
 步骤：
-1. 实现 CSV/Excel 解析功能
+1. 实现 CSV 解析功能
 2. 实现报销单存在性验证
 3. 实现快递收单创建逻辑
-4. 实现快递收单工单自动创建功能
-5. 实现未匹配记录处理
-6. 实现错误处理和报告
-7. 编写 RSpec 单元测试验证功能
+4. 实现快递收单工单自动创建功能（状态为 completed，created_by 为导入用户）
+5. 实现重复检查（reimbursement_id + tracking_number）
+6. 实现未匹配记录处理
+7. 实现错误处理和报告
+8. 编写 RSpec 单元测试验证功能
 ```
 
 #### 5.3.3 费用明细导入服务实现
@@ -263,10 +360,10 @@ LLM 在 VSCode 环境中可以执行以下操作：
 输入：导入需求和模型定义
 输出：完整的费用明细导入服务
 步骤：
-1. 实现 CSV/Excel 解析功能
+1. 实现 CSV 解析功能
 2. 实现报销单存在性验证
 3. 实现费用明细创建逻辑
-4. 实现与审核工单的自动关联
+4. 实现重复检查（document_number + fee_type + amount + fee_date）
 5. 实现未匹配记录处理
 6. 实现错误处理和报告
 7. 编写 RSpec 单元测试验证功能
@@ -279,13 +376,14 @@ LLM 在 VSCode 环境中可以执行以下操作：
 输入：导入需求和模型定义
 输出：完整的操作历史导入服务
 步骤：
-1. 实现 CSV/Excel 解析功能
+1. 实现 CSV 解析功能
 2. 实现报销单存在性验证
 3. 实现操作历史创建逻辑
-4. 实现报销单状态更新逻辑
-5. 实现工单状态更新逻辑
-6. 实现错误处理和报告
-7. 编写 RSpec 单元测试验证功能
+4. 实现重复检查（document_number + operation_type + operation_time + operator）
+5. 实现报销单状态更新逻辑（当操作类型为"审批"且操作意见为"审批通过"时，触发 close! 事件）
+6. 实现未匹配记录处理
+7. 实现错误处理和报告
+8. 编写 RSpec 单元测试验证功能
 ```
 
 #### 5.3.5 审核工单处理服务实现
@@ -295,12 +393,11 @@ LLM 在 VSCode 环境中可以执行以下操作：
 输入：业务需求和模型定义
 输出：完整的审核工单处理服务
 步骤：
-1. 实现状态转换方法
-2. 实现审核通过和拒绝逻辑
-3. 实现费用明细验证逻辑
-4. 实现沟通工单创建逻辑
-5. 实现完成处理逻辑
-6. 编写 RSpec 单元测试验证功能
+1. 实现状态转换方法（start_processing, approve, reject）
+2. 实现共享字段处理（problem_type, problem_description, remark, processing_opinion）
+3. 实现费用明细验证逻辑（更新为 problematic/verified）
+4. 实现完成处理逻辑
+5. 编写 RSpec 单元测试验证功能
 ```
 
 #### 5.3.6 沟通工单处理服务实现
@@ -310,11 +407,11 @@ LLM 在 VSCode 环境中可以执行以下操作：
 输入：业务需求和模型定义
 输出：完整的沟通工单处理服务
 步骤：
-1. 实现状态转换方法
-2. 实现沟通记录添加逻辑
-3. 实现解决和未解决逻辑
-4. 实现通知父工单逻辑
-5. 实现关闭处理逻辑
+1. 实现状态转换方法（start_processing, mark_needs_communication, approve, reject）
+2. 实现共享字段处理（problem_type, problem_description, remark, processing_opinion）
+3. 实现沟通记录添加逻辑
+4. 实现费用明细验证逻辑（更新为 problematic/verified）
+5. 实现完成处理逻辑
 6. 编写 RSpec 单元测试验证功能
 ```
 
@@ -356,27 +453,27 @@ LLM 在 VSCode 环境中可以执行以下操作：
 输出：完整的报销单管理界面
 步骤：
 1. 配置资源属性和权限
-2. 实现列表页面
-3. 实现详情页面
+2. 实现列表页面（显示 is_electronic 和内部/外部状态）
+3. 实现详情页面（包含工单关联标签页）
 4. 实现表单页面
 5. 实现导入功能
 6. 实现批量操作
 7. 编写功能测试验证界面
 ```
 
-#### 5.4.2 快递收单工单 ActiveAdmin 资源实现
+#### 5.4.2 工单 ActiveAdmin 资源实现
 
 ```
-任务：实现快递收单工单 ActiveAdmin 资源
+任务：实现工单 ActiveAdmin 资源（STI 子类）
 输入：模型和服务定义
-输出：完整的快递收单工单管理界面
+输出：完整的工单管理界面
 步骤：
-1. 配置资源属性和权限
-2. 实现列表页面
+1. 为每个 STI 子类配置独立资源
+2. 实现列表页面（使用 scoped_collection 限制类型）
 3. 实现详情页面
-4. 实现表单页面
+4. 实现表单页面（包含共享字段）
 5. 实现状态转换操作
-6. 实现批量操作
+6. 实现费用明细选择和验证界面
 7. 编写功能测试验证界面
 ```
 
@@ -390,7 +487,7 @@ LLM 在 VSCode 环境中可以执行以下操作：
 1. 配置资源属性和权限
 2. 实现列表页面
 3. 实现详情页面
-4. 实现表单页面
+4. 实现表单页面（包含 Req 6 字段：问题类型、问题说明、备注、处理意见）
 5. 实现状态转换操作
 6. 实现费用明细验证界面
 7. 实现沟通工单创建界面
@@ -407,7 +504,7 @@ LLM 在 VSCode 环境中可以执行以下操作：
 1. 配置资源属性和权限
 2. 实现列表页面
 3. 实现详情页面
-4. 实现表单页面
+4. 实现表单页面（包含 Req 7 字段：与审核工单相同的字段结构）
 5. 实现状态转换操作
 6. 实现沟通记录添加界面
 7. 实现费用明细问题解决界面
@@ -423,7 +520,7 @@ LLM 在 VSCode 环境中可以执行以下操作：
 步骤：
 1. 配置资源属性和权限
 2. 实现列表页面
-3. 实现详情页面
+3. 实现详情页面（显示所有关联工单的问题和备注说明）
 4. 实现表单页面
 5. 实现验证状态更新界面
 6. 实现批量操作
@@ -496,12 +593,12 @@ LLM 在 VSCode 环境中可以执行以下操作：
 输入：测试计划
 输出：完整的数据导入集成测试
 步骤：
-1. 测试报销单导入
-2. 测试快递收单导入
-3. 测试费用明细导入
-4. 测试操作历史导入
+1. 测试报销单导入（包括重复更新逻辑）
+2. 测试快递收单导入（包括重复跳过逻辑）
+3. 测试费用明细导入（包括重复跳过逻辑）
+4. 测试操作历史导入（包括重复跳过和报销单状态更新逻辑）
 5. 测试导入顺序要求
-6. 准备测试用 CSV/Excel 文件
+6. 准备测试用 CSV 文件
 ```
 
 #### 5.5.5 端到端系统测试实现 (RSpec/Capybara)
@@ -511,11 +608,12 @@ LLM 在 VSCode 环境中可以执行以下操作：
 输入：测试计划
 输出：完整的端到端系统测试
 步骤：
-1. 测试完整报销流程
-2. 测试包含沟通的报销流程
-3. 测试非电子发票报销流程
-4. 测试操作历史影响报销单状态
-5. 使用 Capybara 模拟用户交互
+1. 测试完整报销流程（INT-001：快递收单到审核完成）
+2. 测试包含沟通的报销流程（INT-002）
+3. 测试费用明细多工单关联（INT-004）
+4. 测试操作历史影响报销单状态（INT-005）
+5. 测试电子发票标志（INT-006）
+6. 使用 Capybara 模拟用户交互
 ```
 
 ## 6. LLM 开发指导原则
@@ -550,6 +648,44 @@ AI 的自主性应受到以下限制：
 4. **同步编写测试**：为每个功能模块同步编写测试，而不是最后才添加测试
 5. **利用工具执行能力**：通过执行 shell 命令和 Rails/Ruby 命令验证代码正确性
 
+#### 6.4TDD开发方法论
+
+##### 6.4.1 TDD基本流程
+
+我们将采用经典的TDD"红-绿-重构"循环：
+
+```mermaid
+graph LR
+    A[编写失败的测试] --> B[运行测试确认失败]
+    B --> C[编写最小实现代码]
+    C --> D[运行测试确认通过]
+    D --> E[重构代码]
+    E --> A
+```
+
+### 6.4.2 TDD应用策略
+
+1. **自顶向下与自底向上结合**：
+   - 自顶向下：从高层业务需求开始，编写集成测试
+   - 自底向上：为基础组件编写单元测试
+
+2. **测试粒度**：
+   - 单元测试：测试单个模型、方法的功能
+   - 集成测试：测试多个组件之间的交互
+   - 系统测试：测试完整的业务流程
+
+3. **测试优先级**：
+   - 优先测试核心业务逻辑
+   - 优先测试高风险区域
+   - 优先测试频繁变化的部分
+
+### 6.4.3 TDD在Rails项目中的应用
+
+在Rails项目中，我们将使用rspec作为测试框架，并结合Rails自带提供的测试工具：
+
+https://github.com/rspec/rspec-rails
+
+
 ### 6.4 代码审查重点
 
 1. **状态流转逻辑**：确保状态机实现正确
@@ -560,7 +696,7 @@ AI 的自主性应受到以下限制：
 
 ## 7. 测试验收标准
 
-最终实现将使用 'docs/refactoring/SCI2工单系统重构测试计划.md' 作为验收标准，确保所有测试用例都能通过。我们将使用 RSpec 框架来实现这些测试。重点关注：
+最终实现将使用 'docs/1-2SCI2工单系统测试计划_v3.md' 作为验收标准，确保所有测试用例都能通过。我们将使用 RSpec 框架来实现这些测试。重点关注：
 
 1. **数据导入测试**：确保四种数据类型的导入功能和导入顺序要求
 2. **工单状态流转测试**：确保三种工单类型的状态流转逻辑

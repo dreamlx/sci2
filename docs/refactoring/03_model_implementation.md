@@ -1,88 +1,170 @@
-# SCI2 工单系统模型实现
+# SCI2 工单系统模型实现 (STI 版本 - v2)
 
 ## 1. 基础模型
 
 ### 1.1 报销单模型 (Reimbursement)
 
+*   添加 `is_electronic`, `status`, `external_status` 字段。
+*   添加与 `WorkOrder` 的关联。
+*   添加状态机管理内部 `status` 字段。
+
 ```ruby
 # app/models/reimbursement.rb
 class Reimbursement < ApplicationRecord
   # 关联
-  has_many :express_receipt_work_orders, dependent: :destroy
-  has_many :audit_work_orders, dependent: :destroy
-  has_many :communication_work_orders, dependent: :destroy
-  has_many :fee_details, foreign_key: 'document_number', primary_key: 'invoice_number'
+  has_many :work_orders, dependent: :destroy # STI base class association
+  # Convenience associations for subclasses
+  has_many :audit_work_orders, -> { where(type: 'AuditWorkOrder') }, class_name: 'AuditWorkOrder'
+  has_many :communication_work_orders, -> { where(type: 'CommunicationWorkOrder') }, class_name: 'CommunicationWorkOrder'
+  has_many :express_receipt_work_orders, -> { where(type: 'ExpressReceiptWorkOrder') }, class_name: 'ExpressReceiptWorkOrder'
+  # Associations based on invoice_number FK
+  has_many :fee_details, foreign_key: 'document_number', primary_key: 'invoice_number', dependent: :destroy
+  has_many :operation_histories, foreign_key: 'document_number', primary_key: 'invoice_number', dependent: :destroy
 
   # 验证
   validates :invoice_number, presence: true, uniqueness: true
-  validates :document_name, presence: true
-  validates :applicant, presence: true
-  validates :applicant_id, presence: true
+  # Add other presence validations based on import requirements if needed
+  validates :status, presence: true, inclusion: { in: %w[pending processing waiting_completion closed] }
+  validates :is_electronic, inclusion: { in: [true, false] }
 
   # 范围
   scope :electronic, -> { where(is_electronic: true) }
   scope :non_electronic, -> { where(is_electronic: false) }
-  scope :completed, -> { where(is_complete: true) }
-  scope :pending, -> { where(is_complete: false) }
+  scope :waiting_completion, -> { where(status: 'waiting_completion') }
+  scope :processing, -> { where(status: 'processing') }
+  scope :pending, -> { where(status: 'pending') }
+  scope :closed, -> { where(status: 'closed') }
+
+  # 状态机 (管理内部 status 字段)
+  include StateMachines::ActiveRecord
+
+  state_machine :status, initial: :pending do
+    event :start_processing do
+      # Can go back to processing if new issues arise after waiting_completion
+      transition [:pending, :waiting_completion] => :processing
+    end
+
+    event :mark_waiting_completion do
+      # Condition checked in the 'before_transition' callback
+      transition :processing => :waiting_completion, if: :all_fee_details_verified?
+    end
+
+    event :close do
+      # Triggered externally (e.g., by OperationHistoryImportService)
+      transition all => :closed
+    end
+
+    # Callback to check condition before marking as waiting_completion
+    before_transition on: :mark_waiting_completion, do: :check_fee_details_status
+
+    # Example after_transition callback
+    # after_transition do |reimbursement, transition|
+    #   Rails.logger.info "Reimbursement #{reimbursement.id} transitioned from #{transition.from} to #{transition.to} via #{transition.event}"
+    # end
+  end
 
   # 方法
   def mark_as_received(receipt_date = Time.current)
+    # Updates receipt info; internal status change handled by state machine if needed
     update(receipt_status: 'received', receipt_date: receipt_date)
+    start_processing! if pending? # Trigger state change only if currently pending
   end
 
-  def mark_as_complete
-    update(is_complete: true, reimbursement_status: 'closed')
+  def check_fee_details_status
+    # Callback method for state machine transition condition
+    unless all_fee_details_verified?
+      errors.add(:base, "尚有费用明细未核实，无法标记为等待完成")
+      throw :halt # Prevent state transition if condition not met
+    end
+  end
+
+  def all_fee_details_verified?
+    # Check if all associated fee details are 'verified'
+    # Ensure fee_details are loaded to avoid N+1 if called within a loop
+    details = fee_details.loaded? ? fee_details : fee_details.reload
+    details.present? && details.all?(&:verified?)
+    # Alternative: !fee_details.where.not(verification_status: FeeDetail::VERIFICATION_STATUS_VERIFIED).exists?
+  end
+
+  def update_status_based_on_fee_details!
+    # Method called by FeeDetail callback to potentially trigger state change
+    mark_waiting_completion! if processing? && all_fee_details_verified?
+  end
+
+  # --- State Check Methods ---
+  def pending?
+    status == 'pending'
+  end
+
+  def processing?
+    status == 'processing'
+  end
+
+  def waiting_completion?
+    status == 'waiting_completion'
+  end
+
+  def closed?
+    status == 'closed'
   end
 
   # ActiveAdmin配置
   def self.ransackable_attributes(auth_object = nil)
-    %w[id invoice_number document_name applicant applicant_id company department receipt_status reimbursement_status amount is_electronic is_complete created_at updated_at]
+    # Include imported fields and internal status fields
+    %w[id invoice_number document_name applicant applicant_id company department receipt_status status external_status amount is_electronic approval_date approver_name created_at updated_at]
   end
 
   def self.ransackable_associations(auth_object = nil)
-    %w[express_receipt_work_orders audit_work_orders communication_work_orders fee_details]
+    %w[work_orders audit_work_orders communication_work_orders express_receipt_work_orders fee_details operation_histories]
   end
 end
 ```
 
 ### 1.2 费用明细模型 (FeeDetail)
 
+*   `verification_status` uses `pending`, `problematic`, `verified`.
+*   Callback updates `Reimbursement` status.
+
 ```ruby
 # app/models/fee_detail.rb
 class FeeDetail < ApplicationRecord
   # 关联
-  belongs_to :reimbursement, foreign_key: 'document_number', primary_key: 'invoice_number', optional: true
+  belongs_to :reimbursement, foreign_key: 'document_number', primary_key: 'invoice_number', optional: true, inverse_of: :fee_details
   has_many :fee_detail_selections, dependent: :destroy
+  has_many :work_orders, through: :fee_detail_selections # Access associated work orders
 
   # 验证
   validates :document_number, presence: true
   validates :fee_type, presence: true
   validates :amount, presence: true, numericality: { greater_than: 0 }
-  validates :verification_status, presence: true
+  validates :verification_status, presence: true, inclusion: { in: %w[pending problematic verified] } # Updated statuses
 
   # 常量
   VERIFICATION_STATUS_PENDING = 'pending'
-  VERIFICATION_STATUS_VERIFIED = 'verified'
-  VERIFICATION_STATUS_REJECTED = 'rejected'
   VERIFICATION_STATUS_PROBLEMATIC = 'problematic'
+  VERIFICATION_STATUS_VERIFIED = 'verified'
+  VERIFICATION_STATUSES = [VERIFICATION_STATUS_PENDING, VERIFICATION_STATUS_PROBLEMATIC, VERIFICATION_STATUS_VERIFIED].freeze
 
   # 范围
   scope :pending, -> { where(verification_status: VERIFICATION_STATUS_PENDING) }
-  scope :verified, -> { where(verification_status: VERIFICATION_STATUS_VERIFIED) }
-  scope :rejected, -> { where(verification_status: VERIFICATION_STATUS_REJECTED) }
   scope :problematic, -> { where(verification_status: VERIFICATION_STATUS_PROBLEMATIC) }
+  scope :verified, -> { where(verification_status: VERIFICATION_STATUS_VERIFIED) }
+
+  # 回调
+  # Use after_commit to ensure the transaction completes before triggering reimbursement update
+  after_commit :update_reimbursement_status, on: [:create, :update], if: :saved_change_to_verification_status?
 
   # 方法
-  def mark_as_verified
-    update(verification_status: VERIFICATION_STATUS_VERIFIED)
+  def verified?
+    verification_status == VERIFICATION_STATUS_VERIFIED
   end
 
-  def mark_as_problematic
-    update(verification_status: VERIFICATION_STATUS_PROBLEMATIC)
+  def problematic?
+    verification_status == VERIFICATION_STATUS_PROBLEMATIC
   end
 
-  def mark_as_rejected
-    update(verification_status: VERIFICATION_STATUS_REJECTED)
+  def pending?
+    verification_status == VERIFICATION_STATUS_PENDING
   end
 
   # ActiveAdmin配置
@@ -91,101 +173,177 @@ class FeeDetail < ApplicationRecord
   end
 
   def self.ransackable_associations(auth_object = nil)
-    %w[reimbursement fee_detail_selections]
+    %w[reimbursement fee_detail_selections work_orders]
+  end
+
+  private
+
+  def update_reimbursement_status
+    # Reload reimbursement to ensure we have the latest state after commit
+    reimbursement.reload
+    # If the status changed TO verified, check if the reimbursement can be marked as waiting_completion
+    if verification_status == VERIFICATION_STATUS_VERIFIED
+      reimbursement.update_status_based_on_fee_details!
+    # If the status changed FROM verified to something else, ensure reimbursement goes back to processing
+    elsif verification_status_before_last_save == VERIFICATION_STATUS_VERIFIED
+      reimbursement.start_processing! if reimbursement.waiting_completion?
+    end
+  # Rescue potential errors during state transition triggered by callback
+  rescue StateMachines::InvalidTransition => e
+     Rails.logger.error "Error updating reimbursement status from FeeDetail ##{id}: #{e.message}"
+  rescue ActiveRecord::RecordNotFound
+     Rails.logger.error "Reimbursement not found for FeeDetail ##{id} during status update callback."
   end
 end
 ```
 
-## 2. 工单模型
+## 2. 工单模型 (STI)
 
-### 2.1 快递收单工单模型 (ExpressReceiptWorkOrder)
+### 2.1 工单基类模型 (WorkOrder)
+
+*   Includes shared fields, including those from Req 6/7.
 
 ```ruby
-# app/models/express_receipt_work_order.rb
-class ExpressReceiptWorkOrder < ApplicationRecord
+# app/models/work_order.rb
+class WorkOrder < ApplicationRecord
+  self.inheritance_column = :type # Explicitly define STI column
+
   # 关联
   belongs_to :reimbursement
-  has_one :audit_work_order
+  belongs_to :creator, class_name: 'AdminUser', foreign_key: 'created_by', optional: true
+
+  # Polymorphic associations
+  has_many :fee_detail_selections, as: :work_order, dependent: :destroy
+  has_many :fee_details, through: :fee_detail_selections
   has_many :work_order_status_changes, as: :work_order, dependent: :destroy
 
   # 验证
-  validates :status, presence: true, inclusion: { in: %w[received processed completed] }
-  validates :tracking_number, presence: true
+  validates :reimbursement_id, presence: true
+  validates :type, presence: true
+  validates :status, presence: true
 
   # 回调
-  after_save :record_status_change, if: :saved_change_to_status?
+  # Use after_commit to ensure status change is recorded after successful save
+  after_commit :record_status_change, on: [:create, :update], if: :saved_change_to_status?
+  after_create :update_reimbursement_status_on_create
 
-  # 状态机
-  include StateMachines::ActiveRecord
-
-  state_machine :status, initial: :received do
-    event :process do
-      transition :received => :processed
-    end
-
-    event :complete do
-      transition :processed => :completed
-      after do
-        create_audit_work_order
-      end
-    end
-  end
+  # --- Shared Fields for Req 6/7 Forms ---
+  # These are defined in the migration but accessed via subclasses
+  # problem_type: string
+  # problem_description: string
+  # remark: text
+  # processing_opinion: string
 
   # 方法
-  def create_audit_work_order
-    AuditWorkOrder.create!(
-      reimbursement: reimbursement,
-      express_receipt_work_order: self,
-      status: 'pending',
-      created_by: created_by
-    )
+  def self.sti_name
+    name
+  end
+
+  # ActiveAdmin配置
+  def self.ransackable_attributes(auth_object = nil)
+    # Common fields + specific subclass fields added below
+    %w[id reimbursement_id type status created_by created_at updated_at] + subclass_ransackable_attributes
+  end
+
+  def self.ransackable_associations(auth_object = nil)
+    %w[reimbursement creator fee_detail_selections fee_details work_order_status_changes] + subclass_ransackable_associations
+  end
+
+  # Placeholder methods for subclasses
+  def self.subclass_ransackable_attributes
+    []
+  end
+
+  def self.subclass_ransackable_associations
+    []
   end
 
   private
 
   def record_status_change
-    if saved_change_to_status?
-      old_status, new_status = saved_change_to_status
-      work_order_status_changes.create(
-        work_order_type: 'express_receipt',
-        from_status: old_status,
-        to_status: new_status,
-        changed_at: Time.current,
-        changed_by: Current.admin_user&.id
-      )
+    # Get status change details from the transaction changes
+    status_change = previous_changes['status']
+    return unless status_change # Ensure status actually changed
+
+    old_status, new_status = status_change
+    work_order_status_changes.create!(
+      work_order_type: self.class.sti_name,
+      from_status: old_status,
+      to_status: new_status,
+      changed_at: Time.current,
+      # Ensure Current.admin_user is set in services/controllers
+      changed_by: Current.admin_user&.id || creator&.id
+    )
+  end
+
+  def update_reimbursement_status_on_create
+    # Trigger reimbursement status update when Audit or Communication WO is created
+    if self.is_a?(AuditWorkOrder) || self.is_a?(CommunicationWorkOrder)
+      reimbursement.start_processing! if reimbursement.pending?
     end
+  rescue StateMachines::InvalidTransition => e
+     Rails.logger.error "Error updating reimbursement status from WorkOrder ##{id} creation: #{e.message}"
   end
 
-  # ActiveAdmin配置
-  def self.ransackable_attributes(auth_object = nil)
-    %w[id reimbursement_id status tracking_number received_at courier_name created_by created_at updated_at]
-  end
+  # Helper for state machine callbacks
+  def update_associated_fee_details_status(new_status)
+    valid_statuses = [FeeDetail::VERIFICATION_STATUS_PROBLEMATIC, FeeDetail::VERIFICATION_STATUS_VERIFIED]
+    return unless valid_statuses.include?(new_status)
 
-  def self.ransackable_associations(auth_object = nil)
-    %w[reimbursement audit_work_order work_order_status_changes]
+    # Use FeeDetailVerificationService
+    # Ensure Current.admin_user is set appropriately before calling state machine events
+    verification_service = FeeDetailVerificationService.new(Current.admin_user || creator)
+    # Use eager loading if performance becomes an issue
+    fee_details.find_each do |fee_detail|
+      # Only update if not already verified (allow problematic -> verified)
+      if fee_detail.pending? || fee_detail.problematic?
+         verification_service.update_verification_status(fee_detail, new_status)
+      end
+    end
   end
 end
 ```
 
-### 2.2 审核工单模型 (AuditWorkOrder)
+### 2.2 快递收单工单模型 (ExpressReceiptWorkOrder)
+
+*   Status fixed to `completed`.
+
+```ruby
+# app/models/express_receipt_work_order.rb
+class ExpressReceiptWorkOrder < WorkOrder
+  # 验证
+  validates :tracking_number, presence: true
+  validates :status, inclusion: { in: %w[completed] } # Only allowed status
+
+  # Override ransackable methods
+  def self.subclass_ransackable_attributes
+    # Inherited common fields + specific fields
+    %w[tracking_number received_at courier_name]
+  end
+
+  def self.subclass_ransackable_associations
+    [] # No specific associations
+  end
+
+  # No state machine needed
+end
+```
+
+### 2.3 审核工单模型 (AuditWorkOrder)
+
+*   State machine: `pending` -> `processing` -> `approved`/`rejected`.
+*   Callbacks update `FeeDetail` status.
 
 ```ruby
 # app/models/audit_work_order.rb
-class AuditWorkOrder < ApplicationRecord
+class AuditWorkOrder < WorkOrder
   # 关联
-  belongs_to :reimbursement
-  belongs_to :express_receipt_work_order, optional: true
-  has_many :communication_work_orders, dependent: :nullify
-  has_many :fee_detail_selections, dependent: :destroy
-  has_many :fee_details, through: :fee_detail_selections
-  has_many :work_order_status_changes, as: :work_order, dependent: :destroy
+  has_many :communication_work_orders, foreign_key: 'audit_work_order_id', dependent: :nullify, inverse_of: :audit_work_order
 
   # 验证
-  validates :status, presence: true, inclusion: { in: %w[pending processing auditing approved rejected needs_communication completed] }
-  validates :audit_result, presence: true, if: -> { %w[approved rejected].include?(status) }
-
-  # 回调
-  after_save :record_status_change, if: :saved_change_to_status?
+  validates :status, inclusion: { in: %w[pending processing approved rejected] }
+  validates :audit_result, presence: true, if: -> { approved? || rejected? }
+  # Add validations for Req 6 fields if needed (e.g., presence of problem_type if rejected)
 
   # 状态机
   include StateMachines::ActiveRecord
@@ -193,242 +351,133 @@ class AuditWorkOrder < ApplicationRecord
   state_machine :status, initial: :pending do
     event :start_processing do
       transition :pending => :processing
-    end
-
-    event :start_audit do
-      transition :processing => :auditing
+      # Mark details as problematic when processing starts
+      after { update_associated_fee_details_status(FeeDetail::VERIFICATION_STATUS_PROBLEMATIC) }
     end
 
     event :approve do
-      transition :auditing => :approved
-      after do
-        update(
-          audit_result: 'approved',
-          audit_date: Time.current
-        )
-      end
+      transition :processing => :approved
+      before { self.audit_result = 'approved'; self.audit_date = Time.current }
+      # Mark details as verified on approval
+      after { update_associated_fee_details_status(FeeDetail::VERIFICATION_STATUS_VERIFIED) }
     end
 
     event :reject do
-      transition [:auditing, :needs_communication] => :rejected
-      after do
-        update(
-          audit_result: 'rejected',
-          audit_date: Time.current
-        )
-      end
-    end
-
-    event :need_communication do
-      transition :auditing => :needs_communication
-    end
-
-    event :resume_audit do
-      transition :needs_communication => :auditing
-    end
-
-    event :complete do
-      transition [:approved, :rejected] => :completed
+      transition :processing => :rejected
+      before { self.audit_result = 'rejected'; self.audit_date = Time.current }
+      # Mark details as problematic on rejection
+      after { update_associated_fee_details_status(FeeDetail::VERIFICATION_STATUS_PROBLEMATIC) }
     end
   end
+
+  # --- State Check Methods ---
+  def pending?; status == 'pending'; end
+  def processing?; status == 'processing'; end
+  def approved?; status == 'approved'; end
+  def rejected?; status == 'rejected'; end
 
   # 方法
-  def create_communication_work_order(params = {})
-    comm_order = CommunicationWorkOrder.new(
-      reimbursement: reimbursement,
-      audit_work_order: self,
-      status: 'open',
-      created_by: created_by,
-      **params
-    )
-
-    if comm_order.save
-      # 如果指定了费用明细ID，则关联这些费用明细
-      if params[:fee_detail_ids].present?
-        params[:fee_detail_ids].each do |id|
-          fee_detail = FeeDetail.find_by(id: id)
-          if fee_detail
-            # 创建费用明细选择记录
-            comm_order.fee_detail_selections.create(
-              fee_detail: fee_detail,
-              verification_status: 'problematic'
-            )
-
-            # 更新费用明细状态
-            fee_detail.mark_as_problematic
-          end
-        end
-      end
-
-      # 更新自身状态
-      need_communication unless status == 'needs_communication'
-    end
-
-    comm_order
-  end
-
-  def verify_fee_detail(fee_detail, result = 'verified', comment = nil)
-    selection = fee_detail_selections.find_by(fee_detail: fee_detail)
-    return false unless selection
-
-    selection.update(
-      verification_status: result,
-      verification_comment: comment,
-      verified_by: Current.admin_user&.id,
-      verified_at: Time.current
-    )
-
-    # 同时更新费用明细的状态
-    case result
-    when 'verified'
-      fee_detail.mark_as_verified
-    when 'rejected'
-      fee_detail.mark_as_rejected
-    when 'problematic'
-      fee_detail.mark_as_problematic
-    end
-
-    true
-  end
-
   def select_fee_detail(fee_detail)
-    fee_detail_selections.find_or_create_by(fee_detail: fee_detail) do |selection|
-      selection.verification_status = 'pending'
+    return nil unless fee_detail.reimbursement_id == self.reimbursement_id
+    fee_detail_selections.find_or_create_by!(fee_detail: fee_detail) do |selection|
+      selection.verification_status = fee_detail.verification_status # Sync status on creation
     end
   end
 
   def select_fee_details(fee_detail_ids)
-    fee_detail_ids.each do |id|
-      fee_detail = FeeDetail.find_by(id: id)
-      select_fee_detail(fee_detail) if fee_detail
-    end
+    fee_details_to_select = FeeDetail.where(id: fee_detail_ids, document_number: self.reimbursement.invoice_number)
+    fee_details_to_select.each { |fd| select_fee_detail(fd) }
   end
 
-  private
-
-  def record_status_change
-    if saved_change_to_status?
-      old_status, new_status = saved_change_to_status
-      work_order_status_changes.create(
-        work_order_type: 'audit',
-        from_status: old_status,
-        to_status: new_status,
-        changed_at: Time.current,
-        changed_by: Current.admin_user&.id
-      )
-    end
+  # Override ransackable methods
+  def self.subclass_ransackable_attributes
+    # Inherited common + Req 6/7 fields + specific fields
+    %w[audit_result audit_comment audit_date vat_verified problem_type problem_description remark processing_opinion]
   end
 
-  # ActiveAdmin配置
-  def self.ransackable_attributes(auth_object = nil)
-    %w[id reimbursement_id express_receipt_work_order_id status audit_result audit_comment audit_date vat_verified created_by created_at updated_at]
-  end
-
-  def self.ransackable_associations(auth_object = nil)
-    %w[reimbursement express_receipt_work_order communication_work_orders fee_detail_selections fee_details work_order_status_changes]
+  def self.subclass_ransackable_associations
+    %w[communication_work_orders]
   end
 end
 ```
 
-### 2.3 沟通工单模型 (CommunicationWorkOrder)
+### 2.4 沟通工单模型 (CommunicationWorkOrder)
+
+*   State machine: `pending` -> `processing`/`needs_communication` -> `approved`/`rejected`.
+*   Callbacks update `FeeDetail` status.
 
 ```ruby
 # app/models/communication_work_order.rb
-class CommunicationWorkOrder < ApplicationRecord
+class CommunicationWorkOrder < WorkOrder
   # 关联
-  belongs_to :reimbursement
-  belongs_to :audit_work_order
-  has_many :communication_records, dependent: :destroy
-  has_many :fee_detail_selections, dependent: :destroy
-  has_many :fee_details, through: :fee_detail_selections
-  has_many :work_order_status_changes, as: :work_order, dependent: :destroy
+  belongs_to :audit_work_order, class_name: 'AuditWorkOrder', foreign_key: 'audit_work_order_id', optional: false # Must link to parent AuditWO
+  has_many :communication_records, foreign_key: 'communication_work_order_id', dependent: :destroy, inverse_of: :communication_work_order
 
   # 验证
-  validates :status, presence: true, inclusion: { in: %w[open in_progress resolved unresolved closed] }
-
-  # 回调
-  after_save :record_status_change, if: :saved_change_to_status?
+  validates :status, inclusion: { in: %w[pending processing needs_communication approved rejected] }
+  validates :audit_work_order_id, presence: true
+  # Add validations for Req 7 fields if needed
 
   # 状态机
   include StateMachines::ActiveRecord
 
-  state_machine :status, initial: :open do
-    event :start_communication do
-      transition :open => :in_progress
+  state_machine :status, initial: :pending do
+    event :start_processing do
+      transition :pending => :processing
+      after { update_associated_fee_details_status(FeeDetail::VERIFICATION_STATUS_PROBLEMATIC) }
     end
 
-    event :resolve do
-      transition :in_progress => :resolved
-      after do
-        notify_parent_work_order
-      end
+    event :mark_needs_communication do
+      transition :pending => :needs_communication
+      after { update_associated_fee_details_status(FeeDetail::VERIFICATION_STATUS_PROBLEMATIC) }
     end
 
-    event :mark_unresolved do
-      transition :in_progress => :unresolved
-      after do
-        notify_parent_work_order
-      end
+    event :approve do
+      transition [:processing, :needs_communication] => :approved
+      # Update resolution_summary?
+      after { update_associated_fee_details_status(FeeDetail::VERIFICATION_STATUS_VERIFIED) }
     end
 
-    event :close do
-      transition [:resolved, :unresolved] => :closed
+    event :reject do
+      transition [:processing, :needs_communication] => :rejected
+      # Update resolution_summary?
+      after { update_associated_fee_details_status(FeeDetail::VERIFICATION_STATUS_PROBLEMATIC) }
     end
   end
+
+  # --- State Check Methods ---
+  def pending?; status == 'pending'; end
+  def processing?; status == 'processing'; end
+  def needs_communication?; status == 'needs_communication'; end
+  def approved?; status == 'approved'; end
+  def rejected?; status == 'rejected'; end
 
   # 方法
   def add_communication_record(params)
-    communication_records.create(params)
-  end
-
-  def notify_parent_work_order
-    return unless audit_work_order.present?
-
-    if audit_work_order.status == 'needs_communication'
-      audit_work_order.resume_audit
-    end
+    # Ensure FK is set correctly
+    communication_records.create(params.merge(communication_work_order_id: self.id))
   end
 
   def select_fee_detail(fee_detail)
-    fee_detail_selections.find_or_create_by(fee_detail: fee_detail) do |selection|
-      selection.verification_status = 'problematic'
+    return nil unless fee_detail.reimbursement_id == self.reimbursement_id
+    fee_detail_selections.find_or_create_by!(fee_detail: fee_detail) do |selection|
+      selection.verification_status = fee_detail.verification_status
     end
   end
 
-  def resolve_fee_detail_issue(fee_detail, resolution)
-    selection = fee_detail_selections.find_by(fee_detail: fee_detail)
-    return false unless selection
-
-    # 更新选择记录
-    selection.update(
-      verification_comment: resolution
-    )
-
-    true
+   def select_fee_details(fee_detail_ids)
+    fee_details_to_select = FeeDetail.where(id: fee_detail_ids, document_number: self.reimbursement.invoice_number)
+    fee_details_to_select.each { |fd| select_fee_detail(fd) }
   end
 
-  private
-
-  def record_status_change
-    if saved_change_to_status?
-      old_status, new_status = saved_change_to_status
-      work_order_status_changes.create(
-        work_order_type: 'communication',
-        from_status: old_status,
-        to_status: new_status,
-        changed_at: Time.current,
-        changed_by: Current.admin_user&.id
-      )
-    end
+  # Override ransackable methods
+  def self.subclass_ransackable_attributes
+    # Inherited common + Req 6/7 fields + specific fields
+    %w[communication_method initiator_role resolution_summary audit_work_order_id problem_type problem_description remark processing_opinion]
   end
 
-  # ActiveAdmin配置
-  def self.ransackable_attributes(auth_object = nil)
-    %w[id reimbursement_id audit_work_order_id status communication_method initiator_role resolution_summary created_by created_at updated_at]
-  end
-
-  def self.ransackable_associations(auth_object = nil)
-    %w[reimbursement audit_work_order communication_records fee_detail_selections fee_details work_order_status_changes]
+  def self.subclass_ransackable_associations
+    %w[audit_work_order communication_records]
   end
 end
 ```
@@ -437,65 +486,44 @@ end
 
 ### 3.1 费用明细选择模型 (FeeDetailSelection)
 
+*   Polymorphic `work_order`.
+
 ```ruby
 # app/models/fee_detail_selection.rb
 class FeeDetailSelection < ApplicationRecord
   # 关联
   belongs_to :fee_detail
-  belongs_to :audit_work_order, optional: true
-  belongs_to :communication_work_order, optional: true
+  belongs_to :work_order, polymorphic: true
 
   # 验证
-  validates :fee_detail_id, uniqueness: { scope: :audit_work_order_id }, if: :audit_work_order_id?
-  validates :fee_detail_id, uniqueness: { scope: :communication_work_order_id }, if: :communication_work_order_id?
-  validate :ensure_one_work_order_association
-
-  # 常量
-  VERIFICATION_STATUS_PENDING = 'pending'
-  VERIFICATION_STATUS_VERIFIED = 'verified'
-  VERIFICATION_STATUS_REJECTED = 'rejected'
-  VERIFICATION_STATUS_PROBLEMATIC = 'problematic'
-
-  # 范围
-  scope :pending, -> { where(verification_status: VERIFICATION_STATUS_PENDING) }
-  scope :verified, -> { where(verification_status: VERIFICATION_STATUS_VERIFIED) }
-  scope :rejected, -> { where(verification_status: VERIFICATION_STATUS_REJECTED) }
-  scope :problematic, -> { where(verification_status: VERIFICATION_STATUS_PROBLEMATIC) }
-
-  private
-
-  def ensure_one_work_order_association
-    if audit_work_order_id.blank? && communication_work_order_id.blank?
-      errors.add(:base, "必须关联到审核工单或沟通工单")
-    end
-
-    if audit_work_order_id.present? && communication_work_order_id.present?
-      errors.add(:base, "不能同时关联到审核工单和沟通工单")
-    end
-  end
+  validates :fee_detail_id, uniqueness: { scope: [:work_order_id, :work_order_type], message: "已被选择" }
+  validates :verification_status, presence: true, inclusion: { in: FeeDetail::VERIFICATION_STATUSES }
 
   # ActiveAdmin配置
   def self.ransackable_attributes(auth_object = nil)
-    %w[id fee_detail_id audit_work_order_id communication_work_order_id verification_status verification_comment verified_by verified_at created_at updated_at]
+    %w[id fee_detail_id work_order_id work_order_type verification_status verification_comment verified_by verified_at created_at updated_at]
   end
 
   def self.ransackable_associations(auth_object = nil)
-    %w[fee_detail audit_work_order communication_work_order]
+    %w[fee_detail work_order]
   end
 end
 ```
 
 ### 3.2 沟通记录模型 (CommunicationRecord)
 
+*   Links to `CommunicationWorkOrder`.
+
 ```ruby
 # app/models/communication_record.rb
 class CommunicationRecord < ApplicationRecord
   # 关联
-  belongs_to :communication_work_order
+  belongs_to :communication_work_order, class_name: 'CommunicationWorkOrder', foreign_key: 'communication_work_order_id', inverse_of: :communication_records
 
   # 验证
   validates :content, presence: true
   validates :communicator_role, presence: true
+  validates :communication_work_order_id, presence: true
 
   # 回调
   before_create :set_recorded_at
@@ -519,34 +547,25 @@ end
 
 ### 3.3 工单状态变更模型 (WorkOrderStatusChange)
 
+*   Polymorphic `work_order`.
+
 ```ruby
 # app/models/work_order_status_change.rb
 class WorkOrderStatusChange < ApplicationRecord
+  # 多态关联
+  belongs_to :work_order, polymorphic: true
+  belongs_to :changer, class_name: 'AdminUser', foreign_key: 'changed_by', optional: true
+
   # 验证
-  validates :work_order_type, presence: true
   validates :work_order_id, presence: true
+  validates :work_order_type, presence: true
   validates :to_status, presence: true
   validates :changed_at, presence: true
 
   # 范围
-  scope :for_express_receipt_work_orders, -> { where(work_order_type: 'express_receipt') }
-  scope :for_audit_work_orders, -> { where(work_order_type: 'audit') }
-  scope :for_communication_work_orders, -> { where(work_order_type: 'communication') }
-
-  # 多态关联
-  belongs_to :work_order, polymorphic: true, optional: true
-
-  # 方法
-  def work_order
-    case work_order_type
-    when 'express_receipt'
-      ExpressReceiptWorkOrder.find_by(id: work_order_id)
-    when 'audit'
-      AuditWorkOrder.find_by(id: work_order_id)
-    when 'communication'
-      CommunicationWorkOrder.find_by(id: work_order_id)
-    end
-  end
+  scope :for_audit_work_orders, -> { where(work_order_type: 'AuditWorkOrder') }
+  scope :for_communication_work_orders, -> { where(work_order_type: 'CommunicationWorkOrder') }
+  scope :for_express_receipt_work_orders, -> { where(work_order_type: 'ExpressReceiptWorkOrder') }
 
   # ActiveAdmin配置
   def self.ransackable_attributes(auth_object = nil)
@@ -554,97 +573,148 @@ class WorkOrderStatusChange < ApplicationRecord
   end
 
   def self.ransackable_associations(auth_object = nil)
-    %w[work_order]
+    %w[work_order changer]
   end
 end
 ```
 
-## 4. 模型关系图
+## 4. 模型关系图 (STI - v2)
 
 ```mermaid
 classDiagram
-    Reimbursement "1" -- "*" ExpressReceiptWorkOrder
-    Reimbursement "1" -- "*" AuditWorkOrder
-    Reimbursement "1" -- "*" CommunicationWorkOrder
+    direction RL
+
+    class Reimbursement {
+        +String invoice_number
+        +Boolean is_electronic
+        +String status # Internal
+        +String external_status # Imported
+        +String receipt_status
+        +DateTime receipt_date
+        +DateTime approval_date
+        +String approver_name
+        +has_many work_orders
+        +has_many fee_details
+        +has_many operation_histories
+        +state_machine status
+        +all_fee_details_verified?()
+        +update_status_based_on_fee_details!()
+    }
+
+    class WorkOrder {
+        <<Abstract>>
+        +String type (STI)
+        +String status
+        +Integer reimbursement_id
+        +Integer created_by
+        +String problem_type # Req 6/7
+        +String problem_description # Req 6/7
+        +String remark # Req 6/7
+        +String processing_opinion # Req 6/7
+        +belongs_to reimbursement
+        +belongs_to creator (AdminUser)
+        +has_many fee_detail_selections (polymorphic)
+        +has_many fee_details
+        +has_many work_order_status_changes (polymorphic)
+        +record_status_change()
+        +update_reimbursement_status_on_create()
+        +update_associated_fee_details_status()
+    }
+
+    class ExpressReceiptWorkOrder {
+        +String tracking_number
+        +DateTime received_at
+        +String courier_name
+        +status = "completed"
+    }
+    ExpressReceiptWorkOrder --|> WorkOrder
+
+    class AuditWorkOrder {
+        +String audit_result
+        +String audit_comment
+        +DateTime audit_date
+        +Boolean vat_verified
+        +has_many communication_work_orders
+        +state_machine status (pending, processing, approved, rejected)
+        +select_fee_detail()
+    }
+    AuditWorkOrder --|> WorkOrder
+
+    class CommunicationWorkOrder {
+        +String communication_method
+        +String initiator_role
+        +String resolution_summary
+        +Integer audit_work_order_id
+        +belongs_to audit_work_order
+        +has_many communication_records
+        +state_machine status (pending, processing, needs_communication, approved, rejected)
+        +add_communication_record()
+        +select_fee_detail()
+    }
+    CommunicationWorkOrder --|> WorkOrder
+
+    class FeeDetail {
+        +String document_number
+        +String verification_status
+        +belongs_to reimbursement
+        +has_many fee_detail_selections
+        +update_reimbursement_status()
+    }
+
+    class FeeDetailSelection {
+        +Integer fee_detail_id
+        +Integer work_order_id
+        +String work_order_type
+        +String verification_status
+        +belongs_to fee_detail
+        +belongs_to work_order (polymorphic)
+    }
+
+    class WorkOrderStatusChange {
+        +Integer work_order_id
+        +String work_order_type
+        +String from_status
+        +String to_status
+        +Integer changed_by
+        +belongs_to work_order (polymorphic)
+        +belongs_to changer (AdminUser)
+    }
+
+    class CommunicationRecord {
+        +Integer communication_work_order_id
+        +String content
+        +belongs_to communication_work_order
+    }
+
+    class OperationHistory {
+        +String document_number
+        +String operation_type
+        +DateTime operation_time
+        +String operator
+        +belongs_to reimbursement
+    }
+
+    class AdminUser{
+      +Integer id
+      +String email
+    }
+
+    Reimbursement "1" -- "*" WorkOrder
     Reimbursement "1" -- "*" FeeDetail
-
-    ExpressReceiptWorkOrder "1" -- "1" AuditWorkOrder
-    AuditWorkOrder "1" -- "*" CommunicationWorkOrder
-
-    AuditWorkOrder "1" -- "*" FeeDetailSelection
-    CommunicationWorkOrder "1" -- "*" FeeDetailSelection
-    FeeDetailSelection "*" -- "1" FeeDetail
-
-    CommunicationWorkOrder "1" -- "*" CommunicationRecord
-
-    ExpressReceiptWorkOrder "1" -- "*" WorkOrderStatusChange
-    AuditWorkOrder "1" -- "*" WorkOrderStatusChange
-    CommunicationWorkOrder "1" -- "*" WorkOrderStatusChange
+    Reimbursement "1" -- "*" OperationHistory
+    WorkOrder "1" -- "*" FeeDetailSelection : work_order (poly)
+    FeeDetail "1" -- "*" FeeDetailSelection : fee_detail
+    WorkOrder "1" -- "*" WorkOrderStatusChange : work_order (poly)
+    AuditWorkOrder "1" -- "*" CommunicationWorkOrder : audit_work_order
+    CommunicationWorkOrder "1" -- "*" CommunicationRecord : communication_work_order
+    WorkOrder "1" -- "0..1" AdminUser : creator
+    WorkOrderStatusChange "1" -- "0..1" AdminUser : changer
 ```
 
 ## 5. 状态机实现
 
-我们使用 `state_machines` gem来实现状态机，这样可以更清晰地定义状态转换和回调。
+*(No changes needed in this section description)*
 
-### 5.1 安装 `state_machines`
-
-在Gemfile中添加：
-
-```ruby
-gem 'state_machines-activerecord'
-```
-
-然后运行：
-
-```bash
-bundle install
-```
-
-### 5.2 状态机配置
-
-每种工单类型都有自己的状态机配置，如上面的模型代码所示。`state_machines` 定义了：
-
-1.  状态列表
-2.  初始状态
-3.  状态转换事件
-4.  转换前后的回调
-
-### 5.3 状态变更记录
-
-每次状态变更时，我们都会记录到`WorkOrderStatusChange`表中，这样可以追踪工单的完整状态变更历史。
 ## 6. 文件导入
 
-我们将使用 `roo` gem 来处理 xls/xlsx 文件的导入。
-
-### 6.1 安装 `roo`
-
-在Gemfile中添加：
-
-```ruby
-gem 'roo'
-```
-
-然后运行：
-
-```bash
-bundle install
-```
-
-### 6.2 使用 `roo`
-
-`roo` gem 提供了简单的方法来读取各种电子表格文件。例如：
-
-```ruby
-require 'roo'
-
-spreadsheet = Roo.open('path/to/your/file.xlsx')
-sheet = spreadsheet.sheet(0) # 或者按名称 sheet('Sheet1')
-
-# 遍历行
-sheet.each_row_as_hash do |row|
-  # row 是一个哈希，键是列头
-  puts row['列头名称']
-end
-```
-
-在模型中处理导入逻辑时，可以使用 `roo` 来解析上传的文件，然后创建或更新数据库记录。具体的导入逻辑将在服务层实现中详细描述。
+*(No changes needed in this section description)*

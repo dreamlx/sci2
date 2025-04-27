@@ -36,6 +36,12 @@
 4. 工单关联关系模块
 5. 费用明细验证模块
 6. 集成测试场景
+
+**第一阶段简化说明**：
+- 仅实现CSV数据导入，不处理Excel文件
+- 简化用户权限，假设只有一个admin用户可以操作所有环节
+- 电子发票状态需要另外操作，仅确认字段存在
+
 ## 2. TDD开发方法论
 
 ### 2.1 TDD基本流程
@@ -74,6 +80,7 @@ graph LR
 1. **模型测试**：使用`ActiveSupport::TestCase`
 2. **控制器测试**：使用`ActionDispatch::IntegrationTest`
 3. **系统测试**：使用`ActionDispatch::SystemTestCase`
+
 ## 3. 测试结构设计
 
 ### 3.1 测试目录结构
@@ -118,1956 +125,232 @@ test/
 
 ### 3.2 测试辅助工具
 
-1. **测试辅助模块**：
+为了支持测试，我们将创建以下辅助模块：
 
-```ruby
-# test/test_helper.rb
-ENV['RAILS_ENV'] ||= 'test'
-require_relative '../config/environment'
-require 'rails/test_help'
+1. **ImportTestHelper**：用于测试数据导入功能
+   - 提供CSV测试文件加载方法
+   - 提供导入成功/失败断言方法
 
-module ActiveSupport
-  class TestCase
-    # 设置所有测试的固定装置
-    fixtures :all
+2. **WorkOrderTestHelper**：用于测试工单状态流转
+   - 提供创建特定状态工单的方法
+   - 提供状态变更断言方法
 
-    # 添加更多辅助方法...
-  end
-end
+3. **测试数据准备**：
+   - 创建各类型测试数据的固定装置(fixtures)
+   - 准备CSV测试文件
 
-module ImportTestHelper
-  def import_test_file(file_type)
-    file_path = file_fixture("#{file_type}.csv")
-    Rack::Test::UploadedFile.new(file_path, 'text/csv')
-  end
-  
-  def assert_import_success(response)
-    assert_response :success
-    assert_includes response.body, '成功导入'
-  end
-  
-  def assert_import_failure(response)
-    assert_response :success
-    assert_includes response.body, '导入错误'
-  end
-end
-
-module WorkOrderTestHelper
-  def create_work_order_with_status(type, status)
-    work_order = create(type)
-    
-    # 根据目标状态，执行必要的状态转换
-    case status
-    when 'processing'
-      work_order.start_processing
-    when 'auditing'
-      work_order.start_processing
-      work_order.start_audit if work_order.respond_to?(:start_audit)
-    when 'approved'
-      work_order.start_processing
-      work_order.start_audit if work_order.respond_to?(:start_audit)
-      work_order.approve_audit if work_order.respond_to?(:approve_audit)
-    # 其他状态...
-    end
-    
-    work_order
-  end
-  
-  def assert_status_change(work_order, from_status, to_status, event)
-    assert_equal from_status, work_order.status
-    work_order.send(event)
-    assert_equal to_status, work_order.status
-  end
-end
-```
-
-2. **测试数据准备**：
-
-```ruby
-# test/fixtures/reimbursements.yml
-reimbursement_one:
-  invoice_number: "ER12345"
-  document_name: "测试报销单1"
-  applicant: "张三"
-  applicant_id: "EMP001"
-  company: "测试公司"
-  department: "研发部"
-  amount: 1000.00
-  receipt_status: "pending"
-  reimbursement_status: "pending"
-  submission_date: <%= Time.current %>
-  is_electronic: false
-  is_complete: false
-
-reimbursement_two:
-  invoice_number: "ER67890"
-  document_name: "测试报销单2"
-  applicant: "李四"
-  applicant_id: "EMP002"
-  company: "测试公司"
-  department: "财务部"
-  amount: 2500.00
-  receipt_status: "received"
-  reimbursement_status: "processing"
-  submission_date: <%= Time.current - 1.day %>
-  receipt_date: <%= Time.current %>
-  is_electronic: true
-  is_complete: false
-```
-
-```ruby
-# test/fixtures/files/standard_reimbursements.csv
-单据编号,单据名称,申请人,申请人工号,公司,部门,金额,收单状态,报销单状态,提交日期
-ER12345,测试报销单1,张三,EMP001,测试公司,研发部,1000.00,未收单,待处理,2025-04-01
-ER67890,测试报销单2,李四,EMP002,测试公司,财务部,2500.00,已收单,处理中,2025-04-02
-ER13579,测试报销单3,王五,EMP003,测试公司,市场部,1500.00,未收单,待处理,2025-04-03
-```
 ## 4. 测试用例规划
 
 ### 4.1 数据导入测试
 
 #### 4.1.1 报销单导入测试
 
-```ruby
-# test/integration/data_import_test.rb
-require 'test_helper'
+| 测试ID | 测试场景 | 测试要点 | 优先级 |
+|--------|----------|----------|--------|
+| IMP-R-001 | 导入标准CSV格式报销单 | 验证成功导入、数据正确性、状态设置 | 高 |
+| IMP-R-005 | 导入格式错误的报销单文件 | 验证错误处理、错误消息显示 | 中 |
+| IMP-R-006 | 导入重复的报销单 | 验证重复检测、更新已存在记录 | 高 |
 
-class ReimbursementImportTest < ActionDispatch::IntegrationTest
-  include ImportTestHelper
-  
-  test "should import standard CSV format reimbursements" do
-    # 对应测试ID: IMP-R-001
-    file = import_test_file('standard_reimbursements')
-    
-    assert_difference 'Reimbursement.count', 3 do
-      post admin_reimbursements_import_path, params: { file: file }
-    end
-    
-    assert_import_success(response)
-    
-    # 验证导入的数据是否正确
-    reimbursement = Reimbursement.find_by(invoice_number: "ER13579")
-    assert_equal "测试报销单3", reimbursement.document_name
-    assert_equal "王五", reimbursement.applicant
-    assert_equal 1500.00, reimbursement.amount
-  end
-  
-  test "should import reimbursements with electronic invoice mark" do
-    # 对应测试ID: IMP-R-003
-    file = import_test_file('electronic_reimbursements')
-    
-    assert_difference 'Reimbursement.count', 2 do
-      post admin_reimbursements_import_path, params: { file: file }
-    end
-    
-    # 验证电子发票标记
-    reimbursement = Reimbursement.find_by(invoice_number: "ER24680")
-    assert reimbursement.is_electronic
-    
-    # 验证不自动创建审核工单
-    assert_no_difference 'WorkOrder.count' do
-      # 导入后不应创建工单
-      get admin_reimbursements_path
-    end
-  end
-  
-  test "should import non-electronic reimbursements and create audit work orders" do
-    # 对应测试ID: IMP-R-004
-    file = import_test_file('non_electronic_reimbursements')
-    
-    assert_difference 'Reimbursement.count', 2 do
-      assert_difference 'WorkOrder.count', 2 do
-        post admin_reimbursements_import_path, params: { file: file }
-      end
-    end
-    
-    # 验证非电子发票标记
-    reimbursement = Reimbursement.find_by(invoice_number: "ER13579")
-    assert_not reimbursement.is_electronic
-    
-    # 验证自动创建审核工单
-    work_order = WorkOrder.find_by(document_number: "ER13579")
-    assert_equal "audit", work_order.order_type
-    assert_equal "pending", work_order.status
-  end
-  
-  test "should handle format error in reimbursement file" do
-    # 对应测试ID: IMP-R-005
-    file = import_test_file('invalid_format_reimbursements')
-    
-    assert_no_difference 'Reimbursement.count' do
-      post admin_reimbursements_import_path, params: { file: file }
-    end
-    
-    assert_import_failure(response)
-  end
-  
-  test "should update existing reimbursements on duplicate import" do
-    # 对应测试ID: IMP-R-006
-    # 先导入一批报销单
-    file1 = import_test_file('standard_reimbursements')
-    post admin_reimbursements_import_path, params: { file: file1 }
-    
-    # 修改其中一个报销单的数据
-    file2 = import_test_file('updated_reimbursements')
-    
-    assert_no_difference 'Reimbursement.count' do
-      post admin_reimbursements_import_path, params: { file: file2 }
-    end
-    
-    # 验证更新成功
-    reimbursement = Reimbursement.find_by(invoice_number: "ER12345")
-    assert_equal "更新后的报销单", reimbursement.document_name
-    assert_equal 1200.00, reimbursement.amount
-  end
-end
-```
+**注意**：第一阶段不测试Excel导入和电子发票特定处理，但需确保电子发票字段存在。
 
 #### 4.1.2 快递收单导入测试
 
-```ruby
-# test/integration/data_import_test.rb
-class ExpressReceiptImportTest < ActionDispatch::IntegrationTest
-  include ImportTestHelper
-  
-  setup do
-    # 创建测试数据
-    @reimbursement = reimbursements(:reimbursement_one)
-  end
-  
-  test "should import express receipts matching existing reimbursements" do
-    # 对应测试ID: IMP-E-001
-    file = import_test_file('matching_express_receipts')
-    
-    assert_difference 'ExpressReceipt.count', 1 do
-      assert_difference 'WorkOrder.count', 1 do
-        post admin_express_receipts_import_path, params: { file: file }
-      end
-    end
-    
-    # 验证关联到报销单
-    receipt = ExpressReceipt.find_by(document_number: @reimbursement.invoice_number)
-    assert_not_nil receipt
-    assert_equal "SF123456789", receipt.tracking_number
-    
-    # 验证自动创建工单
-    work_order = WorkOrder.last
-    assert_equal "express_receipt", work_order.order_type
-    assert_equal @reimbursement.invoice_number, work_order.document_number
-    assert_equal receipt.tracking_number, work_order.related_tracking_number
-    
-    # 验证更新报销单状态
-    @reimbursement.reload
-    assert_equal "received", @reimbursement.receipt_status
-    assert_not_nil @reimbursement.receipt_date
-  end
-  
-  test "should handle express receipts without matching reimbursements" do
-    # 对应测试ID: IMP-E-002
-    file = import_test_file('non_matching_express_receipts')
-    
-    assert_difference 'ExpressReceipt.count', 1 do
-      assert_difference 'Reimbursement.count', 1 do
-        post admin_express_receipts_import_path, params: { file: file }
-      end
-    end
-    
-    # 验证创建占位报销单
-    assert Reimbursement.exists?(invoice_number: "ER99999")
-    
-    # 验证关联到占位报销单
-    receipt = ExpressReceipt.find_by(document_number: "ER99999")
-    assert_not_nil receipt
-    
-    # 验证显示未匹配警告
-    assert_includes response.body, '未匹配'
-  end
-  
-  test "should handle multiple receipts for one reimbursement" do
-    # 对应测试ID: IMP-E-004
-    # 先导入第一个快递收单
-    file1 = import_test_file('first_express_receipt')
-    post admin_express_receipts_import_path, params: { file: file1 }
-    
-    # 再导入第二个快递收单
-    file2 = import_test_file('second_express_receipt')
-    
-    assert_difference 'ExpressReceipt.count', 1 do
-      assert_difference 'WorkOrder.count', 1 do
-        post admin_express_receipts_import_path, params: { file: file2 }
-      end
-    end
-    
-    # 验证两个快递收单都关联到同一个报销单
-    receipts = ExpressReceipt.where(document_number: @reimbursement.invoice_number)
-    assert_equal 2, receipts.count
-    
-    # 验证创建两个独立的快递收单工单
-    work_orders = WorkOrder.where(document_number: @reimbursement.invoice_number, order_type: "express_receipt")
-    assert_equal 2, work_orders.count
-  end
-  
-  test "should handle format error in express receipt file" do
-    # 对应测试ID: IMP-E-005
-    file = import_test_file('invalid_format_express_receipts')
-    
-    assert_no_difference 'ExpressReceipt.count' do
-      post admin_express_receipts_import_path, params: { file: file }
-    end
-    
-    assert_import_failure(response)
-  end
-end
-```
+| 测试ID | 测试场景 | 测试要点 | 优先级 |
+|--------|----------|----------|--------|
+| IMP-E-001 | 导入匹配已有报销单的快递收单 | 验证关联、工单创建、状态更新 | 高 |
+| IMP-E-002 | 导入未匹配报销单的快递收单 | 验证未匹配处理、警告显示 | 高 |
+| IMP-E-004 | 导入多次收单的情况 | 验证多收单处理、多工单创建 | 中 |
+| IMP-E-005 | 导入格式错误的快递收单文件 | 验证错误处理、错误消息显示 | 中 |
+
+**注意**：第一阶段不测试Excel导入。
+
 #### 4.1.3 费用明细导入测试
 
-```ruby
-# test/integration/data_import_test.rb
-class FeeDetailImportTest < ActionDispatch::IntegrationTest
-  include ImportTestHelper
-  
-  setup do
-    # 创建测试数据
-    @reimbursement = reimbursements(:reimbursement_one)
-  end
-  
-  test "should import fee details matching existing reimbursements" do
-    # 对应测试ID: IMP-F-001
-    file = import_test_file('matching_fee_details')
-    
-    assert_difference 'FeeDetail.count', 3 do
-      post admin_fee_details_import_path, params: { file: file }
-    end
-    
-    # 验证关联到报销单
-    fee_details = FeeDetail.where(document_number: @reimbursement.invoice_number)
-    assert_equal 3, fee_details.count
-    
-    # 验证验证状态为待验证
-    fee_details.each do |fee_detail|
-      assert_equal "pending", fee_detail.verification_status
-    end
-  end
-  
-  test "should handle fee details without matching reimbursements" do
-    # 对应测试ID: IMP-F-002
-    file = import_test_file('non_matching_fee_details')
-    
-    assert_no_difference 'FeeDetail.count' do
-      post admin_fee_details_import_path, params: { file: file }
-    end
-    
-    # 验证显示未匹配警告
-    assert_includes response.body, '未匹配'
-    
-    # 验证提供未匹配成功的items csv下载
-    assert_includes response.body, '下载未匹配项'
-  end
-  
-  test "should import multiple fee types" do
-    # 对应测试ID: IMP-F-004
-    file = import_test_file('multiple_fee_types')
-    
-    assert_difference 'FeeDetail.count', 4 do
-      post admin_fee_details_import_path, params: { file: file }
-    end
-    
-    # 验证正确识别不同的费用类型
-    fee_types = FeeDetail.where(document_number: @reimbursement.invoice_number).pluck(:fee_type).uniq
-    assert_includes fee_types, "交通费"
-    assert_includes fee_types, "餐费"
-    assert_includes fee_types, "办公用品"
-  end
-  
-  test "should handle format error in fee detail file" do
-    # 对应测试ID: IMP-F-005
-    file = import_test_file('invalid_format_fee_details')
-    
-    assert_no_difference 'FeeDetail.count' do
-      post admin_fee_details_import_path, params: { file: file }
-    end
-    
-    assert_import_failure(response)
-  end
-end
-```
+| 测试ID | 测试场景 | 测试要点 | 优先级 |
+|--------|----------|----------|--------|
+| IMP-F-001 | 导入匹配已有报销单的费用明细 | 验证关联、验证状态设置 | 高 |
+| IMP-F-002 | 导入未匹配报销单的费用明细 | 验证未匹配处理、警告显示 | 中 |
+| IMP-F-004 | 导入多种费用类型的明细 | 验证费用类型识别 | 中 |
+| IMP-F-005 | 导入格式错误的费用明细文件 | 验证错误处理、错误消息显示 | 中 |
+| IMP-F-006 | 导入重复的费用明细 | 验证重复检测、跳过处理 | 高 |
+
+**注意**：第一阶段不测试Excel导入。
 
 #### 4.1.4 操作历史导入测试
 
-```ruby
-# test/integration/data_import_test.rb
-class OperationHistoryImportTest < ActionDispatch::IntegrationTest
-  include ImportTestHelper
-  
-  setup do
-    # 创建测试数据
-    @reimbursement = reimbursements(:reimbursement_one)
-  end
-  
-  test "should import operation histories matching existing reimbursements" do
-    # 对应测试ID: IMP-O-001
-    file = import_test_file('matching_operation_histories')
-    
-    assert_difference 'OperationHistory.count', 2 do
-      post admin_operation_histories_import_path, params: { file: file }
-    end
-    
-    # 验证关联到报销单
-    histories = OperationHistory.where(document_number: @reimbursement.invoice_number)
-    assert_equal 2, histories.count
-  end
-  
-  test "should update reimbursement status for approval operation histories" do
-    # 对应测试ID: IMP-O-002
-    file = import_test_file('approval_operation_histories')
-    
-    assert_difference 'OperationHistory.count', 1 do
-      post admin_operation_histories_import_path, params: { file: file }
-    end
-    
-    # 验证更新报销单状态
-    @reimbursement.reload
-    assert_equal "closed", @reimbursement.reimbursement_status
-    assert @reimbursement.is_complete
-  end
-  
-  test "should handle operation histories without matching reimbursements" do
-    # 对应测试ID: IMP-O-004
-    file = import_test_file('non_matching_operation_histories')
-    
-    assert_difference 'OperationHistory.count', 1 do
-      assert_difference 'Reimbursement.count', 1 do
-        post admin_operation_histories_import_path, params: { file: file }
-      end
-    end
-    
-    # 验证创建占位报销单
-    assert Reimbursement.exists?(invoice_number: "ER99999")
-    
-    # 验证关联到占位报销单
-    history = OperationHistory.find_by(document_number: "ER99999")
-    assert_not_nil history
-    
-    # 验证显示未匹配警告
-    assert_includes response.body, '未匹配'
-  end
-  
-  test "should handle format error in operation history file" do
-    # 对应测试ID: IMP-O-005
-    file = import_test_file('invalid_format_operation_histories')
-    
-    assert_no_difference 'OperationHistory.count' do
-      post admin_operation_histories_import_path, params: { file: file }
-    end
-    
-    assert_import_failure(response)
-  end
-end
-```
+| 测试ID | 测试场景 | 测试要点 | 优先级 |
+|--------|----------|----------|--------|
+| IMP-O-001 | 导入匹配已有报销单的操作历史 | 验证关联 | 高 |
+| IMP-O-002 | 导入审批通过类型的操作历史 | 验证报销单状态更新 | 高 |
+| IMP-O-004 | 导入未匹配报销单的操作历史 | 验证未匹配处理、警告显示 | 中 |
+| IMP-O-005 | 导入格式错误的操作历史文件 | 验证错误处理、错误消息显示 | 中 |
+| IMP-O-006 | 导入重复的操作历史 | 验证重复检测、跳过处理 | 高 |
+
+**注意**：第一阶段不测试Excel导入。
 
 #### 4.1.5 导入顺序测试
 
-```ruby
-# test/integration/data_import_test.rb
-class ImportSequenceTest < ActionDispatch::IntegrationTest
-  include ImportTestHelper
-  
-  test "should correctly handle imports in proper sequence" do
-    # 对应测试ID: IMP-S-001
-    reimbursement_file = import_test_file('sequence_reimbursements')
-    express_file = import_test_file('sequence_express_receipts')
-    fee_file = import_test_file('sequence_fee_details')
-    operation_file = import_test_file('sequence_operation_histories')
-    
-    # 按顺序导入
-    post admin_reimbursements_import_path, params: { file: reimbursement_file }
-    post admin_express_receipts_import_path, params: { file: express_file }
-    post admin_fee_details_import_path, params: { file: fee_file }
-    post admin_operation_histories_import_path, params: { file: operation_file }
-    
-    # 验证所有关联关系正确建立
-    reimbursement = Reimbursement.find_by(invoice_number: "ER12345")
-    assert_not_nil reimbursement
-    
-    express = ExpressReceipt.find_by(document_number: "ER12345")
-    assert_not_nil express
-    
-    fee = FeeDetail.find_by(document_number: "ER12345")
-    assert_not_nil fee
-    
-    history = OperationHistory.find_by(document_number: "ER12345")
-    assert_not_nil history
-    
-    # 验证工单自动创建
-    assert WorkOrder.exists?(document_number: "ER12345")
-    
-    # 验证状态正确更新
-    assert_equal "received", reimbursement.receipt_status
-  end
-  
-  test "should handle imports in reverse sequence" do
-    # 对应测试ID: IMP-S-002
-    operation_file = import_test_file('sequence_operation_histories')
-    fee_file = import_test_file('sequence_fee_details')
-    express_file = import_test_file('sequence_express_receipts')
-    reimbursement_file = import_test_file('sequence_reimbursements')
-    
-    # 颠倒顺序导入
-    post admin_operation_histories_import_path, params: { file: operation_file }
-    post admin_fee_details_import_path, params: { file: fee_file }
-    post admin_express_receipts_import_path, params: { file: express_file }
-    post admin_reimbursements_import_path, params: { file: reimbursement_file }
-    
-    # 验证系统能够处理顺序错误
-    assert Reimbursement.exists?(invoice_number: "ER12345")
-    assert ExpressReceipt.exists?(document_number: "ER12345")
-    assert FeeDetail.exists?(document_number: "ER12345")
-    assert OperationHistory.exists?(document_number: "ER12345")
-    
-    # 验证最终所有关联关系正确
-    reimbursement = Reimbursement.find_by(invoice_number: "ER12345")
-    assert_equal "received", reimbursement.receipt_status
-  end
-  
-  test "should handle mixed sequence imports" do
-    # 对应测试ID: IMP-S-003
-    reimbursement_file1 = import_test_file('sequence_reimbursements_part1')
-    express_file = import_test_file('sequence_express_receipts')
-    reimbursement_file2 = import_test_file('sequence_reimbursements_part2')
-    fee_file = import_test_file('sequence_fee_details')
-    operation_file = import_test_file('sequence_operation_histories')
-    
-    # 混合顺序导入
-    post admin_reimbursements_import_path, params: { file: reimbursement_file1 }
-    post admin_express_receipts_import_path, params: { file: express_file }
-    post admin_reimbursements_import_path, params: { file: reimbursement_file2 }
-    post admin_fee_details_import_path, params: { file: fee_file }
-    post admin_operation_histories_import_path, params: { file: operation_file }
-    
-    # 验证系统能够正确处理混合顺序
-    assert_equal 3, Reimbursement.count
-    assert_equal 2, ExpressReceipt.count
-    assert_equal 4, FeeDetail.count
-    assert_equal 3, OperationHistory.count
-    
-    # 验证最终所有关联关系正确
-    reimbursement1 = Reimbursement.find_by(invoice_number: "ER12345")
-    reimbursement2 = Reimbursement.find_by(invoice_number: "ER67890")
-    
-    assert_equal "received", reimbursement1.receipt_status
-    assert_equal "pending", reimbursement2.receipt_status
-  end
-end
-```
+| 测试ID | 测试场景 | 测试要点 | 优先级 |
+|--------|----------|----------|--------|
+| IMP-S-001 | 按正确顺序导入所有数据 | 验证关联关系、状态更新 | 高 |
+| IMP-S-002 | 颠倒顺序导入数据 | 验证系统处理能力、最终一致性 | 中 |
+| IMP-S-003 | 混合顺序多次导入 | 验证系统处理能力、最终一致性 | 中 |
+
 ### 4.2 工单状态流转测试
 
-#### 4.2.1 审核工单状态流转测试
+#### 4.2.1 快递收单工单状态流转测试
 
-```ruby
-# test/models/work_order_test.rb
-require 'test_helper'
+快递收单工单在导入时自动创建并设置为已完成状态，无需状态流转。
 
-class AuditWorkOrderTest < ActiveSupport::TestCase
-  include WorkOrderTestHelper
-  
-  setup do
-    @reimbursement = reimbursements(:reimbursement_one)
-    @work_order = create(:audit_work_order, document_number: @reimbursement.invoice_number)
-  end
-  
-  test "audit work order basic status flow - approval path" do
-    # 对应测试ID: WF-A-001
-    assert_equal "pending", @work_order.status
-    
-    # 开始处理
-    assert_status_change(@work_order, "pending", "processing", :start_processing)
-    
-    # 开始审核
-    assert_status_change(@work_order, "processing", "auditing", :start_audit)
-    
-    # 审核通过
-    assert_status_change(@work_order, "auditing", "approved", :approve)
-    
-    # 完成处理
-    assert_status_change(@work_order, "approved", "completed", :complete)
-  end
-  
-  test "audit work order basic status flow - rejection path" do
-    # 对应测试ID: WF-A-002
-    assert_equal "pending", @work_order.status
-    
-    # 开始处理
-    @work_order.start_processing
-    assert_equal "processing", @work_order.status
-    
-    # 开始审核
-    @work_order.start_audit
-    assert_equal "auditing", @work_order.status
-    
-    # 审核不通过
-    @work_order.reject
-    assert_equal "rejected", @work_order.status
-    
-    # 完成处理
-    @work_order.complete
-    assert_equal "completed", @work_order.status
-  end
-  
-  test "audit work order needs communication path" do
-    # 对应测试ID: WF-A-003
-    assert_equal "pending", @work_order.status
-    
-    # 开始处理
-    @work_order.start_processing
-    assert_equal "processing", @work_order.status
-    
-    # 开始审核
-    @work_order.start_audit
-    assert_equal "auditing", @work_order.status
-    
-    # 需要沟通
-    @work_order.need_communication
-    assert_equal "needs_communication", @work_order.status
-    
-    # 重新审核
-    @work_order.resume_audit
-    assert_equal "auditing", @work_order.status
-    
-    # 审核通过
-    @work_order.approve
-    assert_equal "approved", @work_order.status
-    
-    # 完成处理
-    @work_order.complete
-    assert_equal "completed", @work_order.status
-  end
-  
-  test "audit work order needs communication and creating communication work order" do
-    # 对应测试ID: WF-A-004
-    assert_equal "pending", @work_order.status
-    
-    # 开始处理
-    @work_order.start_processing
-    assert_equal "processing", @work_order.status
-    
-    # 开始审核
-    @work_order.start_audit
-    assert_equal "auditing", @work_order.status
-    
-    # 需要沟通并创建沟通工单
-    assert_difference 'WorkOrder.count', 1 do
-      @work_order.need_communication
-      # Assuming create_communication_work_order is called after status change
-      # This might need adjustment based on actual implementation
-      @work_order.create_communication_work_order(description: "测试沟通")
-    end
-    
-    assert_equal "needs_communication", @work_order.status
-    
-    # 验证创建的沟通工单
-    communication_work_order = WorkOrder.last
-    assert_equal "open", communication_work_order.status
-    assert_equal @work_order.id, communication_work_order.parent_work_order_id
-  end
-  
-  test "audit work order cancellation" do
-    # 对应测试ID: WF-A-005
-    assert_equal "pending", @work_order.status
-    
-    # 开始处理
-    @work_order.start_processing
-    assert_equal "processing", @work_order.status
-    
-    # 取消工单
-    @work_order.cancel
-    assert_equal "cancelled", @work_order.status
-  end
-  
-  test "audit work order status change records" do
-    # 对应测试ID: WF-A-006
-    assert_equal "pending", @work_order.status
-    
-    # 执行多次状态变更
-    assert_difference 'WorkOrderStatusChange.count', 1 do
-      @work_order.start_processing
-    end
-    
-    assert_difference 'WorkOrderStatusChange.count', 1 do
-      @work_order.start_audit
-    end
-    
-    # 验证状态变更记录
-    changes = WorkOrderStatusChange.where(work_order_id: @work_order.id).order(:changed_at)
-    assert_equal 2, changes.count
-    
-    assert_equal "pending", changes.first.from_status
-    assert_equal "processing", changes.first.to_status
-    
-    assert_equal "processing", changes.last.from_status
-    assert_equal "auditing", changes.last.to_status
-  end
-  
-  test "audit work order illegal status transition" do
-    # 对应测试ID: WF-A-007
-    assert_equal "pending", @work_order.status
-    
-    # 尝试直接标记为审核通过
-    assert_raises(StateMachines::InvalidTransition) do
-      @work_order.approve
-    end
-    
-    # 工单状态保持不变
-    assert_equal "pending", @work_order.status
-  end
-end
+| 测试ID | 测试场景 | 测试要点 | 优先级 |
+|--------|----------|----------|--------|
+| WF-E-001 | 快递收单工单自动创建 | 验证自动创建、状态设置 | 高 |
+| WF-E-002 | 快递收单工单关联报销单 | 验证关联、报销单状态更新 | 高 |
+| WF-E-003 | 快递收单工单状态变更记录 | 验证状态记录、操作人记录 | 中 |
+
+#### 4.2.2 审核工单状态流转测试
+
+审核工单状态流转图：
+
+```
+[创建] --> pending --> processing --> rejected/approved
 ```
 
-#### 4.2.2 沟通工单状态流转测试
+| 测试ID | 测试场景 | 测试要点 | 优先级 |
+|--------|----------|----------|--------|
+| WF-A-001 | 审核工单基础状态流转-通过路径 | 验证状态流转、费用明细状态更新 | 高 |
+| WF-A-002 | 审核工单基础状态流转-不通过路径 | 验证状态流转、费用明细状态更新 | 高 |
+| WF-A-003 | 审核工单处理中保存 | 验证状态保存、费用明细状态更新 | 中 |
+| WF-A-004 | 审核工单必填字段验证 | 验证必填字段检查 | 高 |
+| WF-A-005 | 审核工单问题类型必填验证 | 验证问题类型必填检查 | 高 |
+| WF-A-006 | 审核工单状态变更记录 | 验证状态变更记录 | 中 |
+| WF-A-007 | 审核工单非法状态转换 | 验证非法状态转换拒绝 | 中 |
+| WF-A-008 | 审核工单备注字段添加 | 验证备注字段可添加和保存 | 高 |
 
-```ruby
-# test/models/work_order_test.rb
-class IssueWorkOrderTest < ActiveSupport::TestCase
-  include WorkOrderTestHelper
-  
-  setup do
-    @reimbursement = reimbursements(:reimbursement_one)
-    @work_order = create(:issue_work_order, document_number: @reimbursement.invoice_number)
-  end
-  
-  test "communication work order flow with resolution" do
-    # 对应测试ID: WF-C-001
-    assert_equal "open", @work_order.status
-    
-    # 开始沟通
-    @work_order.start_communication
-    assert_equal "in_progress", @work_order.status
-    
-    # 标记问题已解决
-    @work_order.resolve
-    assert_equal "resolved", @work_order.status
-    
-    # 工单流程完成
-    @work_order.close
-    assert_equal "closed", @work_order.status
-  end
-  
-  test "communication work order flow with unresolved issue" do
-    # 对应测试ID: WF-C-002
-    assert_equal "open", @work_order.status
-    
-    # 开始沟通
-    @work_order.start_communication
-    assert_equal "in_progress", @work_order.status
-    
-    # 问题未解决
-    @work_order.mark_unresolved
-    assert_equal "unresolved", @work_order.status
-    
-    # 工单流程完成
-    @work_order.close
-    assert_equal "closed", @work_order.status
-  end
-  
-  test "communication work order direct resolution flow" do
-    # 对应测试ID: WF-C-003
-    assert_equal "open", @work_order.status
-    
-    # 直接标记问题已解决
-    @work_order.start_communication
-    assert_equal "in_progress", @work_order.status
-    
-    @work_order.resolve
-    assert_equal "resolved", @work_order.status
-    
-    # 工单流程完成
-    @work_order.close
-    assert_equal "closed", @work_order.status
-  end
-  
-  test "communication work order direct unresolved flow" do
-    # 对应测试ID: WF-C-004
-    assert_equal "open", @work_order.status
-    
-    # 直接标记问题未解决
-    @work_order.start_communication
-    assert_equal "in_progress", @work_order.status
-    
-    @work_order.mark_unresolved
-    assert_equal "unresolved", @work_order.status
-    
-    # 工单流程完成
-    @work_order.close
-    assert_equal "closed", @work_order.status
-  end
-  
-  test "communication work order status change records" do
-    # 对应测试ID: WF-C-005
-    assert_equal "open", @work_order.status
-    
-    # 执行多次状态变更
-    assert_difference 'WorkOrderStatusChange.count', 1 do
-      @work_order.start_communication
-    end
-    
-    assert_difference 'WorkOrderStatusChange.count', 1 do
-      @work_order.resolve
-    end
-    
-    # 验证状态变更记录
-    changes = WorkOrderStatusChange.where(work_order_id: @work_order.id).order(:changed_at)
-    assert_equal 2, changes.count
-    
-    assert_equal "open", changes.first.from_status
-    assert_equal "in_progress", changes.first.to_status
-    
-    assert_equal "in_progress", changes.last.from_status
-    assert_equal "resolved", changes.last.to_status
-  end
-  
-  test "communication work order illegal status transition" do
-    # 对应测试ID: WF-C-006
-    @work_order.start_communication
-    @work_order.resolve
-    
-    # 尝试从已解决状态转回待处理状态
-    assert_raises(StateMachines::InvalidTransition) do
-      @work_order.mark_unresolved
-    end
-    
-    # 工单状态保持不变
-    assert_equal "resolved", @work_order.status
-  end
-end
+**注意**：审核工单需要支持备注(text)字段的添加。
+
+#### 4.2.3 沟通工单状态流转测试
+
+沟通工单状态流转图：
+
 ```
+[创建] --> pending --> processing/needs_communication --> rejected/approved
+```
+
+| 测试ID | 测试场景 | 测试要点 | 优先级 |
+|--------|----------|----------|--------|
+| WF-C-001 | 沟通工单通过流程 | 验证状态流转、费用明细状态更新 | 高 |
+| WF-C-002 | 沟通工单不通过流程 | 验证状态流转、费用明细状态更新 | 高 |
+| WF-C-003 | 沟通工单需要沟通状态 | 验证状态流转、费用明细状态更新 | 高 |
+| WF-C-004 | 沟通工单必填字段验证 | 验证必填字段检查 | 高 |
+| WF-C-005 | 沟通工单添加沟通记录 | 验证沟通记录添加 | 中 |
+| WF-C-006 | 沟通工单状态变更记录 | 验证状态变更记录 | 中 |
+| WF-C-007 | 沟通工单非法状态转换 | 验证非法状态转换拒绝 | 中 |
+| WF-C-008 | 沟通工单备注字段添加 | 验证备注字段可添加和保存 | 高 |
+| WF-C-009 | 沟通工单沟通记录字段添加 | 验证沟通记录字段可添加和保存 | 高 |
+
+**注意**：沟通工单需要支持备注(text)字段和沟通记录(text)字段的添加。
+
 ### 4.3 工单关联关系测试
 
-```ruby
-# test/models/work_order_test.rb
-class WorkOrderRelationshipTest < ActiveSupport::TestCase
-  include WorkOrderTestHelper
-  
-  setup do
-    @reimbursement = reimbursements(:reimbursement_one)
-    @audit_work_order = create(:audit_work_order, document_number: @reimbursement.invoice_number)
-  end
-  
-  test "audit work order creating communication work order" do
-    # 对应测试ID: REL-001
-    # 创建沟通工单
-    assert_difference 'WorkOrder.count', 1 do
-      @communication_work_order = @audit_work_order.create_communication_work_order(
-        description: "测试沟通"
-      )
-    end
-    
-    # 验证父子关系
-    assert_equal @audit_work_order.id, @communication_work_order.parent_work_order_id
-    assert_includes @audit_work_order.child_work_orders, @communication_work_order
-  end
-  
-  test "multiple work orders for one reimbursement" do
-    # 对应测试ID: REL-002
-    # 为同一报销单创建多个工单
-    @express_work_order = create(:express_receipt_work_order, document_number: @reimbursement.invoice_number)
-    @communication_work_order = create(:communication_work_order, document_number: @reimbursement.invoice_number)
-    
-    # 验证所有工单都关联到同一报销单
-    assert_equal 3, WorkOrder.where(document_number: @reimbursement.invoice_number).count
-    
-    # 验证报销单详情页显示所有关联工单
-    # 这部分需要在系统测试中验证
-  end
-  
-  test "deleting parent work order should not affect child work orders" do
-    # 对应测试ID: REL-003
-    # 创建父子关系的工单
-    @communication_work_order = @audit_work_order.create_communication_work_order(
-      description: "测试沟通"
-    )
-    
-    # 删除父工单
-    @audit_work_order.destroy
-    
-    # 验证子工单的父工单ID设为null
-    @communication_work_order.reload
-    assert_nil @communication_work_order.parent_work_order_id
-    
-    # 验证子工单不受影响继续存在
-    assert WorkOrder.exists?(@communication_work_order.id)
-  end
-end
-```
+| 测试ID | 测试场景 | 测试要点 | 优先级 |
+|--------|----------|----------|--------|
+| REL-001 | 工单与报销单关联 | 验证关联关系建立 | 高 |
+| REL-002 | 一个报销单多个工单 | 验证多工单关联 | 高 |
+| REL-003 | 工单与费用明细关联 | 验证工单与费用明细关联 | 高 |
+| REL-004 | 报销单状态与费用明细状态联动 | 验证状态联动逻辑 | 高 |
+| REL-005 | 删除报销单对工单的影响 | 验证级联删除处理 | 低 |
+| REL-006 | 工单创建入口限制 | 验证创建入口限制 | 中 |
+
+**注意**：第一阶段不考虑多用户权限，默认一个人可以操作所有环节。
 
 ### 4.4 费用明细验证测试
 
-```ruby
-# test/integration/fee_verification_test.rb
-class FeeVerificationTest < ActionDispatch::IntegrationTest
-  setup do
-    @reimbursement = reimbursements(:reimbursement_one)
-    @fee_details = create_list(:fee_detail, 3, document_number: @reimbursement.invoice_number)
-  end
-  
-  test "should select fee details and associate with work order" do
-    # 对应测试ID: FEE-001
-    # 选择报销单创建审核工单
-    post admin_reimbursements_create_work_order_path, params: {
-      reimbursement_id: @reimbursement.id,
-      work_order_type: 'audit',
-      fee_detail_ids: [@fee_details[0].id, @fee_details[1].id]
-    }
-    
-    # 验证成功创建费用明细选择记录
-    work_order = WorkOrder.last
-    assert_equal 2, work_order.fee_detail_selections.count
-    
-    # 验证工单关联到所有选中的费用明细
-    assert_includes work_order.fee_details, @fee_details[0]
-    assert_includes work_order.fee_details, @fee_details[1]
-    
-    # 验证费用明细验证状态为"待验证"
-    @fee_details[0].reload
-    @fee_details[1].reload
-    assert_equal "pending", @fee_details[0].verification_status
-    assert_equal "pending", @fee_details[1].verification_status
-  end
-  
-  test "should batch select all fee details" do
-    # 对应测试ID: FEE-002
-    # 批量全选关联所有相关费用明细
-    post admin_reimbursements_create_work_order_path, params: {
-      reimbursement_id: @reimbursement.id,
-      work_order_type: 'audit',
-      select_all_fee_details: true
-    }
-    
-    # 验证工单关联到所有费用明细
-    work_order = WorkOrder.last
-    assert_equal 3, work_order.fee_detail_selections.count
-    
-    # 验证费用明细验证状态为"待验证"
-    @fee_details.each do |fee_detail|
-      fee_detail.reload
-      assert_equal "pending", fee_detail.verification_status
-    end
-  end
-  
-  test "should update fee detail verification status" do
-    # 对应测试ID: FEE-003
-    # 创建审核工单并关联费用明细
-    work_order = create(:audit_work_order, document_number: @reimbursement.invoice_number)
-    selection = create(:fee_detail_selection, work_order: work_order, fee_detail: @fee_details[0])
-    
-    # 更新费用明细验证状态
-    patch admin_fee_detail_selection_path(selection), params: {
-      fee_detail_selection: {
-        verification_status: "verified"
-      }
-    }
-    
-    # 验证费用明细验证状态成功更新
-    @fee_details[0].reload
-    assert_equal "verified", @fee_details[0].verification_status
-    
-    # 验证记录更新时间和操作人
-    selection.reload
-    assert_equal "verified", selection.verification_status
-    assert_not_nil selection.updated_at
-  end
-  
-  test "should record fee detail verification result" do
-    # 对应测试ID: FEE-004
-    # 创建审核工单并关联费用明细
-    work_order = create(:audit_work_order, document_number: @reimbursement.invoice_number)
-    selection = create(:fee_detail_selection, work_order: work_order, fee_detail: @fee_details[0])
-    
-    # 添加验证结果说明并更新验证状态
-    patch admin_fee_detail_selection_path(selection), params: {
-      fee_detail_selection: {
-        verification_status: "verified",
-        discussion_result: "发票已核对，金额正确"
-      }
-    }
-    
-    # 验证成功记录验证结果说明
-    selection.reload
-    assert_equal "发票已核对，金额正确", selection.discussion_result
-    assert_equal "verified", selection.verification_status
-  end
-  
-  test "should mark fee detail as problematic and create issue work order" do
-    # 对应测试ID: FEE-005
-    # 创建审核工单并关联费用明细
-    work_order = create(:audit_work_order, document_number: @reimbursement.invoice_number)
-    selection = create(:fee_detail_selection, work_order: work_order, fee_detail: @fee_details[0])
-    
-    # 标记费用明细存在问题并创建问题工单
-    assert_difference 'WorkOrder.count', 1 do
-      post admin_fee_detail_selections_create_issue_path, params: {
-        fee_detail_selection_id: selection.id,
-        issue_description: "发票金额与报销金额不符"
-      }
-    end
-    
-    # 验证费用明细验证状态更新为"有问题"
-    @fee_details[0].reload
-    assert_equal "problematic", @fee_details[0].verification_status
-    
-    # 验证成功创建关联的问题工单
-    issue_work_order = WorkOrder.last
-    assert_equal "issue", issue_work_order.order_type
-    assert_equal work_order.id, issue_work_order.parent_work_order_id
-    
-    # 验证问题工单关联到该费用明细
-    assert_includes issue_work_order.fee_details, @fee_details[0]
-  end
-end
-```
+| 测试ID | 测试场景 | 测试要点 | 优先级 |
+|--------|----------|----------|--------|
+| FEE-001 | 选择费用明细关联到工单 | 验证关联、状态设置 | 高 |
+| FEE-002 | 批量全选关联费用明细 | 验证批量关联 | 中 |
+| FEE-003 | 工单状态变更影响费用明细状态 | 验证状态联动 | 高 |
+| FEE-004 | 费用明细关联多个工单 | 验证多工单关联、状态更新 | 高 |
+| FEE-005 | 费用明细查看关联工单 | 验证关联工单显示 | 高 |
+| FEE-006 | 费用明细状态影响报销单状态 | 验证状态联动 | 高 |
+| FEE-007 | 费用明细验证结果记录 | 验证结果记录 | 中 |
+| FEE-008 | 费用明细问题标记 | 验证问题标记、记录 | 高 |
+
 ### 4.5 集成测试场景
 
-```ruby
-# test/integration/complete_workflow_test.rb
-class CompleteWorkflowTest < ActionDispatch::IntegrationTest
-  include ImportTestHelper
-  
-  test "complete reimbursement flow from express receipt to audit completion" do
-    # 对应测试ID: INT-001
-    # 导入报销单
-    reimbursement_file = import_test_file('standard_reimbursements')
-    post admin_reimbursements_import_path, params: { file: reimbursement_file }
-    
-    # 导入快递收单
-    express_file = import_test_file('matching_express_receipts')
-    post admin_express_receipts_import_path, params: { file: express_file }
-    
-    # 获取创建的工单
-    express_work_order = WorkOrder.find_by(type: "ExpressReceiptWorkOrder")
-    assert_not_nil express_work_order
-    
-    # 处理快递收单工单
-    express_work_order.start_processing
-    express_work_order.process
-    express_work_order.complete
-    
-    # 验证自动创建审核工单
-    audit_work_order = WorkOrder.find_by(type: "AuditWorkOrder")
-    assert_not_nil audit_work_order
-    
-    # 处理审核工单
-    audit_work_order.start_processing
-    audit_work_order.start_audit
-    audit_work_order.approve
-    audit_work_order.complete
-    
-    # 验证工单状态
-    express_work_order.reload
-    audit_work_order.reload
-    
-    assert_equal "completed", express_work_order.status
-    assert_equal "completed", audit_work_order.status
-    
-    # 验证报销单状态
-    reimbursement = Reimbursement.first
-    reimbursement.reload # Reload reimbursement to get updated status
-    assert_equal "received", reimbursement.receipt_status
-  end
-  
-  test "complete reimbursement flow with communication handling" do
-    # 对应测试ID: INT-002
-    # 导入报销单
-    reimbursement_file = import_test_file('standard_reimbursements')
-    post admin_reimbursements_import_path, params: { file: reimbursement_file }
-    
-    # 导入快递收单
-    express_file = import_test_file('matching_express_receipts')
-    post admin_express_receipts_import_path, params: { file: express_file }
-    
-    # 导入费用明细
-    fee_file = import_test_file('matching_fee_details')
-    post admin_fee_details_import_path, params: { file: fee_file }
-    
-    # 获取创建的工单
-    express_work_order = WorkOrder.find_by(type: "ExpressReceiptWorkOrder")
-    assert_not_nil express_work_order
-    
-    # 处理快递收单工单
-    express_work_order.start_processing
-    express_work_order.mark_as_received
-    express_work_order.complete
-    
-    # 获取创建的审核工单
-    audit_work_order = WorkOrder.find_by(type: "AuditWorkOrder")
-    assert_not_nil audit_work_order
-    
-    # 关联费用明细
-    fee_detail = FeeDetail.first
-    selection = FeeDetailSelection.create!(
-      selectable: audit_work_order,
-      fee_detail: fee_detail,
-      verification_result: "pending"
-    )
-    
-    # 处理审核工单至需要沟通状态
-    audit_work_order.start_processing
-    audit_work_order.start_audit
-    
-    # 创建沟通工单
-    assert_difference 'WorkOrder.count', 1 do
-      communication_work_order = audit_work_order.create_communication_work_order(
-        description: "发票金额与报销金额不符",
-        fee_detail_ids: [fee_detail.id]
-      )
-      
-      # 标记审核工单为需要沟通
-      audit_work_order.need_communication
-    end
-    
-    # 获取创建的沟通工单
-    communication_work_order = WorkOrder.find_by(type: "CommunicationWorkOrder")
-    assert_not_nil communication_work_order
-    
-    # 处理沟通工单
-    communication_work_order.start_communication
-    
-    # 标记问题已解决
-    communication_work_order.resolve
-    communication_work_order.close
-    
-    # Continue processing the audit work order
-    audit_work_order.resume_audit
-    audit_work_order.approve
-    audit_work_order.complete
-    
-    # Verify work order statuses
-    express_work_order.reload
-    audit_work_order.reload
-    communication_work_order.reload
-    
-    assert_equal "completed", express_work_order.status
-    assert_equal "completed", audit_work_order.status
-    assert_equal "closed", communication_work_order.status
-    
-    # Verify fee detail status (assuming fee detail status is updated via selection)
-    fee_detail.reload
-    # The design document doesn't explicitly state that resolving a communication work order
-    # automatically updates the fee detail status. This might need manual verification or
-    # a separate test case if that's the intended behavior.
-    # For now, I will assume the fee detail status is updated elsewhere or manually.
-    # assert_equal "verified", fee_detail.verification_status # Commenting out as per design
-  end
-  
-  test "fee detail verification complete flow" do
-    # 对应测试ID: INT-004
-    # 导入报销单 and fee details
-    reimbursement_file = import_test_file('standard_reimbursements')
-    post admin_reimbursements_import_path, params: { file: reimbursement_file }
-    
-    fee_file = import_test_file('matching_fee_details')
-    post admin_fee_details_import_path, params: { file: fee_file }
-    
-    # Create Express Receipt Work Order to trigger Audit Work Order creation
-    express_receipt_work_order = ExpressReceiptWorkOrder.create!(
-      document_number: Reimbursement.first.invoice_number,
-      status: "received", # Assuming 'received' status is set upon creation/import
-      tracking_number: "TEST123",
-      reimbursement: Reimbursement.first
-    )
-    express_receipt_work_order.process # Transition to processed
-    express_receipt_work_order.complete # Transition to completed, which should create AuditWorkOrder
-    
-    # Get the automatically created Audit Work Order
-    audit_work_order = AuditWorkOrder.last
-    assert_not_nil audit_work_order
-    assert_equal "pending", audit_work_order.status
-    
-    # Associate fee details with the audit work order
-    fee_details = FeeDetail.where(document_number: audit_work_order.document_number)
-    fee_details.each do |fee_detail|
-      FeeDetailSelection.create!(
-        selectable: audit_work_order,
-        fee_detail: fee_detail,
-        verification_result: "pending"
-      )
-    end
-    
-    # Process the audit work order
-    audit_work_order.start_processing
-    audit_work_order.start_audit
-    
-    # Verify fee details
-    fee_details.each_with_index do |fee_detail, index|
-      selection = FeeDetailSelection.find_by(selectable: audit_work_order, fee_detail: fee_detail)
-      
-      # Update verification status
-      selection.update(
-        verification_result: "verified",
-        discussion_result: "费用明细#{index+1}已验证"
-      )
-      
-      # Verify fee detail status (assuming fee detail status is updated via selection)
-      fee_detail.reload
-      # The design document doesn't explicitly state that updating FeeDetailSelection
-      # updates the FeeDetail's verification_status. This might need adjustment
-      # based on actual implementation or a separate test.
-      # assert_equal "verified", fee_detail.verification_status # Commenting out as per design
-    end
-    
-    # Complete the audit work order
-    audit_work_order.approve
-    audit_work_order.complete
-    
-    # Verify work order status
-    audit_work_order.reload
-    assert_equal "completed", audit_work_order.status
-    
-    # Verify all fee detail selection statuses
-    FeeDetailSelection.where(selectable: audit_work_order).each do |selection|
-      selection.reload
-      assert_equal "verified", selection.verification_result
-    end
-  end
-  
-  test "operation history affecting reimbursement status" do
-    # 对应测试ID: INT-005
-    # 导入报销单
-    reimbursement_file = import_test_file('standard_reimbursements')
-    post admin_reimbursements_import_path, params: { file: reimbursement_file }
-    
-    # Create Express Receipt Work Order to trigger Audit Work Order creation
-    express_receipt_work_order = ExpressReceiptWorkOrder.create!(
-      document_number: Reimbursement.first.invoice_number,
-      status: "received", # Assuming 'received' status is set upon creation/import
-      tracking_number: "TEST123",
-      reimbursement: Reimbursement.first
-    )
-    express_receipt_work_order.process # Transition to processed
-    express_receipt_work_order.complete # Transition to completed, which should create AuditWorkOrder
-    
-    # Get the automatically created Audit Work Order
-    audit_work_order = AuditWorkOrder.last
-    assert_not_nil audit_work_order
-    assert_equal "pending", audit_work_order.status
-    
-    # Process the audit work order
-    audit_work_order.start_processing
-    audit_work_order.start_audit
-    
-    # Import operation history with approval
-    operation_file = import_test_file('approval_operation_histories')
-    post admin_operation_histories_import_path, params: { file: operation_file }
-    
-    # Verify reimbursement status is updated to closed
-    reimbursement = Reimbursement.first
-    reimbursement.reload
-    assert_equal "closed", reimbursement.reimbursement_status
-    assert reimbursement.is_complete
-    
-    # Verify work order status is not affected by operation history import
-    audit_work_order.reload
-    assert_equal "auditing", audit_work_order.status
-  end
-end
-```
+| 测试ID | 测试场景 | 测试要点 | 优先级 |
+|--------|----------|----------|--------|
+| INT-001 | 完整报销流程-快递收单到审核完成 | 验证完整流程、状态变更 | 高 |
+| INT-002 | 完整报销流程-包含沟通处理 | 验证完整流程、状态变更 | 高 |
+| INT-004 | 费用明细多工单关联测试 | 验证多工单关联、状态更新 | 高 |
+| INT-005 | 操作历史影响报销单状态 | 验证状态联动 | 中 |
+| INT-006 | 电子发票标志测试 | 验证电子发票标志设置和显示 | 中 |
+| INT-007 | 多个报销单并行处理 | 验证并行处理能力 | 低 |
+
+**注意**：第一阶段假设只有一个admin用户，简化权限测试。
 
 ## 5. 实现计划
 
 ### 5.1 模型实现
 
-#### 5.1.1 工单状态机实现
+1. **工单基类实现**：
+   - 实现工单基类(WorkOrder)
+   - 实现状态变更记录机制
+   - 实现父子工单关联关系
 
-使用`state_machines-activerecord` gem实现工单状态流转：
+2. **审核工单实现**：
+   - 实现审核工单(AuditWorkOrder)模型
+   - 实现状态流转逻辑
+   - 实现备注字段
 
-```ruby
-# app/models/work_order.rb
-class WorkOrder < ApplicationRecord
-  # STI配置
-  self.inheritance_column = 'type'
-  
-  # 关联
-  belongs_to :reimbursement
-  has_many :child_work_orders, class_name: 'WorkOrder', foreign_key: 'parent_work_order_id'
-  belongs_to :parent_work_order, class_name: 'WorkOrder', optional: true
-  has_many :work_order_status_changes
-  
-  # 验证
-  validates :type, presence: true
-  validates :status, presence: true
-  
-  # 回调
-  after_save :record_status_change, if: :saved_change_to_status?
-  
-  # 状态记录
-  def record_status_change
-    if saved_change_to_status?
-      old_status, new_status = saved_change_to_status
-      work_order_status_changes.create(
-        from_status: old_status,
-        to_status: new_status,
-        changed_at: Time.current,
-        changed_by: Current.user&.id
-      )
-    end
-  end
-  
-  # 工单类型名称
-  def type_name
-    self.class.name.underscore.humanize
-  end
-  
-  # 工单状态名称
-  def status_name
-    status.humanize
-  end
-  
-  # 可用状态列表（由子类实现）
-  def self.available_statuses
-    []
-  end
-  
-  # 可用状态转换（由子类实现）
-  def available_status_transitions
-    []
-  end
-end
-```
+3. **沟通工单实现**：
+   - 实现沟通工单(CommunicationWorkOrder)模型
+   - 实现状态流转逻辑
+   - 实现备注字段和沟通记录字段
 
-#### 5.1.2 审核工单实现
+4. **快递收单工单实现**：
+   - 实现快递收单工单(ExpressReceiptWorkOrder)模型
+   - 实现状态设置逻辑
 
-```ruby
-# app/models/audit_work_order.rb
-class AuditWorkOrder < WorkOrder
-  # 状态定义
-  STATUSES = %w[pending processing auditing approved rejected needs_communication completed].freeze
-  
-  # 关联
-  has_many :fee_detail_selections, as: :selectable, dependent: :destroy
-  has_many :fee_details, through: :fee_detail_selections
-  
-  # 验证
-  validates :status, inclusion: { in: STATUSES }
-  validates :audit_result, presence: true, if: -> { %w[approved rejected].include?(status) }
-  
-  # 类方法
-  def self.available_statuses
-    STATUSES
-  end
-  
-  # 状态转换方法
-  def start_processing
-    update(status: 'processing')
-  end
-  
-  def start_audit
-    update(status: 'auditing')
-  end
-  
-  def approve(comment = nil)
-    update(
-      status: 'approved',
-      audit_result: 'approved',
-      audit_date: Time.current,
-      audit_comment: comment
-    )
-  end
-  
-  def reject(comment = nil)
-    update(
-      status: 'rejected',
-      audit_result: 'rejected',
-      audit_date: Time.current,
-      audit_comment: comment
-    )
-  end
-  
-  def need_communication
-    update(status: 'needs_communication')
-  end
-  
-  def resume_audit
-    update(status: 'auditing')
-  end
-  
-  def complete
-    update(status: 'completed')
-  end
-  
-  # 创建沟通工单
-  def create_communication_work_order(params = {})
-    comm_order = CommunicationWorkOrder.new(
-      reimbursement: reimbursement,
-      parent_work_order: self,
-      status: 'open',
-      **params
-    )
-    
-    if comm_order.save
-      # 复制选中的费用明细
-      fee_detail_selections.each do |selection|
-        comm_order.fee_detail_selections.create(
-          fee_detail: selection.fee_detail,
-          verification_result: 'pending'
-        )
-      end
-    end
-    
-    comm_order
-  end
-  
-  # 可用状态转换
-  def available_status_transitions
-    case status
-    when 'pending'
-      ['processing']
-    when 'processing'
-      ['auditing']
-    when 'auditing'
-      ['approved', 'rejected', 'needs_communication']
-    when 'needs_communication'
-      ['auditing']
-    when 'approved', 'rejected'
-      ['completed']
-    else
-      []
-    end
-  end
-end
-```
-
-#### 5.1.3 问题工单实现
-
-```ruby
-# app/models/communication_work_order.rb
-class CommunicationWorkOrder < WorkOrder
-  # 状态定义
-  STATUSES = %w[open in_progress resolved unresolved closed].freeze
-  
-  # 关联
-  has_many :communication_records, dependent: :destroy
-  has_many :fee_detail_selections, as: :selectable, dependent: :destroy
-  has_many :fee_details, through: :fee_detail_selections
-  
-  # 验证
-  validates :status, inclusion: { in: STATUSES }
-  
-  # 类方法
-  def self.available_statuses
-    STATUSES
-  end
-  
-  # 状态转换方法
-  def start_communication
-    update(status: 'in_progress')
-  end
-  
-  def resolve(summary = nil)
-    update(
-      status: 'resolved',
-      resolution_summary: summary
-    )
-    notify_parent_work_order
-  end
-  
-  def mark_unresolved(summary = nil)
-    update(
-      status: 'unresolved',
-      resolution_summary: summary
-    )
-    notify_parent_work_order
-  end
-  
-  def close
-    update(status: 'closed')
-  end
-  
-  # 添加沟通记录
-  def add_communication_record(params)
-    communication_records.create(params)
-  end
-  
-  # 通知父工单
-  def notify_parent_work_order
-    return unless parent_work_order.present?
-    
-    if parent_work_order.is_a?(AuditWorkOrder) && parent_work_order.status == 'needs_communication'
-      parent_work_order.resume_audit
-    end
-  end
-  
-  # 可用状态转换
-  def available_status_transitions
-    case status
-    when 'open'
-      ['in_progress']
-    when 'in_progress'
-      ['resolved', 'unresolved']
-    when 'resolved', 'unresolved'
-      ['closed']
-    else
-      []
-    end
-  end
-end
-```
-
-#### 5.1.4 快递收单工单实现
-
-```ruby
-# app/models/express_receipt_work_order.rb
-class ExpressReceiptWorkOrder < WorkOrder
-  # 状态定义
-  STATUSES = %w[received processed completed].freeze
-  
-  # 验证
-  validates :status, inclusion: { in: STATUSES }
-  validates :tracking_number, presence: true
-  
-  # 类方法
-  def self.available_statuses
-    STATUSES
-  end
-  
-  # 状态转换方法
-  def process
-    update(status: 'processed')
-  end
-  
-  def complete
-    update(status: 'completed')
-  end
-  
-  # 可用状态转换
-  def available_status_transitions
-    case status
-    when 'received'
-      ['processed']
-    when 'processed'
-      ['completed']
-    else
-      []
-    end
-  end
-end
-```
+5. **费用明细选择实现**：
+   - 实现费用明细选择(FeeDetailSelection)模型
+   - 实现多态关联
 
 ### 5.2 服务对象实现
 
-#### 5.2.1 导入服务实现
+1. **导入服务实现**：
+   - 实现报销单导入服务
+   - 实现快递收单导入服务
+   - 实现费用明细导入服务
+   - 实现操作历史导入服务
 
-```ruby
-# app/services/import_service.rb
-class ImportService
-  require 'csv'
-  
-  def self.import_reimbursements(file)
-    results = { created: [], updated: [], errors: [] }
-    
-    CSV.foreach(file.path, headers: true) do |row|
-      begin
-        invoice_number = row['单据编号']
-        
-        # 检查报销单是否存在
-        reimbursement = Reimbursement.find_by(invoice_number: invoice_number)
-        
-        # 提取电子发票标记
-        is_electronic = row['单据标签']&.include?('全电子发票')
-        
-        if reimbursement
-          # 更新已存在的报销单
-          reimbursement.update!(
-            document_name: row['单据名称'],
-            applicant: row['申请人'],
-            applicant_id: row['申请人工号'],
-            company: row['公司'],
-            department: row['部门'],
-            amount: row['金额'],
-            submission_date: parse_date(row['提交日期']),
-            document_tags: row['单据标签'],
-            is_electronic: is_electronic
-          )
-          results[:updated] << reimbursement
-        else
-          # 创建新报销单
-          reimbursement = Reimbursement.create!(
-            invoice_number: invoice_number,
-            document_name: row['单据名称'],
-            applicant: row['申请人'],
-            applicant_id: row['申请人工号'],
-            company: row['公司'],
-            department: row['部门'],
-            amount: row['金额'],
-            receipt_status: 'pending',
-            reimbursement_status: 'pending',
-            submission_date: parse_date(row['提交日期']),
-            document_tags: row['单据标签'],
-            is_electronic: is_electronic
-          )
-          results[:created] << reimbursement
-          
-          # 如果不是电子发票，自动创建审核工单
-          unless is_electronic
-            AuditWorkOrder.create!(
-              reimbursement: reimbursement,
-              status: 'pending'
-            )
-          end
-        end
-      rescue => e
-        results[:errors] << { row: row.to_h, error: e.message }
-      end
-    end
-    
-    results
-  end
-  
-  def self.import_express_receipts(file)
-    results = { matched: [], unmatched: [], errors: [] }
-    
-    CSV.foreach(file.path, headers: true) do |row|
-      begin
-        document_number = extract_document_number(row)
-        tracking_number = extract_tracking_number(row)
-        
-        # 检查是否存在匹配的报销单
-        reimbursement = Reimbursement.find_by(invoice_number: document_number)
-        
-        if reimbursement.nil?
-          # 创建占位报销单
-          reimbursement = Reimbursement.create!(
-            invoice_number: document_number,
-            document_name: "占位报销单",
-            receipt_status: 'received',
-            reimbursement_status: 'pending',
-            receipt_date: parse_date(row['操作时间'])
-          )
-          
-          results[:unmatched] << { original_data: row.to_h, document_number: document_number }
-        end
-        
-        # 创建快递收单记录
-        receipt = ExpressReceipt.create!(
-          document_number: document_number,
-          tracking_number: tracking_number,
-          receive_date: parse_date(row['操作时间']),
-          receiver: row['操作人'],
-          courier_company: extract_courier_company(row)
-        )
-        
-        # Update reimbursement receipt status
-        reimbursement.update(
-          receipt_status: 'received',
-          receipt_date: receipt.receive_date
-        )
-        
-        # Auto-generate work order
-        work_order = ExpressReceiptWorkOrder.create!(
-          reimbursement: reimbursement,
-          status: 'received', # Assuming initial status is 'received' upon import
-          tracking_number: tracking_number
-        )
-        
-        results[:matched] << { receipt: receipt, work_order: work_order }
-      rescue => e
-        results[:errors] << { row: row.to_h, error: e.message }
-      end
-    end
-    
-    results
-  end
-  
-  def self.import_fee_details(file)
-    results = { matched: [], unmatched: [], errors: [] }
-    
-    CSV.foreach(file.path, headers: true) do |row|
-      begin
-        document_number = row['单据编号']
-        
-        # Check for matching reimbursement
-        reimbursement = Reimbursement.find_by(invoice_number: document_number)
-        
-        if reimbursement.nil?
-          results[:unmatched] << { original_data: row.to_h, document_number: document_number }
-          next # Skip creating fee detail if no matching reimbursement
-        end
-        
-        # Create fee detail record
-        fee_detail = FeeDetail.create!(
-          reimbursement: reimbursement,
-          document_number: document_number,
-          fee_type: row['费用类型'],
-          amount: row['金额'],
-          tax_code: row['税码'],
-          verification_status: 'pending' # Assuming initial status is 'pending'
-        )
-        
-        results[:matched] << fee_detail
-      rescue => e
-        results[:errors] << { row: row.to_h, error: e.message }
-      end
-    end
-    
-    results
-  end
-  
-  def self.import_operation_histories(file)
-    results = { matched: [], unmatched: [], errors: [] }
-    
-    CSV.foreach(file.path, headers: true) do |row|
-      begin
-        document_number = row['单据编号']
-        
-        # Check for matching reimbursement
-        reimbursement = Reimbursement.find_by(invoice_number: document_number)
-        
-        if reimbursement.nil?
-          # Create a placeholder reimbursement if not found
-          reimbursement = Reimbursement.create!(
-            invoice_number: document_number,
-            document_name: "占位报销单",
-            reimbursement_status: 'pending'
-          )
-          results[:unmatched] << { original_data: row.to_h, document_number: document_number }
-        end
-        
-        # Create operation history record
-        history = OperationHistory.create!(
-          reimbursement: reimbursement,
-          document_number: document_number,
-          operator: row['操作人'],
-          operation_time: parse_datetime(row['操作时间']),
-          operation_type: row['操作类型'],
-          operation_details: row['操作详情']
-        )
-        
-        # Update reimbursement status if operation is approval
-        if history.operation_type == '审批通过'
-          reimbursement.update(reimbursement_status: 'closed', is_complete: true)
-        end
-        
-        results[:matched] << history
-      rescue => e
-        results[:errors] << { row: row.to_h, error: e.message }
-      end
-    end
-    
-    results
-  end
-  
-  private
-  
-  def self.parse_date(date_string)
-    Date.parse(date_string) if date_string.present?
-  end
-  
-  def self.parse_datetime(datetime_string)
-    Time.parse(datetime_string) if datetime_string.present?
-  end
-  
-  def self.extract_document_number(row)
-    row['单据编号'] || row['报销单号']
-  end
-  
-  def self.extract_tracking_number(row)
-    row['快递单号']
-  end
-  
-  def self.extract_courier_company(row)
-    row['快递公司']
-  end
-end
-```
+2. **工单处理服务实现**：
+   - 实现审核工单处理服务
+   - 实现沟通工单处理服务
+   - 实现快递收单工单处理服务
 
-### 5.3 控制器实现
+3. **费用明细验证服务实现**：
+   - 实现费用明细验证服务
+   - 实现状态联动逻辑
 
-#### 5.3.1 工单控制器实现
+### 5.3 控制器与视图实现
 
-```ruby
-# app/admin/work_orders.rb
-ActiveAdmin.register WorkOrder do
-  # Configure permitted parameters for strong parameters
-  permit_params :type, :reimbursement_id, :status, :audit_result, :audit_comment,
-                :communication_method, :initiator_role, :resolution_summary,
-                :tracking_number, :courier_name
-  
-  # Scopes for filtering work orders by type and status
-  scope :all, default: true
-  scope :audit_work_orders, -> { where(type: 'AuditWorkOrder') }
-  scope :communication_work_orders, -> { where(type: 'CommunicationWorkOrder') }
-  scope :express_receipt_work_orders, -> { where(type: 'ExpressReceiptWorkOrder') }
-  
-  # Add scopes for statuses based on the design document
-  AuditWorkOrder::STATUSES.each do |status|
-    scope status.humanize, -> { where(type: 'AuditWorkOrder', status: status) }, group: :audit_statuses
-  end
-  
-  CommunicationWorkOrder::STATUSES.each do |status|
-    scope status.humanize, -> { where(type: 'CommunicationWorkOrder', status: status) }, group: :communication_statuses
-  end
-  
-  ExpressReceiptWorkOrder::STATUSES.each do |status|
-    scope status.humanize, -> { where(type: 'ExpressReceiptWorkOrder', status: status) }, group: :express_receipt_statuses
-  end
-  
-  # Index page configuration
-  index do
-    selectable_column
-    id_column
-    column :type
-    column :reimbursement
-    column :status
-    column :created_at
-    actions
-  end
-  
-  # Show page configuration
-  show do
-    attributes_table do
-      row :type
-      row :reimbursement
-      row :status
-      row :parent_work_order
-      row :created_at
-      row :updated_at
-      
-      # Display type-specific fields
-      if work_order.is_a?(AuditWorkOrder)
-        row :audit_result
-        row :audit_comment
-        row :audit_date
-        row :vat_verified
-      elsif work_order.is_a?(CommunicationWorkOrder)
-        row :communication_method
-        row :initiator_role
-        row :resolution_summary
-      elsif work_order.is_a?(ExpressReceiptWorkOrder)
-        row :tracking_number
-        row :received_at
-        row :courier_name
-      end
-    end
-    
-    # Display child work orders
-    if work_order.child_work_orders.any?
-      panel "关联工单" do
-        table_for work_order.child_work_orders do
-          column :id
-          column :type
-          column :status
-          column :created_at
-          column "" do |child|
-            link_to "查看", admin_work_order_path(child)
-          end
-        end
-      end
-    end
-    
-    # Display fee detail selections
-    if work_order.fee_detail_selections.any?
-      panel "费用明细" do
-        table_for work_order.fee_detail_selections do
-          column :fee_detail
-          column :verification_result
-          column :discussion_result
-          column :verified_by
-          column :verified_at
-        end
-      end
-    end
-    
-    # Display status change history
-    if work_order.work_order_status_changes.any?
-      panel "状态变更历史" do
-        table_for work_order.work_order_status_changes.order(:changed_at) do
-          column :from_status
-          column :to_status
-          column :changed_at
-          column :changed_by
-        end
-      end
-    end
-  end
-  
-  # Form configuration
-  form do |f|
-    f.inputs "工单详情" do
-      f.input :type, as: :select, collection: WorkOrder.subclasses.map { |c| [c.name.humanize, c.name] }
-      f.input :reimbursement
-      f.input :status, as: :select, collection: resource.class.available_statuses if resource.persisted?
-      
-      # Add type-specific fields to the form
-      if resource.is_a?(AuditWorkOrder)
-        f.input :audit_result
-        f.input :audit_comment
-        f.input :audit_date, as: :datepicker
-        f.input :vat_verified
-      elsif resource.is_a?(CommunicationWorkOrder)
-        f.input :communication_method
-        f.input :initiator_role
-        f.input :resolution_summary
-      elsif resource.is_a?(ExpressReceiptWorkOrder)
-        f.input :tracking_number
-        f.input :received_at, as: :datepicker
-        f.input :courier_name
-      end
-    end
-    f.actions
-  end
-  
-  # Custom member actions for status transitions
-  member_action :transition, method: :patch do
-    event = params[:event].to_sym
-    if resource.send(event)
-      redirect_to resource_path, notice: "工单状态已更新为 #{resource.status.humanize}"
-    else
-      redirect_to resource_path, alert: "工单状态更新失败"
-    end
-  end
-  
-  # Add buttons for available transitions on show page
-  action_item :status_transitions, only: :show do
-    resource.available_status_transitions.each do |transition|
-      link_to transition.humanize, transition_admin_work_order_path(resource, event: transition), method: :patch
-    end
-  end
-  
-  # Custom collection action for creating work orders from reimbursement
-  collection_action :new_from_reimbursement, method: :get do
-    @reimbursement = Reimbursement.find(params[:reimbursement_id])
-    @work_order_type = params[:type]
-    @work_order = @work_order_type.constantize.new(reimbursement: @reimbursement)
-    
-    if @work_order.is_a?(AuditWorkOrder) || @work_order.is_a?(CommunicationWorkOrder)
-      @fee_details = @reimbursement.fee_details
-    end
-    
-    render :template => 'admin/reimbursements/new_work_order'
-  end
-  
-  collection_action :create_from_reimbursement, method: :post do
-    @reimbursement = Reimbursement.find(params[:reimbursement_id])
-    @work_order_type = params[:work_order][:type]
-    @work_order = @work_order_type.constantize.new(params[:work_order].except(:type).permit!)
-    @work_order.reimbursement = @reimbursement
-    
-    if @work_order.save
-      # Associate selected fee details if applicable
-      if (@work_order.is_a?(AuditWorkOrder) || @work_order.is_a?(CommunicationWorkOrder)) && params[:fee_detail_ids].present?
-        params[:fee_detail_ids].each do |fee_detail_id|
-          FeeDetailSelection.create!(
-            selectable: @work_order,
-            fee_detail_id: fee_detail_id,
-            verification_result: 'pending'
-          )
-        end
-      end
-      
-      redirect_to admin_work_order_path(@work_order), notice: '工单创建成功'
-    else
-      @fee_details = @reimbursement.fee_details if @work_order.is_a?(AuditWorkOrder) || @work_order.is_a?(CommunicationWorkOrder)
-      render :template => 'admin/reimbursements/new_work_order'
-    end
-  end
-end
-```
+1. **工单控制器实现**：
+   - 实现工单基础控制器
+   - 实现审核工单控制器
+   - 实现沟通工单控制器
+   - 实现快递收单工单控制器
+
+2. **ActiveAdmin资源配置**：
+   - 配置工单资源
+   - 配置报销单资源
+   - 配置费用明细资源
+
+3. **自定义表单与视图**：
+   - 实现工单创建表单
+   - 实现工单处理表单
+   - 实现费用明细选择界面
 
 ## 6. 重构策略
 
@@ -2076,15 +359,17 @@ end
 1. **数据结构调整**：
    - 实施数据库迁移，调整工单表结构以支持STI
    - 创建状态变更记录表
+   - 添加备注和沟通记录字段
 
 2. **模型实现**：
-   - 实现工单基类（WorkOrder）和子类（AuditWorkOrder, CommunicationWorkOrder, ExpressReceiptWorkOrder）
+   - 实现工单基类和子类
    - 为各工单类型实现独立的状态机
    - 添加工单之间的父子关联关系
    - 实现沟通记录和费用明细选择关联模型
 
 3. **服务对象实现**：
    - 重构导入服务，确保正确处理各种导入场景并自动创建工单
+   - 实现工单处理服务
 
 4. **控制器与视图**：
    - 实现工单基础控制器和类型特定的控制器逻辑
@@ -2116,6 +401,7 @@ end
    - 集成测试
    - 用户验收测试
    - 生产环境部署
+
 ## 7. 开发迭代计划
 
 实施计划分为四个主要阶段，时间安排如下：
