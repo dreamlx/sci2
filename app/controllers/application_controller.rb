@@ -1,5 +1,7 @@
+require_relative '../../lib/current'
+
 class ApplicationController < ActionController::Base
-  include ServiceRegistry
+  include Current
 
   before_action :set_current_admin_user
 

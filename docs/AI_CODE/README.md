@@ -1,6 +1,6 @@
 # SCI2 工单系统重构 - AI 编码任务指令
 
-本目录包含针对 SCI2 工单系统重构的详细 AI 编码任务指令，专为较低计算能力的 LLM 模型（如 Qwen 32B）设计。每个任务都提供了明确的输入、期望输出和详细步骤，以确保代码质量和一致性。
+本目录包含针对 SCI2 工单系统重构的详细 AI 编码任务指令，专为 Qwen 32B 模型设计。每个任务都提供了明确的输入、期望输出和详细步骤，以确保代码质量和一致性。
 
 ## 目录结构
 
@@ -57,7 +57,20 @@ docs/AI_CODE/
    - 代码示例和模板
    - 测试验证方法
 3. 完成每个任务后，应进行测试验证，确保符合要求。
-4. 所有实现应遵循 `docs/LLM_AI开发任务分解指南.md` 中的代码质量保证原则。
+4. 所有实现应遵循 `docs/00LLM_AI开发任务分解指南.md` 中的代码质量保证原则。
+
+## 架构概览
+
+本项目采用单表继承 (Single Table Inheritance, STI) 架构实现工单系统，主要特点：
+
+1. **单表继承模型**：使用 `WorkOrder` 作为基类，通过 `type` 字段区分不同工单类型（快递收单、审核、沟通）
+2. **共享字段**：所有工单类型共享字段如 `problem_type`, `problem_description`, `remark`, `processing_opinion`
+3. **状态流转**：
+   - 快递收单工单：固定状态为 `completed`
+   - 审核工单：`pending` → `processing` → `approved`/`rejected`
+   - 沟通工单：`pending` → `processing`/`needs_communication` → `approved`/`rejected`
+4. **费用明细验证**：状态为 `pending` → `problematic`/`verified`
+5. **报销单状态**：`pending` → `processing` → `waiting_completion` → `closed`
 
 ## 开发流程
 
@@ -73,6 +86,11 @@ docs/AI_CODE/
 3. 特别关注费用明细验证逻辑，确保沟通工单解决后状态不自动更新。
 4. 确保两种审核工单创建路径正确实现。
 5. 确保数据导入顺序的强制要求（必须先导入报销单）。
-6. 使用 RSpec 进行测试，确保测试覆盖所有关键功能和边缘情况。
+6. 确保重复数据处理逻辑正确：
+   - 报销单：根据 invoice_number 查找，存在则更新
+   - 快递收单：根据 reimbursement_id + tracking_number 检查，存在则跳过
+   - 费用明细：根据 document_number + fee_type + amount + fee_date 检查，存在则跳过
+   - 操作历史：根据 document_number + operation_type + operation_time + operator 检查，存在则跳过
+7. 使用 RSpec 进行测试，确保测试覆盖所有关键功能和边缘情况。
 
 最终实现将使用 `docs/1-2SCI2工单系统测试计划_v3.md` 作为验收标准，确保所有测试用例都能通过。
