@@ -23,6 +23,7 @@ gem 'kaminari'
 
 # State machine
 gem 'state_machines'
+gem 'state_machines-activerecord'
 
 # XLS/XLSX processing
 gem 'roo'

@@ -5,7 +5,7 @@ class WorkOrder < ApplicationRecord
   
   # 关联
   belongs_to :reimbursement
-  belongs_to :creator, class_name: 'AdminUser', foreign_key: 'created_by', optional: true
+  belongs_to :creator, class_name: 'AdminUser', foreign_key: 'creator_id', optional: true
   
   # 多态关联
   has_many :fee_detail_selections, as: :work_order, dependent: :destroy
@@ -42,7 +42,7 @@ class WorkOrder < ApplicationRecord
       to_status: new_status,
       changed_at: Time.current,
       # 确保 Current.admin_user 在服务/控制器中设置
-      changed_by: Current.admin_user&.id || creator&.id
+      changer_id: Current.admin_user&.id || creator&.id
     )
   end
   
