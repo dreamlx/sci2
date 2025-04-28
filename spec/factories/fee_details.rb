@@ -18,5 +18,11 @@ FactoryBot.define do
     trait :problematic do
       verification_status { "problematic" }
     end
+    
+    # 关联到报销单的特性
+    trait :with_reimbursement do
+      association :reimbursement, strategy: :build
+      document_number { reimbursement.invoice_number }
+    end
   end
 end
