@@ -1,8 +1,5 @@
 # app/models/audit_work_order.rb
 class AuditWorkOrder < WorkOrder
-  # 关联 (如上)
-  has_many :communication_work_orders, foreign_key: 'audit_work_order_id', dependent: :nullify, inverse_of: :audit_work_order
-
   # 验证 (如上)
   validates :status, inclusion: { in: %w[pending processing approved rejected] }
   validates :audit_result, presence: true, if: -> { approved? || rejected? }
@@ -95,18 +92,7 @@ class AuditWorkOrder < WorkOrder
   end
 
   def self.subclass_ransackable_associations
-    %w[communication_work_orders]
-  end
-
-  # 更新关联费用明细的状态
-  def update_associated_fee_details_status(new_status)
-    valid_statuses = ['problematic', 'verified']
-    return unless valid_statuses.include?(new_status)
-    
-    # 更新所有关联的费用明细选择的验证状态
-    fee_detail_selections.each do |selection|
-      selection.update(verification_status: new_status)
-    end
+    [] # 移除与 CommunicationWorkOrder 的关联
   end
   
   # 单元测试将在下面步骤中添加

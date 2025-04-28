@@ -31,7 +31,10 @@ class FeeDetailVerificationService
     
     # 更新关联的费用明细选择记录
     update_fee_detail_selections(fee_detail, status, comment) if result
-    
+
+    # 触发报销单状态更新检查
+    fee_detail.reimbursement.update_status_based_on_fee_details! if fee_detail.reimbursement
+
     result
   end
   

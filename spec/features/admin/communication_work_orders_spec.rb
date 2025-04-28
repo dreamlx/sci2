@@ -3,9 +3,8 @@ require 'rails_helper'
 RSpec.describe "沟通工单管理", type: :feature do
   let!(:admin_user) { create(:admin_user) }
   let!(:reimbursement) { create(:reimbursement) }
-  let!(:audit_work_order) { create(:audit_work_order, reimbursement: reimbursement, status: 'rejected') }
   let!(:fee_detail) { create(:fee_detail, document_number: reimbursement.invoice_number) }
-  let!(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement, audit_work_order: audit_work_order, status: 'pending') }
+  let!(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement, status: 'pending') } # 移除 audit_work_order 关联
 
   before do
     login_as(admin_user, scope: :admin_user)
@@ -42,7 +41,7 @@ RSpec.describe "沟通工单管理", type: :feature do
 
   describe "创建沟通工单", js: true do
     it "可以创建新沟通工单" do
-      visit new_admin_communication_work_order_path(reimbursement_id: reimbursement.id, audit_work_order_id: audit_work_order.id)
+      visit new_admin_communication_work_order_path(reimbursement_id: reimbursement.id) # 移除 audit_work_order_id 参数
 
       # 选择费用明细
       check("communication_work_order[fee_detail_ids][]")

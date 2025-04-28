@@ -23,11 +23,6 @@ RSpec.describe AuditWorkOrder, type: :model do
     end
   end
 
-  # 关联方法测试（使用 respond_to 而不是实际测试关联）
-  describe "association methods" do
-    it { should respond_to(:communication_work_orders) }
-  end
-
   # 状态机测试
   describe "state machine" do
     let(:reimbursement) { create(:reimbursement) }

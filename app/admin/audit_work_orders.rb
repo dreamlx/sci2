@@ -177,17 +177,6 @@ ActiveAdmin.register AuditWorkOrder do
         end
       end
 
-      tab "沟通工单 (#{resource.communication_work_orders.count})" do
-         panel "关联沟通工单" do
-            table_for resource.communication_work_orders do
-                column(:id) { |comm_wo| link_to comm_wo.id, admin_communication_work_order_path(comm_wo) }
-                column(:status) { |comm_wo| status_tag comm_wo.status }
-                column :creator
-                column :created_at
-            end
-         end
-      end
-
       tab "状态变更历史" do
          panel "状态变更历史" do
            table_for resource.work_order_status_changes.order(changed_at: :desc) do
@@ -202,100 +191,6 @@ ActiveAdmin.register AuditWorkOrder do
     active_admin_comments
   end
 
-  # 表单
-  form do |f|
-    f.inputs "审核工单信息" do
-      if f.object.new_record?
-        f.input :reimbursement_id, as: :select,
-                    collection: Reimbursement.all.map { |r| ["#{r.invoice_number} - #{r.applicant}", r.id] },
-                    input_html: { disabled: !f.object.new_record? }
-      else
-        f.input :reimbursement_id, as: :hidden
-        li class: "string input" do
-          label "报销单"
-          span link_to f.object.reimbursement.invoice_number, admin_reimbursement_path(f.object.reimbursement)
-        end
-      end
-
-      if f.object.new_record?
-        f.input :problem_type, as: :select, collection: ProblemTypeOptions.all
-        f.input :problem_description, as: :select, collection: ProblemDescriptionOptions.all
-        f.input :remark, as: :text, input_html: { rows: 3 }
-        f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all
-      else
-        f.input :problem_type
-        f.input :problem_description
-        f.input :remark
-        f.input :processing_opinion
-      end
-
-      if !f.object.new_record? && f.object.audit_result.present?
-        f.input :audit_result, input_html: { disabled: true }
-        f.input :audit_comment
-        f.input :audit_date, as: :datepicker
-        f.input :vat_verified
-      end
-    end
-
-    if f.object.new_record?
-      f.inputs "选择费用明细" do
-        if f.object.reimbursement_id.present?
-          div class: "fee-detail-selection" do
-            div class: "select-actions" do
-              a "全选", href: "#", class: "select-all"
-              text_node " | "
-              a "取消全选", href: "#", class: "deselect-all"
-            end
-
-            table class: "fee-details-table" do
-              thead do
-                tr do
-                  th class: "selectable"
-                  th "ID"
-                  th "费用类型"
-                  th "金额"
-                  th "费用日期"
-                  th "验证状态"
-                end
-              end
-              tbody do
-                f.object.reimbursement.fee_details.each do |fee_detail|
-                  tr do
-                    td do
-                      check_box_tag "audit_work_order[fee_detail_ids][]", fee_detail.id,
-                                       f.object.fee_detail_ids.include?(fee_detail.id)
-                    end
-                    td fee_detail.id
-                    td fee_detail.fee_type
-                    td number_to_currency(fee_detail.amount, unit: "¥")
-                    td fee_detail.fee_date
-                    td status_tag fee_detail.verification_status
-                  end
-                end
-              end
-            end
-
-            script do
-              raw "$(document).ready(function() {
-                $('.select-all').click(function(e) {
-                  e.preventDefault();
-                  $('.fee-details-table input[type=\"checkbox\"]').prop('checked', true);
-                });
-
-                $('.deselect-all').click(function(e) {
-                  e.preventDefault();
-                  $('.fee-details-table input[type=\"checkbox\"]').prop('checked', false);
-                });
-              });"
-            end
-          end
-
-        else
-          p "请先选择报销单，然后才能选择费用明细。"
-        end
-      end
-    end
-
-    f.actions
-  end
+  # 表单使用 partial
+  form partial: 'form'
 end

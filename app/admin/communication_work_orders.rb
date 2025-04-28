@@ -10,26 +10,21 @@ ActiveAdmin.register CommunicationWorkOrder do
 
   controller do
     def scoped_collection
-      CommunicationWorkOrder.includes(:reimbursement, :creator, :audit_work_order)
+      CommunicationWorkOrder.includes(:reimbursement, :creator) # 移除 audit_work_order 关联
     end
 
-    # 创建时设置报销单/审核工单ID
+    # 创建时设置报销单ID (移除审核工单ID设置)
     def build_new_resource
       resource = super
       if params[:reimbursement_id] && resource.reimbursement_id.nil?
         resource.reimbursement_id = params[:reimbursement_id]
       end
-      # 根据Req 5/7要求，沟通工单需要关联审核工单
-      if params[:audit_work_order_id] && resource.audit_work_order_id.nil?
-         resource.audit_work_order_id = params[:audit_work_order_id]
-      end
       resource
     end
   end
 
-  # 过滤器
+  # 过滤器 (移除 audit_work_order_id 过滤器)
   filter :reimbursement_invoice_number, as: :string, label: '报销单号'
-  filter :audit_work_order_id
   filter :status, as: :select, collection: CommunicationWorkOrder.state_machines[:status].states.map(&:value)
   filter :communication_method
   filter :initiator_role
@@ -158,7 +153,6 @@ ActiveAdmin.register CommunicationWorkOrder do
     selectable_column
     id_column
     column :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
-    column :audit_work_order do |wo| link_to wo.audit_work_order_id, admin_audit_work_order_path(wo.audit_work_order) if wo.audit_work_order_id end
     column :status do |wo| status_tag wo.status end
     column :initiator_role
     column :creator
@@ -173,7 +167,6 @@ ActiveAdmin.register CommunicationWorkOrder do
          attributes_table do
            row :id
            row :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
-           row :audit_work_order do |wo| link_to wo.audit_work_order_id, admin_audit_work_order_path(wo.audit_work_order) if wo.audit_work_order_id end
            row :type
            row :status do |wo| status_tag wo.status end
            row :communication_method
@@ -238,137 +231,6 @@ ActiveAdmin.register CommunicationWorkOrder do
      active_admin_comments
   end
 
-  # 表单
-  form do |f|
-    f.inputs "沟通工单信息" do
-      if f.object.new_record?
-        f.input :reimbursement_id, as: :select,
-                    collection: Reimbursement.all.map { |r| ["#{r.invoice_number} - #{r.applicant}", r.id] },
-                    input_html: { disabled: !f.object.new_record? }
-
-        if f.object.reimbursement_id.present?
-          f.input :audit_work_order_id, as: :select,
-                      collection: AuditWorkOrder.where(reimbursement_id: f.object.reimbursement_id)
-                                              .map { |wo| ["审核工单 ##{wo.id} (#{wo.status})", wo.id] },
-                      include_blank: "-- 选择关联的审核工单 --"
-        else
-          li class: "string input" do
-            label "审核工单"
-            p class: "inline-hints", do: "请先选择报销单，然后才能选择关联的审核工单"
-          end
-        end
-      else
-        f.input :reimbursement_id, as: :hidden
-        li class: "string input" do
-          label "报销单"
-          span link_to f.object.reimbursement.invoice_number, admin_reimbursement_path(f.object.reimbursement)
-        end
-
-        f.input :audit_work_order_id, as: :hidden
-        if f.object.audit_work_order_id.present?
-          li class: "string input" do
-            label "审核工单"
-            span link_to "审核工单 ##{f.object.audit_work_order_id}", admin_audit_work_order_path(f.object.audit_work_order)
-          end
-        end
-      end
-
-      if f.object.new_record?
-        f.input :problem_type, as: :select, collection: ProblemTypeOptions.all
-        f.input :problem_description, as: :select, collection: ProblemDescriptionOptions.all
-        f.input :remark, as: :text, input_html: { rows: 3 }
-        f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all
-        f.input :communication_method, as: :select, collection: CommunicationMethodOptions.all
-        f.input :initiator_role, as: :select, collection: InitiatorRoleOptions.all
-      else
-        f.input :problem_type
-        f.input :problem_description
-        f.input :remark
-        f.input :processing_opinion
-        f.input :communication_method
-        f.input :initiator_role
-
-        if f.object.status == 'approved' || f.object.status == 'rejected'
-          f.input :resolution_summary
-        end
-      end
-    end
-
-    if f.object.new_record?
-      f.inputs "选择费用明细" do
-        if f.object.reimbursement_id.present?
-          div class: "fee-detail-selection" do
-            div class: "select-actions" do
-              a "全选", href: "#", class: "select-all"
-              text_node " | "
-              a "取消全选", href: "#", class: "deselect-all"
-            end
-
-            table class: "fee-details-table" do
-              thead do
-                tr do
-                  th class: "selectable"
-                  th "ID"
-                  th "费用类型"
-                  th "金额"
-                  th "费用日期"
-                  th "验证状态"
-                end
-              end
-              tbody do
-                f.object.reimbursement.fee_details.each do |fee_detail|
-                  tr do
-                    td do
-                      check_box_tag "communication_work_order[fee_detail_ids][]", fee_detail.id,
-                                       f.object.fee_detail_ids.include?(fee_detail.id)
-                    end
-                    td fee_detail.id
-                    td fee_detail.fee_type
-                    td number_to_currency(fee_detail.amount, unit: "¥")
-                    td fee_detail.fee_date
-                    td status_tag fee_detail.verification_status
-                  end
-                end
-              end
-            end
-
-            script do
-              raw "$(document).ready(function() {
-                $('.select-all').click(function(e) {
-                  e.preventDefault();
-                  $('.fee-details-table input[type=\"checkbox\"]').prop('checked', true);
-                });
-
-                $('.deselect-all').click(function(e) {
-                  e.preventDefault();
-                  $('.fee-details-table input[type=\"checkbox\"]').prop('checked', false);
-                });
-
-                // 动态加载审核工单
-                $('#communication_work_order_reimbursement_id').change(function() {
-                  var reimbursementId = $(this).val();
-                  if (reimbursementId) {
-                    $.get('/admin/audit_work_orders.json?q[reimbursement_id_eq]=' + reimbursementId, function(data) {
-                      var options = '<option value=\"\">-- 选择关联的审核工单 --</option>';
-                      $.each(data, function(index, workOrder) {
-                        options += '<option value=\"' + workOrder.id + '\">审核工单 #' + workOrder.id + ' (' + workOrder.status + ')</option>';
-                      });
-                      $('#communication_work_order_audit_work_order_id').html(options);
-                    });
-                  } else {
-                    $('#communication_work_order_audit_work_order_id').html('<option value=\"\">-- 选择关联的审核工单 --</option>');
-                  }
-                });
-              });"
-            end
-          end
-
-        else
-          p "请先选择报销单，然后才能选择费用明细。"
-        end
-      end
-    end
-
-    f.actions
-  end
+  # 表单使用 partial
+  form partial: 'form'
 end

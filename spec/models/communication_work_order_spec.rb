@@ -5,7 +5,6 @@ RSpec.describe CommunicationWorkOrder, type: :model do
   # 验证测试（不依赖其他模型）
   describe "validations" do
     it { should validate_inclusion_of(:status).in_array(%w[pending processing needs_communication approved rejected]) }
-    it { should validate_presence_of(:audit_work_order_id) }
     
     context "when approved or rejected" do
       before do
@@ -26,19 +25,16 @@ RSpec.describe CommunicationWorkOrder, type: :model do
   
   # 关联方法测试（使用 respond_to 而不是实际测试关联）
   describe "association methods" do
-    it { should respond_to(:audit_work_order) }
     it { should respond_to(:communication_records) }
   end
-  
+
   # 状态机测试
   describe "state machine" do
     let(:reimbursement) { build_stubbed(:reimbursement) }
-    let(:audit_work_order) { build_stubbed(:audit_work_order) }
     let(:work_order) do
       build(:communication_work_order).tap do |wo|
         # 使用 stub 绕过验证
         allow(wo).to receive(:reimbursement).and_return(reimbursement)
-        allow(wo).to receive(:audit_work_order).and_return(audit_work_order)
         allow(wo).to receive(:valid?).and_return(true)
         allow(wo).to receive(:update_associated_fee_details_status)
         # 禁用回调以避免数据库访问
@@ -71,7 +67,6 @@ RSpec.describe CommunicationWorkOrder, type: :model do
         build(:communication_work_order, :processing).tap do |wo|
           # 使用 stub 绕过验证
           allow(wo).to receive(:reimbursement).and_return(reimbursement)
-          allow(wo).to receive(:audit_work_order).and_return(audit_work_order)
           allow(wo).to receive(:valid?).and_return(true)
           allow(wo).to receive(:update_associated_fee_details_status)
           # 禁用回调以避免数据库访问
@@ -105,7 +100,6 @@ RSpec.describe CommunicationWorkOrder, type: :model do
         build(:communication_work_order, :needs_communication).tap do |wo|
           # 使用 stub 绕过验证
           allow(wo).to receive(:reimbursement).and_return(reimbursement)
-          allow(wo).to receive(:audit_work_order).and_return(audit_work_order)
           allow(wo).to receive(:valid?).and_return(true)
           allow(wo).to receive(:update_associated_fee_details_status)
           # 禁用回调以避免数据库访问

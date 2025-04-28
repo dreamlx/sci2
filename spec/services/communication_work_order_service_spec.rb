@@ -4,8 +4,7 @@ require 'rails_helper'
 RSpec.describe CommunicationWorkOrderService do
   let(:admin_user) { create(:admin_user) }
   let(:reimbursement) { create(:reimbursement) }
-  let(:audit_work_order) { create(:audit_work_order, reimbursement: reimbursement) }
-  let(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement, audit_work_order: audit_work_order) }
+  let(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement) } # 移除 audit_work_order 关联
   let(:service) { described_class.new(communication_work_order, admin_user) }
 
   before do

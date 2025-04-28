@@ -1,12 +1,10 @@
 # app/models/communication_work_order.rb
 class CommunicationWorkOrder < WorkOrder
   # 关联
-  belongs_to :audit_work_order, class_name: 'AuditWorkOrder', foreign_key: 'audit_work_order_id', optional: false
   has_many :communication_records, foreign_key: 'communication_work_order_id', dependent: :destroy, inverse_of: :communication_work_order
   
   # 验证
   validates :status, inclusion: { in: %w[pending processing needs_communication approved rejected] }
-  validates :audit_work_order_id, presence: true
   
   # 可选的其他验证
   validates :resolution_summary, presence: true, if: -> { approved? || rejected? }
@@ -97,24 +95,13 @@ class CommunicationWorkOrder < WorkOrder
     communication_records.create(params.merge(communication_work_order_id: self.id))
   end
   
-  # 更新关联费用明细的状态
-  def update_associated_fee_details_status(new_status)
-    valid_statuses = ['problematic', 'verified']
-    return unless valid_statuses.include?(new_status)
-    
-    # 更新所有关联的费用明细选择的验证状态
-    fee_detail_selections.each do |selection|
-      selection.update(verification_status: new_status)
-    end
-  end
-  
   # 覆盖基类的 ransackable 方法
   def self.subclass_ransackable_attributes
     # 继承的通用字段 + Req 6/7 字段 + 特定字段
-    %w[communication_method initiator_role resolution_summary audit_work_order_id problem_type problem_description remark processing_opinion]
+    %w[communication_method initiator_role resolution_summary problem_type problem_description remark processing_opinion] # 移除 audit_work_order_id
   end
   
   def self.subclass_ransackable_associations
-    %w[audit_work_order communication_records]
+    %w[communication_records] # 移除 audit_work_order
   end
 end

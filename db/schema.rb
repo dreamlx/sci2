@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_04_28_151020) do
+ActiveRecord::Schema[7.1].define(version: 2025_04_28_155451) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -154,10 +154,8 @@ ActiveRecord::Schema[7.1].define(version: 2025_04_28_151020) do
     t.string "communication_method"
     t.string "initiator_role"
     t.text "resolution_summary"
-    t.integer "audit_work_order_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["audit_work_order_id"], name: "index_work_orders_on_audit_work_order_id"
     t.index ["creator_id"], name: "index_work_orders_on_creator_id"
     t.index ["reimbursement_id", "tracking_number"], name: "index_work_orders_on_reimbursement_and_tracking", where: "type = 'ExpressReceiptWorkOrder' AND tracking_number IS NOT NULL"
     t.index ["reimbursement_id"], name: "index_work_orders_on_reimbursement_id"
@@ -172,5 +170,4 @@ ActiveRecord::Schema[7.1].define(version: 2025_04_28_151020) do
   add_foreign_key "work_order_status_changes", "admin_users", column: "changer_id"
   add_foreign_key "work_orders", "admin_users", column: "creator_id"
   add_foreign_key "work_orders", "reimbursements"
-  add_foreign_key "work_orders", "work_orders", column: "audit_work_order_id"
 end

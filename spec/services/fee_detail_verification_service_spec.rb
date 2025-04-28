@@ -47,8 +47,16 @@ RSpec.describe FeeDetailVerificationService do
         
         service.update_verification_status(fee_detail, 'verified')
       end
+
+      it 'calls update_status_based_on_fee_details! on reimbursement after successful update' do
+        allow(fee_detail).to receive(:mark_as_verified).and_return(true)
+        allow(fee_detail).to receive(:fee_detail_selections).and_return([]) # Stub to avoid testing selections update here
+        allow(fee_detail).to receive(:reimbursement).and_return(reimbursement) # Ensure reimbursement is available
+        expect(reimbursement).to receive(:update_status_based_on_fee_details!)
+        service.update_verification_status(fee_detail, 'verified')
+      end
     end
-    
+
     context 'with invalid status' do
       it 'returns false' do
         expect(service.update_verification_status(fee_detail, 'invalid_status')).to be false
