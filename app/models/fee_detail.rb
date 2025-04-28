@@ -9,7 +9,7 @@ class FeeDetail < ApplicationRecord
   # 关联
   belongs_to :reimbursement, foreign_key: 'document_number', primary_key: 'invoice_number', optional: true, inverse_of: :fee_details
   has_many :fee_detail_selections, dependent: :destroy
-  has_many :work_orders, through: :fee_detail_selections
+  has_many :work_orders, through: :fee_detail_selections, source: :work_order, source_type: 'WorkOrder'
   
   # 验证
   validates :document_number, presence: true

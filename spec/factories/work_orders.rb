@@ -48,6 +48,7 @@ FactoryBot.define do
         audit_result { "rejected" }
         audit_date { Time.current }
         audit_comment { "测试拒绝原因" }
+        problem_type { "documentation_issue" }
       end
     end
     
