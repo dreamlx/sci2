@@ -5,6 +5,7 @@ ActiveAdmin.register Reimbursement do
 
   menu priority: 1, label: "报销单管理"
 
+  # 过滤器
   filter :invoice_number
   filter :applicant
   filter :status, label: "内部状态", as: :select, collection: Reimbursement.state_machines[:status].states.map(&:value)
@@ -14,44 +15,53 @@ ActiveAdmin.register Reimbursement do
   filter :created_at
   filter :approval_date
 
+  # 列表页范围过滤器
+  scope :all, default: true
+  scope :pending
+  scope :processing
+  scope :waiting_completion
+  scope :closed
+  scope :electronic, ->{where(is_electronic: true)}, label: "电子发票"
+
+  # 批量操作
   batch_action :mark_as_received do |ids|
-    batch_action_collection.find(ids).each do |reimbursement|
-      reimbursement.update(receipt_status: 'received', receipt_date: Time.current)
-    end
-    redirect_to collection_path, notice: "已将选中的报销单标记为已收单"
+     batch_action_collection.find(ids).each do |reimbursement|
+        reimbursement.update(receipt_status: 'received', receipt_date: Time.current)
+     end
+     redirect_to collection_path, notice: "已将选中的报销单标记为已收单"
   end
-
   batch_action :start_processing, if: proc { params[:scope] == 'pending' || params[:q].blank? } do |ids|
-    batch_action_collection.find(ids).each do |reimbursement|
-      begin
-        reimbursement.start_processing!
-      rescue StateMachines::InvalidTransition => e
-        Rails.logger.warn "Batch action start_processing failed for Reimbursement #{reimbursement.id}: #{e.message}"
-      end
-    end
-    redirect_to collection_path, notice: "已尝试将选中的报销单标记为处理中"
+     batch_action_collection.find(ids).each do |reimbursement|
+        begin
+          reimbursement.start_processing!
+        rescue StateMachines::InvalidTransition => e
+          Rails.logger.warn "Batch action start_processing failed for Reimbursement #{reimbursement.id}: #{e.message}"
+        end
+     end
+     redirect_to collection_path, notice: "已尝试将选中的报销单标记为处理中"
   end
 
+  # 操作按钮
   action_item :import, only: :index do
     link_to "导入报销单", new_import_admin_reimbursements_path
   end
-
-  action_item :new_audit_work_order, only: :show, if: proc {!resource.closed?} do
+  action_item :new_audit_work_order, only: :show, if: proc{!resource.closed?} do
     link_to "新建审核工单", new_admin_audit_work_order_path(reimbursement_id: resource.id)
   end
-
-  action_item :new_communication_work_order, only: :show, if: proc {!resource.closed?} do
-    link_to "新建沟通工单", new_admin_communication_work_order_path(reimbursement_id: resource.id)
+  action_item :new_communication_work_order, only: :show, if: proc{!resource.closed?} do
+     link_to "新建沟通工单", new_admin_communication_work_order_path(reimbursement_id: resource.id)
   end
 
+  # 导入操作
   collection_action :new_import, method: :get do
     render "admin/reimbursements/new_import"
   end
 
   collection_action :import, method: :post do
+    # 确保文件参数存在
     unless params[:file].present?
-      redirect_to new_import_admin_reimbursements_path, alert: "请选择要导入的文件。"
-      return
+       redirect_to new_import_admin_reimbursements_path, alert: "请选择要导入的文件。"
+       return
     end
     service = ReimbursementImportService.new(params[:file], current_admin_user)
     result = service.import
@@ -66,6 +76,7 @@ ActiveAdmin.register Reimbursement do
     end
   end
 
+  # 列表页
   index do
     selectable_column
     id_column
@@ -81,6 +92,47 @@ ActiveAdmin.register Reimbursement do
     actions
   end
 
+  # 详情页状态操作按钮
+  action_item :start_processing, only: :show, if: proc{resource.pending?} do
+    link_to "开始处理", start_processing_admin_reimbursement_path(resource), method: :put, data: { confirm: "确定要开始处理此报销单吗?" }
+  end
+
+  action_item :mark_waiting_completion, only: :show, if: proc{resource.processing?} do
+    link_to "标记为等待完成", mark_waiting_completion_admin_reimbursement_path(resource), method: :put, data: { confirm: "确定要将此报销单标记为等待完成吗?" }
+  end
+
+  action_item :close, only: :show, if: proc{resource.waiting_completion?} do
+    link_to "关闭报销单", close_admin_reimbursement_path(resource), method: :put, data: { confirm: "确定要关闭此报销单吗?" }
+  end
+
+  member_action :start_processing, method: :put do
+    begin
+      resource.start_processing!
+      redirect_to admin_reimbursement_path(resource), notice: "报销单已开始处理"
+    rescue => e
+      redirect_to admin_reimbursement_path(resource), alert: "操作失败: #{e.message}"
+    end
+  end
+
+  member_action :mark_waiting_completion, method: :put do
+    begin
+      resource.mark_waiting_completion!
+      redirect_to admin_reimbursement_path(resource), notice: "报销单已标记为等待完成"
+    rescue => e
+      redirect_to admin_reimbursement_path(resource), alert: "操作失败: #{e.message}"
+    end
+  end
+
+  member_action :close, method: :put do
+    begin
+      resource.close!
+      redirect_to admin_reimbursement_path(resource), notice: "报销单已关闭"
+    rescue => e
+      redirect_to admin_reimbursement_path(resource), alert: "操作失败: #{e.message}"
+    end
+  end
+
+  # 详情页
   show title: proc{|r| "报销单 ##{r.invoice_number}" } do
     tabs do
       tab "基本信息" do
@@ -131,28 +183,28 @@ ActiveAdmin.register Reimbursement do
             column :created_at
           end
         end
-        div class: "action_items" do
-          span class: "action_item" do
-            link_to "新建审核工单", new_admin_audit_work_order_path(reimbursement_id: resource.id), class: "button"
-          end
-        end
+         div class: "action_items" do
+            span class: "action_item" do
+              link_to "新建审核工单", new_admin_audit_work_order_path(reimbursement_id: resource.id), class: "button"
+            end
+         end
       end
 
       tab "沟通工单" do
         panel "沟通工单信息" do
           table_for resource.communication_work_orders.order(created_at: :desc) do
-            column(:id) { |wo| link_to wo.id, admin_communication_work_order_path(wo) }
-            column(:status) { |wo| status_tag wo.status }
-            column :initiator_role
-            column :creator
-            column :created_at
+             column(:id) { |wo| link_to wo.id, admin_communication_work_order_path(wo) }
+             column(:status) { |wo| status_tag wo.status }
+             column :initiator_role
+             column :creator
+             column :created_at
           end
         end
-        div class: "action_items" do
-          span class: "action_item" do
-            link_to "新建沟通工单", new_admin_communication_work_order_path(reimbursement_id: resource.id), class: "button"
-          end
-        end
+         div class: "action_items" do
+            span class: "action_item" do
+              link_to "新建沟通工单", new_admin_communication_work_order_path(reimbursement_id: resource.id), class: "button"
+            end
+         end
       end
 
       tab "费用明细" do
@@ -169,21 +221,22 @@ ActiveAdmin.register Reimbursement do
         end
       end
 
-      tab "操作历史" do
-        panel "操作历史记录" do
-          table_for resource.operation_histories.order(operation_time: :desc) do
-            column :id
-            column :operation_type
-            column :operator
-            column :operation_time
-            column :notes
-          end
-        end
-      end
+       tab "操作历史" do
+         panel "操作历史记录" do
+           table_for resource.operation_histories.order(operation_time: :desc) do
+             column :id
+             column :operation_type
+             column :operator
+             column :operation_time
+             column :notes
+           end
+         end
+       end
     end
     active_admin_comments
   end
 
+  # 表单页
   form do |f|
     f.inputs "报销单信息" do
       f.input :invoice_number, input_html: { readonly: !f.object.new_record? }

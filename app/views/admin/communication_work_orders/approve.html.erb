@@ -1,0 +1,20 @@
+<div class="panel">
+  <h3>沟通后通过</h3>
+
+  <div class="panel_contents">
+    <%= semantic_form_for [:admin, @communication_work_order], url: do_approve_admin_communication_work_order_path(@communication_work_order), method: :post do |f| %>
+      <%= f.inputs do %>
+        <%= f.input :resolution_summary, label: "解决方案摘要", input_html: { rows: 3 }, required: true %>
+        <%= f.input :problem_type, as: :hidden %>
+        <%= f.input :problem_description, as: :hidden %>
+        <%= f.input :remark, as: :hidden %>
+        <%= f.input :processing_opinion, as: :hidden %>
+      <% end %>
+
+      <div class="actions">
+        <%= f.submit "确认通过", class: "button" %>
+        <%= link_to "取消", admin_communication_work_order_path(@communication_work_order), class: "button" %>
+      </div>
+    <% end %>
+  </div>
+</div>

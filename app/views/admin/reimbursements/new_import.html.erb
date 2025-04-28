@@ -1,0 +1,54 @@
+<%= form_tag import_admin_reimbursements_path, multipart: true do %>
+  <div class="panel">
+    <h3>导入报销单</h3>
+
+    <div class="panel_contents">
+      <div class="import-instructions">
+        <h4>导入说明</h4>
+        <ul>
+          <li>请上传CSV格式文件</li>
+          <li>文件必须包含以下列：报销单单号、单据名称、报销单申请人、报销单申请人工号、申请人公司、申请人部门、报销单状态、收单状态、收单日期、提交报销日期、报销金额（单据币种）</li>
+          <li>如果报销单已存在（根据报销单单号判断），将更新现有记录</li>
+          <li>如果报销单不存在，将创建新记录</li>
+        </ul>
+      </div>
+
+      <div class="form-inputs">
+        <fieldset class="inputs">
+          <legend><span>文件选择</span></legend>
+          <ol>
+            <li class="file input">
+              <label for="file">选择文件</label>
+              <%= file_field_tag :file, accept: '.csv,.xls,.xlsx' %>
+            </li>
+          </ol>
+        </fieldset>
+      </div>
+    </div>
+
+    <div class="panel-footer">
+      <%= submit_tag "导入", class: "button" %>
+      <%= link_to "取消", admin_reimbursements_path, class: "button" %>
+    </div>
+  </div>
+<% end %>
+
+<style>
+  .import-instructions {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+  }
+
+  .import-instructions h4 {
+    margin-top: 0;
+    color: #2678e3;
+  }
+
+  .panel-footer {
+    padding: 15px;
+    text-align: right;
+    border-top: 1px solid #eee;
+  }
+</style>

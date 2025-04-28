@@ -1,0 +1,162 @@
+<%= semantic_form_for [:admin, @communication_work_order] do |f| %>
+  <%= f.inputs "沟通工单信息" do %>
+    <% if f.object.new_record? %>
+      <%= f.input :reimbursement_id, as: :select,
+                  collection: Reimbursement.all.map { |r| ["#{r.invoice_number} - #{r.applicant}", r.id] },
+                  input_html: { disabled: !f.object.new_record? } %>
+
+      <% if f.object.reimbursement_id.present? %>
+        <%= f.input :audit_work_order_id, as: :select,
+                    collection: AuditWorkOrder.where(reimbursement_id: f.object.reimbursement_id)
+                                            .map { |wo| ["审核工单 ##{wo.id} (#{wo.status})", wo.id] },
+                    include_blank: "-- 选择关联的审核工单 --" %>
+      <% else %>
+        <li class="string input">
+          <label>审核工单</label>
+          <p class="inline-hints">请先选择报销单，然后才能选择关联的审核工单</p>
+        </li>
+      <% end %>
+    <% else %>
+      <%= f.input :reimbursement_id, as: :hidden %>
+      <li class="string input">
+        <label>报销单</label>
+        <span><%= link_to f.object.reimbursement.invoice_number, admin_reimbursement_path(f.object.reimbursement) %></span>
+      </li>
+
+      <%= f.input :audit_work_order_id, as: :hidden %>
+      <% if f.object.audit_work_order_id.present? %>
+        <li class="string input">
+          <label>审核工单</label>
+          <span><%= link_to "审核工单 ##{f.object.audit_work_order_id}", admin_audit_work_order_path(f.object.audit_work_order) %></span>
+        </li>
+      <% end %>
+    <% end %>
+
+    <% if f.object.new_record? %>
+      <%= f.input :problem_type, as: :select, collection: ProblemTypeOptions.all %>
+      <%= f.input :problem_description, as: :select, collection: ProblemDescriptionOptions.all %>
+      <%= f.input :remark, as: :text, input_html: { rows: 3 } %>
+      <%= f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all %>
+      <%= f.input :communication_method, as: :select, collection: CommunicationMethodOptions.all %>
+      <%= f.input :initiator_role, as: :select, collection: InitiatorRoleOptions.all %>
+    <% else %>
+      <%= f.input :problem_type %>
+      <%= f.input :problem_description %>
+      <%= f.input :remark %>
+      <%= f.input :processing_opinion %>
+      <%= f.input :communication_method %>
+      <%= f.input :initiator_role %>
+
+      <% if f.object.status == 'approved' || f.object.status == 'rejected' %>
+        <%= f.input :resolution_summary %>
+      <% end %>
+    <% end %>
+  <% end %>
+
+  <% if f.object.new_record? %>
+    <%= f.inputs "选择费用明细" do %>
+      <% if f.object.reimbursement_id.present? %>
+        <div class="fee-detail-selection">
+          <div class="select-actions">
+            <a href="#" class="select-all">全选</a> |
+            <a href="#" class="deselect-all">取消全选</a>
+          </div>
+
+          <table class="fee-details-table">
+            <thead>
+              <tr>
+                <th class="selectable"></th>
+                <th>ID</th>
+                <th>费用类型</th>
+                <th>金额</th>
+                <th>费用日期</th>
+                <th>验证状态</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% f.object.reimbursement.fee_details.each do |fee_detail| %>
+                <tr>
+                  <td>
+                    <%= check_box_tag "communication_work_order[fee_detail_ids][]", fee_detail.id,
+                                     f.object.fee_detail_ids.include?(fee_detail.id) %>
+                  </td>
+                  <td><%= fee_detail.id %></td>
+                  <td><%= fee_detail.fee_type %></td>
+                  <td><%= number_to_currency(fee_detail.amount, unit: "¥") %></td>
+                  <td><%= fee_detail.fee_date %></td>
+                  <td><%= status_tag fee_detail.verification_status %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+
+        <script>
+          $(document).ready(function() {
+            $('.select-all').click(function(e) {
+              e.preventDefault();
+              $('.fee-details-table input[type="checkbox"]').prop('checked', true);
+            });
+
+            $('.deselect-all').click(function(e) {
+              e.preventDefault();
+              $('.fee-details-table input[type="checkbox"]').prop('checked', false);
+            });
+
+            // 动态加载审核工单
+            $('#communication_work_order_reimbursement_id').change(function() {
+              var reimbursementId = $(this).val();
+              if (reimbursementId) {
+                $.get('/admin/audit_work_orders.json?q[reimbursement_id_eq]=' + reimbursementId, function(data) {
+                  var options = '<option value="">-- 选择关联的审核工单 --</option>';
+                  $.each(data, function(index, workOrder) {
+                    options += '<option value="' + workOrder.id + '">审核工单 #' + workOrder.id + ' (' + workOrder.status + ')</option>';
+                  });
+                  $('#communication_work_order_audit_work_order_id').html(options);
+                });
+              }
+            });
+          });
+        </script>
+      <% else %>
+        <p>请先选择报销单，然后才能选择费用明细。</p>
+      <% end %>
+    <% end %>
+  <% end %>
+
+  <%= f.actions %>
+<% end %>
+
+<style>
+  .fee-detail-selection {
+    margin-top: 15px;
+  }
+
+  .select-actions {
+    margin-bottom: 10px;
+  }
+
+  .fee-details-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .fee-details-table th, .fee-details-table td {
+    padding: 8px;
+    border: 1px solid #ddd;
+  }
+
+  .fee-details-table th {
+    background-color: #f5f5f5;
+    text-align: left;
+  }
+
+  .fee-details-table tr:hover {
+    background-color: #f9f9f9;
+  }
+
+  .fee-details-table .selectable {
+    width: 30px;
+    text-align: center;
+  }
+</style>
