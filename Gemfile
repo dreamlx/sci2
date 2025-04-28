@@ -1,3 +1,4 @@
+# Gemfile
 source 'https://rubygems.org'
 git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
@@ -7,7 +8,7 @@ ruby '3.4.2'
 gem 'rails', '~>7.1.5.1'
 gem 'sqlite3', '~> 1.4'
 gem 'puma', '~> 6.0'
-gem 'bootsnap', '>= 1.4.4', require: false
+# gem 'bootsnap', '>= 1.4.4', require: false
 
 # Frontend
 gem 'importmap-rails'
