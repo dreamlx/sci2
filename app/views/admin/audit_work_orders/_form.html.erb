@@ -1,3 +1,6 @@
+<%# This partial requires ActiveAdmin view helpers %>
+<% self.class.include ActiveAdmin::ViewHelpers %>
+
 <%= semantic_form_for [:admin, @audit_work_order] do |f| %>
   <%= f.inputs "审核工单信息" do %>
     <% if f.object.new_record? %>
@@ -63,7 +66,7 @@
                   <td><%= fee_detail.fee_type %></td>
                   <td><%= number_to_currency(fee_detail.amount, unit: "¥") %></td>
                   <td><%= fee_detail.fee_date %></td>
-                  <td><%= status_tag fee_detail.verification_status %></td>
+                  <td><%= helper.status_tag fee_detail.verification_status %></td>
                 </tr>
               <% end %>
             </tbody>

@@ -55,7 +55,9 @@ class CommunicationWorkOrder < WorkOrder
   scope :pending, -> { where(status: 'pending') }
   scope :processing, -> { where(status: 'processing') }
   scope :needs_communication, -> { where(status: 'needs_communication') }
-  
+  scope :approved, -> { where(status: 'approved') }
+  scope :rejected, -> { where(status: 'rejected') }
+
   def pending?
     status == 'pending'
   end

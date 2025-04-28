@@ -1,0 +1,32 @@
+zh-CN:
+  hello: "你好世界"
+  devise:
+    sessions:
+      signed_in: "登录成功。"
+      admin_user:
+        signed_in: "管理员登录成功。"
+  time:
+    formats:
+      long: "%Y年%m月%d日 %H:%M:%S"
+  activemodel:
+    attributes:
+      # Add activemodel attribute translations here
+    errors:
+      models:
+        # Add activemodel model errors here
+      attributes:
+        # Add activemodel attribute errors here
+  activerecord:
+    attributes:
+      # Add activerecord attribute translations here
+    errors:
+      messages:
+        blank: "不能为空"
+      models:
+        communication_work_order:
+          attributes:
+            reimbursement_id:
+              blank: "必须选择一个报销单"
+        # Add activerecord model errors here
+      attributes:
+        # Add activerecord attribute errors here

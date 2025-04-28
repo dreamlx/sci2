@@ -1,6 +1,8 @@
 // 引入ActiveAdmin默认样式
 @import "active_admin/mixins";
 @import "active_admin/base";
+@import "active_admin/dashboard";
+@import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css");
 
 // 自定义颜色变量
 $primary-color: #2678e3;

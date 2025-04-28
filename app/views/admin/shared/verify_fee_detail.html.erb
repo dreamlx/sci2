@@ -26,13 +26,35 @@
           <td><%= @fee_detail.fee_date %></td>
         </tr>
         <tr>
+          <th>支付方式</th>
+          <td><%= @fee_detail.payment_method %></td>
+        </tr>
+        <tr>
           <th>当前验证状态</th>
           <td><%= status_tag @fee_detail.verification_status %></td>
         </tr>
       </table>
     </div>
 
-    <%= form_tag do_verify_fee_detail_admin_audit_work_order_path(@work_order), method: :post do %>
+    <div class="work-order-info">
+      <h4>工单信息</h4>
+      <table>
+        <tr>
+          <th>工单ID</th>
+          <td><%= @work_order.id %></td>
+        </tr>
+        <tr>
+          <th>工单类型</th>
+          <td><%= @work_order.type.demodulize.underscore.humanize %></td>
+        </tr>
+        <tr>
+          <th>工单状态</th>
+          <td><%= status_tag @work_order.status %></td>
+        </tr>
+      </table>
+    </div>
+
+    <%= form_tag do_verify_fee_detail_polymorphic_path([:admin, @work_order]), method: :post do %>
       <%= hidden_field_tag :fee_detail_id, @fee_detail.id %>
 
       <div class="input">
@@ -52,29 +74,30 @@
 
       <div class="actions">
         <%= submit_tag "提交", class: "button" %>
-        <%= link_to "取消", admin_audit_work_order_path(@work_order), class: "button" %>
+        <%= link_to "取消", polymorphic_path([:admin, @work_order]), class: "button" %>
       </div>
     <% end %>
   </div>
 </div>
 
 <style>
-  .fee-detail-info {
+  .fee-detail-info, .work-order-info {
     margin-bottom: 20px;
   }
 
-  .fee-detail-info table {
+  .fee-detail-info table, .work-order-info table {
     width: 100%;
     border-collapse: collapse;
   }
 
-  .fee-detail-info th, .fee-detail-info td {
+  .fee-detail-info th, .fee-detail-info td,
+  .work-order-info th, .work-order-info td {
     padding: 8px;
     border: 1px solid #ddd;
     text-align: left;
   }
 
-  .fee-detail-info th {
+  .fee-detail-info th, .work-order-info th {
     width: 120px;
     background-color: #f5f5f5;
   }
@@ -98,5 +121,10 @@
 
   .actions {
     margin-top: 20px;
+    text-align: right;
+  }
+
+  .button {
+    margin-left: 10px;
   }
 </style>

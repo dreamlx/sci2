@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_04_27_182051) do
+ActiveRecord::Schema[7.1].define(version: 2025_04_28_151020) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -77,6 +77,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_04_27_182051) do
     t.datetime "first_submission_date"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.text "notes"
     t.index ["document_number", "fee_type", "amount", "fee_date"], name: "index_fee_details_on_document_and_details", unique: true
     t.index ["document_number"], name: "index_fee_details_on_document_number"
     t.index ["verification_status"], name: "index_fee_details_on_verification_status"

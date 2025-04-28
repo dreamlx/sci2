@@ -1,0 +1,107 @@
+// Dashboard样式
+.dashboard-stats {
+  display: flex;
+  flex-wrap: wrap;
+  margin: -10px;
+
+  .stat-box {
+    flex: 1;
+    min-width: 150px;
+    margin: 10px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+    h3 {
+      font-size: 24px;
+      margin: 0 0 5px;
+      color: #2678e3;
+    }
+
+    p {
+      margin: 0;
+      color: #666;
+    }
+  }
+}
+
+.dashboard-chart {
+  height: 200px;
+  margin-bottom: 15px;
+}
+
+.chart-legend {
+  ul {
+    display: flex;
+    flex-wrap: wrap;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+
+    li {
+      margin-right: 15px;
+      display: flex;
+      align-items: center;
+
+      .legend-color {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        margin-right: 5px;
+        border-radius: 2px;
+
+        &.pending { background-color: #6c757d; }
+        &.processing { background-color: #007bff; }
+        &.waiting_completion { background-color: #fd7e14; }
+        &.closed { background-color: #28a745; }
+        &.problematic { background-color: #dc3545; }
+        &.verified { background-color: #28a745; }
+      }
+    }
+  }
+}
+
+.panel-footer {
+  padding: 10px 15px;
+  text-align: right;
+  border-top: 1px solid #eee;
+  margin-top: 10px;
+}
+
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  margin: -10px;
+
+  .action-button {
+    flex: 1;
+    min-width: 150px;
+    margin: 10px;
+
+    a {
+      display: block;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      text-align: center;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      color: #333;
+      text-decoration: none;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background-color: #e9ecef;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+      }
+
+      i {
+        display: block;
+        font-size: 24px;
+        margin-bottom: 10px;
+        color: #2678e3;
+      }
+    }
+  }
+}

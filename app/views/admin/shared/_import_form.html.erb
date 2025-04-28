@@ -1,0 +1,57 @@
+<%= form_tag import_path, multipart: true do %>
+  <div class="panel">
+    <h3><%= title %></h3>
+
+    <div class="panel_contents">
+      <div class="import-instructions">
+        <h4>导入说明</h4>
+        <ul>
+          <% instructions.each do |instruction| %>
+            <li><%= instruction %></li>
+          <% end %>
+        </ul>
+      </div>
+
+      <div class="form-inputs">
+        <fieldset class="inputs">
+          <legend><span>文件选择</span></legend>
+          <ol>
+            <li class="file input">
+              <label for="file">选择文件</label>
+              <%= file_field_tag :file, accept: '.csv,.xls,.xlsx' %>
+            </li>
+          </ol>
+        </fieldset>
+      </div>
+    </div>
+
+    <div class="panel-footer">
+      <%= submit_tag "导入", class: "button" %>
+      <%= link_to "取消", cancel_path, class: "button" %>
+    </div>
+  </div>
+<% end %>
+
+<style>
+  .import-instructions {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+  }
+
+  .import-instructions h4 {
+    margin-top: 0;
+    color: #2678e3;
+  }
+
+  .panel-footer {
+    padding: 15px;
+    text-align: right;
+    border-top: 1px solid #eee;
+  }
+
+  .button {
+    margin-left: 10px;
+  }
+</style>

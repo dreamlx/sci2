@@ -1,5 +1,5 @@
 //= require active_admin/base
-
+//= require chart.js/dist/chart.umd
 // 添加确认对话框的自定义文本
 $.fn.activeAdminConfirm = function(options) {
   options = options || {};

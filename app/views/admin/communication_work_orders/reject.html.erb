@@ -2,6 +2,58 @@
   <h3>沟通后拒绝</h3>
 
   <div class="panel_contents">
+    <div class="work-order-info">
+      <h4>工单信息</h4>
+      <table>
+        <tr>
+          <th>工单ID</th>
+          <td><%= @communication_work_order.id %></td>
+        </tr>
+        <tr>
+          <th>报销单号</th>
+          <td><%= @communication_work_order.reimbursement.invoice_number %></td>
+        </tr>
+        <tr>
+          <th>问题类型</th>
+          <td><%= @communication_work_order.problem_type %></td>
+        </tr>
+        <tr>
+          <th>沟通方式</th>
+          <td><%= @communication_work_order.communication_method %></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="communication-records">
+      <h4>沟通记录</h4>
+      <% if @communication_work_order.communication_records.any? %>
+        <table>
+          <thead>
+            <tr>
+              <th>沟通人角色</th>
+              <th>沟通人姓名</th>
+              <th>沟通方式</th>
+              <th>沟通内容</th>
+              <th>沟通时间</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @communication_work_order.communication_records.order(recorded_at: :desc).each do |record| %>
+              <tr>
+                <td><%= record.communicator_role %></td>
+                <td><%= record.communicator_name %></td>
+                <td><%= record.communication_method %></td>
+                <td><%= record.content %></td>
+                <td><%= record.recorded_at.strftime("%Y-%m-%d %H:%M") %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% else %>
+        <p>暂无沟通记录</p>
+      <% end %>
+    </div>
+
     <%= semantic_form_for [:admin, @communication_work_order], url: do_reject_admin_communication_work_order_path(@communication_work_order), method: :post do |f| %>
       <%= f.inputs do %>
         <%= f.input :resolution_summary, label: "拒绝原因摘要", input_html: { rows: 3 }, required: true %>
@@ -18,3 +70,38 @@
     <% end %>
   </div>
 </div>
+
+<style>
+  .work-order-info, .communication-records {
+    margin-bottom: 20px;
+  }
+
+  .work-order-info table, .communication-records table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .work-order-info th, .work-order-info td,
+  .communication-records th, .communication-records td {
+    padding: 8px;
+    border: 1px solid #ddd;
+    text-align: left;
+  }
+
+  .work-order-info th, .communication-records th {
+    background-color: #f5f5f5;
+  }
+
+  .work-order-info th {
+    width: 120px;
+  }
+
+  .actions {
+    margin-top: 20px;
+    text-align: right;
+  }
+
+  .button {
+    margin-left: 10px;
+  }
+</style>
