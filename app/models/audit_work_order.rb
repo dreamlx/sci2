@@ -52,7 +52,12 @@ class AuditWorkOrder < WorkOrder
     end
   end
 
-  # 状态检查方法 (如上)
+  # 状态检查方法和作用域
+  scope :pending, -> { where(status: 'pending') }
+  scope :processing, -> { where(status: 'processing') }
+  scope :approved, -> { where(status: 'approved') }
+  scope :rejected, -> { where(status: 'rejected') }
+  
   def pending?
     status == 'pending'
   end

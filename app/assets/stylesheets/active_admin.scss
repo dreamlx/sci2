@@ -1,17 +1,46 @@
-// Sass variable overrides must be declared before loading up Active Admin's styles.
-//
-// To view the variables that Active Admin provides, take a look at
-// `app/assets/stylesheets/active_admin/mixins/_variables.scss` in the
-// Active Admin source.
-//
-// For example, to change the sidebar width:
-// $sidebar-width: 242px;
-
-// Active Admin's got SASS!
+// 引入ActiveAdmin默认样式
 @import "active_admin/mixins";
 @import "active_admin/base";
 
-// Overriding any non-variable Sass must be done after the fact.
-// For example, to change the default status-tag color:
-//
-//   .status_tag { background: #6090DB; }
+// 自定义颜色变量
+$primary-color: #2678e3;
+$secondary-color: #6c757d;
+$success-color: #28a745;
+$warning-color: #fd7e14;
+$danger-color: #dc3545;
+$info-color: #17a2b8;
+
+// 状态标签样式
+.status_tag {
+  &.pending { background-color: $secondary-color; }
+  &.processing { background-color: $primary-color; }
+  &.waiting_completion { background-color: $warning-color; }
+  &.closed { background-color: $success-color; }
+  &.needs_communication { background-color: #9c27b0; }
+  &.approved { background-color: $success-color; }
+  &.rejected { background-color: $danger-color; }
+  &.problematic { background-color: $danger-color; }
+  &.verified { background-color: $success-color; }
+}
+
+// 基础布局调整
+#active_admin_content {
+  padding: 15px;
+
+  .index_as_table {
+    .col {
+      vertical-align: middle;
+    }
+  }
+}
+
+// 表单样式优化
+.input {
+  margin-bottom: 15px;
+}
+
+// 必填字段标记
+.required > label:after {
+  content: " *";
+  color: $danger-color;
+}

@@ -51,7 +51,11 @@ class CommunicationWorkOrder < WorkOrder
     end
   end
   
-  # 状态检查方法
+  # 状态检查方法和作用域
+  scope :pending, -> { where(status: 'pending') }
+  scope :processing, -> { where(status: 'processing') }
+  scope :needs_communication, -> { where(status: 'needs_communication') }
+  
   def pending?
     status == 'pending'
   end

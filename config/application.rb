@@ -2,6 +2,9 @@ require_relative "boot"
 
 require "rails/all"
 
+# Require state_machines/active_record early
+require 'state_machines-activerecord'
+
 # Require the gems listed in Gemfile, including any gems
 # you've limited to :test, :development, or :production.
 Bundler.require(*Rails.groups)
@@ -23,5 +26,11 @@ module Sci2
     #
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
+
+    # Set the default locale to Chinese
+    config.i18n.default_locale = :'zh-CN'
+
+    # Whitelist available locales for the application
+    config.i18n.available_locales = [:'zh-CN', :en]
   end
 end

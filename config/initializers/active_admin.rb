@@ -4,7 +4,7 @@ ActiveAdmin.setup do |config|
   # Set the title that is displayed on the main layout
   # for each of the active admin pages.
   #
-  config.site_title = "Sci2"
+  config.site_title = "SCI2工单系统"
 
   # Set the link url for the title. For example, to take
   # users to your main site. Defaults to no link.
@@ -40,28 +40,7 @@ ActiveAdmin.setup do |config|
   # Set the default namespace each administration resource
   # will be added to.
   #
-  # eg:
-  #   config.default_namespace = :hello_world
-  #
-  # This will create resources in the HelloWorld module and
-  # will namespace routes to /hello_world/*
-  #
-  # To set no namespace by default, use:
-  #   config.default_namespace = false
-  #
-  # Default:
-  # config.default_namespace = :admin
-  #
-  # You can customize the settings for each namespace by using
-  # a namespace block. For example, to change the site title
-  # within a namespace:
-  #
-  #   config.namespace :admin do |admin|
-  #     admin.site_title = "Custom Admin Title"
-  #   end
-  #
-  # This will ONLY change the title for the admin section. Other
-  # namespaces will continue to use the main "site_title" configuration.
+  config.default_namespace = :admin
 
   # == User Authentication
   #
@@ -119,7 +98,6 @@ ActiveAdmin.setup do |config|
   # a string, the strings is used as the path. If it's a Symbol, we
   # will call the method to return the path.
   #
-  # Default:
   config.logout_link_path = :destroy_admin_user_session_path
 
   # This setting changes the http method used when rendering the
@@ -133,26 +111,25 @@ ActiveAdmin.setup do |config|
   # Set the action to call for the root path. You can set different
   # roots for each namespace.
   #
-  # Default:
-  # config.root_to = 'dashboard#index'
+  config.root_to = 'dashboard#index'
 
   # == Admin Comments
   #
   # This allows your users to comment on any resource registered with Active Admin.
   #
   # You can completely disable comments:
-  # config.comments = false
-  #
+  config.comments = false
+
   # You can change the name under which comments are registered:
   # config.comments_registration_name = 'AdminComment'
-  #
+
   # You can change the order for the comments and you can change the column
   # to be used for ordering:
   # config.comments_order = 'created_at ASC'
-  #
+
   # You can disable the menu item for the comments index page:
   # config.comments_menu = false
-  #
+
   # You can customize the comment menu:
   # config.comments_menu = { parent: 'Admin', priority: 1 }
 
@@ -185,7 +162,7 @@ ActiveAdmin.setup do |config|
   # You can run `bin/rails runner 'puts I18n.t("date.formats")'` to see the
   # available formats in your application.
   #
-  config.localize_format = :long
+  # config.localize_format = :long
 
   # == Setting a Favicon
   #
@@ -239,7 +216,19 @@ ActiveAdmin.setup do |config|
   # config.csv_options = { col_sep: ';' }
   #
   # Force the use of quotes
-  # config.csv_options = { force_quotes: true }
+  config.csv_options = { col_sep: ',', force_quotes: true }
+
+  # == Default Per Page
+  #
+  # Set the default number of items displayed per page.
+  #
+  config.default_per_page = 30
+
+  # == Maximum Per Page
+  #
+  # Set the maximum number of items displayed per page.
+  #
+  # config.max_per_page = 10_000
 
   # == Menu System
   #
@@ -282,71 +271,4 @@ ActiveAdmin.setup do |config|
   #     admin.download_links = proc { can?(:view_download_links) }
   #
   #   end
-
-  # == Pagination
-  #
-  # Pagination is enabled by default for all resources.
-  # You can control the default per page count for all resources here.
-  #
-  # config.default_per_page = 30
-  #
-  # You can control the max per page count too.
-  #
-  # config.max_per_page = 10_000
-
-  # == Filters
-  #
-  # By default the index screen includes a "Filters" sidebar on the right
-  # hand side with a filter for each attribute of the registered model.
-  # You can enable or disable them for all resources here.
-  #
-  # config.filters = true
-  #
-  # By default the filters include associations in a select, which means
-  # that every record will be loaded for each association (up
-  # to the value of config.maximum_association_filter_arity).
-  # You can enabled or disable the inclusion
-  # of those filters by default here.
-  #
-  # config.include_default_association_filters = true
-
-  # config.maximum_association_filter_arity = 256 # default value of :unlimited will change to 256 in a future version
-  # config.filter_columns_for_large_association = [
-  #    :display_name,
-  #    :full_name,
-  #    :name,
-  #    :username,
-  #    :login,
-  #    :title,
-  #    :email,
-  #  ]
-  # config.filter_method_for_large_association = '_start'
-
-  # == Head
-  #
-  # You can add your own content to the site head like analytics. Make sure
-  # you only pass content you trust.
-  #
-  # config.head = ''.html_safe
-
-  # == Footer
-  #
-  # By default, the footer shows the current Active Admin version. You can
-  # override the content of the footer here.
-  #
-  # config.footer = 'my custom footer text'
-
-  # == Sorting
-  #
-  # By default ActiveAdmin::OrderClause is used for sorting logic
-  # You can inherit it with own class and inject it for all resources
-  #
-  # config.order_clause = MyOrderClause
-
-  # == Webpacker
-  #
-  # By default, Active Admin uses Sprocket's asset pipeline.
-  # You can switch to using Webpacker here.
-  #
-  # config.use_webpacker = true
 end

@@ -1,53 +1,56 @@
-# Gemfile
 source 'https://rubygems.org'
+
 git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
 ruby '3.4.2'
 
-# Rails core
-gem 'rails', '~>7.1.5.1'
-gem 'sqlite3', '~> 1.4'
-gem 'puma', '~> 6.0'
-# gem 'bootsnap', '>= 1.4.4', require: false
+# Bundle edge Rails instead: gem 'rails', github: 'rails/rails'
+gem 'rails', '~> 7.1.5'
+# Use sqlite3 as the database for Active Record
+gem 'sqlite3', group: %i[development test]
+# Use PostgreSQL as the database for Active Record
+# gem 'pg', '~> 1.1'
+# Use MySQL as the database for Active Record
+# gem 'mysql2', '~> 0.5'
 
-# Frontend
-gem 'importmap-rails'
-gem 'turbo-rails'
-gem 'stimulus-rails'
-gem 'jbuilder'
-
-# ActiveAdmin
-gem 'activeadmin'
-gem 'devise'
+# Use the Puma web server [https://github.com/puma/puma]
+gem 'puma', '~> 6.1'
+# Use JavaScript with a library like jQuery
+gem 'jquery-rails'
+# Use SCSS for stylesheets
 gem 'sassc-rails'
-gem 'kaminari'
+# Transpile app-like JavaScript. Read more: https://github.com/rails/jsbundling-rails
+gem 'jsbundling-rails'
+# Hotwire's Stimulus reflex
+# gem 'stimulus_reflex'
+# Use Hotwire to deliver dynamic web applications over WebSockets and SSE
+gem 'turbo-rails'
+# Build JSON APIs with ease. Read more: https://github.com/rails/jbuilder
+# gem 'jbuilder'
 
-# State machine
-gem 'state_machines'
-gem 'state_machines-activerecord'
+# Use Redis adapter to run Action Cable in production
+# gem 'redis', '~> 4.0'
+# Use Active Model has_secure_password
+# gem 'bcrypt', '~> 3.1.7'
 
-# XLS/XLSX processing
-gem 'roo'
+# Use Active Storage variant
+# gem 'image_processing', '~> 1.2'
 
-# CSV processing
-gem 'csv'
-
+# Reduces boot times through caching; required in config/boot.rb
+gem 'bootsnap', require: false
 group :development, :test do
+gem 'shoulda-matchers'
+gem 'factory_bot_rails'
+gem 'roo'
+  # Call 'byebug' anywhere in the code to stop execution and get a debugger console
   gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
   gem 'rspec-rails'
-  gem 'factory_bot_rails'
 end
 
-group :development do
-  gem 'web-console', '>= 4.1.0'
-  gem 'rack-mini-profiler', '~> 2.0'
-  gem 'listen', '~> 3.3'
-  gem 'spring'
-end
-
-group :test do
-  gem 'shoulda-matchers', '~> 5.0'
-  gem 'capybara', '>= 3.26'
-  gem 'selenium-webdriver'
-  gem 'webdrivers'
-end
+# Use Devise for authentication
+gem 'devise'
+# Use ActiveAdmin for admin interface
+gem 'activeadmin'
+# Use state_machines for state management
+gem 'state_machines'
+gem 'state_machines-activerecord'

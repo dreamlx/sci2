@@ -1,0 +1,127 @@
+zh-CN:
+  active_admin:
+    dashboard: "控制面板"
+    dashboard_welcome:
+      welcome: "欢迎使用SCI2工单系统"
+      call_to_action: "请使用侧边栏导航访问系统功能"
+    view: "查看"
+    edit: "编辑"
+    delete: "删除"
+    delete_confirmation: "确定要删除吗？"
+    new_model: "新建 %{model}"
+    edit_model: "编辑 %{model}"
+    delete_model: "删除 %{model}"
+    details: "%{model} 详情"
+    cancel: "取消"
+    empty: "空"
+    previous: "上一页"
+    next: "下一页"
+    download: "下载:"
+    has_many_new: "添加 %{model}"
+    has_many_delete: "删除"
+    has_many_remove: "移除"
+    filters:
+      buttons:
+        filter: "过滤"
+        clear: "清除过滤条件"
+      predicates:
+        contains: "包含"
+        equals: "等于"
+        starts_with: "开头是"
+        ends_with: "结尾是"
+        greater_than: "大于"
+        less_than: "小于"
+    search_status:
+      headline: "搜索条件:"
+      current_scope: "搜索范围:"
+      current_filters: "过滤条件:"
+      no_current_filters: "无"
+    status_tag:
+      "yes": "是"
+      "no": "否"
+      "unset": "否"
+    main_content: "请实现 %{model}#main_content 来显示内容."
+    logout: "退出"
+    powered_by: "Powered by %{active_admin} %{version}"
+    sidebars:
+      filters: "过滤条件"
+      search_status: "搜索条件"
+    pagination:
+      empty: "没有找到 %{model}"
+      one: "显示 <b>1</b> %{model}"
+      one_page: "显示 <b>所有 %{n}</b> %{model}"
+      multiple: "显示 %{model} <b>%{from}&nbsp;-&nbsp;%{to}</b> 共 <b>%{total}</b>"
+      multiple_without_total: "显示 %{model} <b>%{from}&nbsp;-&nbsp;%{to}</b>"
+      per_page: "每页: "
+      entry:
+        one: "条目"
+        other: "条目"
+    any: "任何"
+    blank_slate:
+      content: "还没有 %{resource_name}."
+      link: "新建一个"
+    dropdown_actions:
+      button_label: "操作"
+    batch_actions:
+      button_label: "批量操作"
+      default_confirmation: "你确定要这样做吗？"
+      delete_confirmation: "你确定要删除这些 %{plural_model} 吗？"
+      succesfully_destroyed:
+        one: "成功删除 1 %{model}"
+        other: "成功删除 %{count} %{plural_model}"
+      selection_toggle_explanation: "(切换选择)"
+      action_label: "%{title} 被选中"
+      labels:
+        destroy: "删除"
+    comments:
+      created_at: "创建于"
+      resource_type: "资源类型"
+      author_type: "作者类型"
+      body: "内容"
+      author: "作者"
+      add: "添加评论"
+      delete: "删除评论"
+      delete_confirmation: "你确定要删除这些评论吗？"
+      resource: "资源"
+      no_comments_yet: "还没有评论"
+      author_missing: "匿名"
+      title_content: "(%{count}) 条评论"
+      errors:
+        empty_text: "评论保存失败，内容不能为空."
+    devise:
+      username:
+        title: "用户名"
+      email:
+        title: "邮箱"
+      subdomain:
+        title: "子域"
+      password:
+        title: "密码"
+      password_confirmation:
+        title: "确认密码"
+      sign_up:
+        title: "注册"
+        submit: "注册"
+      login:
+        title: "登录"
+        remember_me: "记住我"
+        submit: "登录"
+      reset_password:
+        title: "忘记了密码？"
+        submit: "重置密码"
+      change_password:
+        title: "修改密码"
+        submit: "修改密码"
+      unlock:
+        title: "重新发送解锁指令"
+        submit: "重新发送解锁指令"
+      resend_confirmation_instructions:
+        title: "重新发送确认指令"
+        submit: "重新发送确认指令"
+      links:
+        sign_up: "注册"
+        sign_in: "登录"
+        forgot_your_password: "忘记了密码？"
+        sign_in_with_omniauth_provider: "通过 %{provider} 登录"
+        resend_unlock_instructions: "重新发送解锁指令"
+        resend_confirmation_instructions: "重新发送确认指令"
