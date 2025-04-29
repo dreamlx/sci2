@@ -80,7 +80,21 @@ class AuditWorkOrder < WorkOrder
   end
 
   def select_fee_details(fee_detail_ids)
-    fee_details_to_select = FeeDetail.where(id: fee_detail_ids, document_number: self.reimbursement.invoice_number)
+    # Store the fee detail IDs to be processed after save
+    @fee_detail_ids_to_select = fee_detail_ids
+    # Return true to allow the save to continue
+    true
+  end
+  
+  # Override after_create callback to handle fee detail selection after the work order is saved
+  after_create :process_fee_detail_selections
+  
+  def process_fee_detail_selections
+    # 使用@fee_detail_ids_to_select或fee_detail_ids，以支持两种方式
+    ids_to_select = @fee_detail_ids_to_select.presence || fee_detail_ids
+    return unless ids_to_select.present?
+    
+    fee_details_to_select = FeeDetail.where(id: ids_to_select, document_number: self.reimbursement.invoice_number)
     fee_details_to_select.each { |fd| select_fee_detail(fd) }
   end
 

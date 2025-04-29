@@ -19,7 +19,14 @@ RSpec.describe "Complex Scenarios", type: :model do
     
     it "can create audit work order" do
       # 创建审核工单
-      audit_work_order = create(:audit_work_order, reimbursement: reimbursement)
+      # 先构建工单对象
+      audit_work_order = build(:audit_work_order, reimbursement: reimbursement)
+      
+      # 设置fee_detail_ids_to_select
+      audit_work_order.instance_variable_set('@fee_detail_ids_to_select', [fee_detail.id])
+      
+      # 保存工单
+      audit_work_order.save!
       
       # 验证关联
       expect(audit_work_order.reimbursement).to eq(reimbursement)
@@ -28,11 +35,24 @@ RSpec.describe "Complex Scenarios", type: :model do
     
     it "can create communication work order" do
       # 创建审核工单
-      audit_work_order = create(:audit_work_order, reimbursement: reimbursement)
+      # 先构建工单对象
+      audit_work_order = build(:audit_work_order, reimbursement: reimbursement)
+      
+      # 设置fee_detail_ids_to_select
+      audit_work_order.instance_variable_set('@fee_detail_ids_to_select', [fee_detail.id])
+      
+      # 保存工单
+      audit_work_order.save!
       
       # 创建沟通工单
-      communication_work_order = create(:communication_work_order,
-                                      reimbursement: reimbursement)
+      # 先构建工单对象
+      communication_work_order = build(:communication_work_order, reimbursement: reimbursement)
+      
+      # 设置fee_detail_ids_to_select
+      communication_work_order.instance_variable_set('@fee_detail_ids_to_select', [fee_detail.id])
+      
+      # 保存工单
+      communication_work_order.save!
       
       # 验证关联
       expect(communication_work_order.reimbursement).to eq(reimbursement)
@@ -41,10 +61,25 @@ RSpec.describe "Complex Scenarios", type: :model do
     end
     
     it "can add communication record to communication work order" do
-      # 创建审核工单和沟通工单
-      audit_work_order = create(:audit_work_order, reimbursement: reimbursement)
-      communication_work_order = create(:communication_work_order,
-                                      reimbursement: reimbursement)
+      # 创建审核工单
+      # 先构建工单对象
+      audit_work_order = build(:audit_work_order, reimbursement: reimbursement)
+      
+      # 设置fee_detail_ids_to_select
+      audit_work_order.instance_variable_set('@fee_detail_ids_to_select', [fee_detail.id])
+      
+      # 保存工单
+      audit_work_order.save!
+      
+      # 创建沟通工单
+      # 先构建工单对象
+      communication_work_order = build(:communication_work_order, reimbursement: reimbursement)
+      
+      # 设置fee_detail_ids_to_select
+      communication_work_order.instance_variable_set('@fee_detail_ids_to_select', [fee_detail.id])
+      
+      # 保存工单
+      communication_work_order.save!
       
       # 添加沟通记录
       communication_record = create(:communication_record,

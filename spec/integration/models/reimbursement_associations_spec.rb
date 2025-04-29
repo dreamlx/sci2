@@ -8,9 +8,27 @@ RSpec.describe "Reimbursement Associations", type: :model do
     it "has many work orders" do
       # 创建不同类型的工单
       create(:express_receipt_work_order, reimbursement: reimbursement)
-      create(:audit_work_order, reimbursement: reimbursement)
-      create(:audit_work_order, reimbursement: reimbursement)
-      create(:communication_work_order, reimbursement: reimbursement)
+      
+      # 创建费用明细
+      fee_detail = create(:fee_detail, document_number: reimbursement.invoice_number)
+      
+      # 创建审核工单1
+      audit_work_order1 = build(:audit_work_order, reimbursement: reimbursement)
+      audit_work_order1.instance_variable_set('@fee_detail_ids_to_select', [fee_detail.id])
+      audit_work_order1.save!
+      audit_work_order1.process_fee_detail_selections
+      
+      # 创建审核工单2
+      audit_work_order2 = build(:audit_work_order, reimbursement: reimbursement)
+      audit_work_order2.instance_variable_set('@fee_detail_ids_to_select', [fee_detail.id])
+      audit_work_order2.save!
+      audit_work_order2.process_fee_detail_selections
+      
+      # 创建沟通工单
+      communication_work_order = build(:communication_work_order, reimbursement: reimbursement)
+      communication_work_order.instance_variable_set('@fee_detail_ids_to_select', [fee_detail.id])
+      communication_work_order.save!
+      communication_work_order.process_fee_detail_selections
       
       # 验证关联 - 不检查具体数量，只检查存在性
       expect(reimbursement.work_orders.count).to be > 0

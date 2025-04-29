@@ -33,6 +33,12 @@ FactoryBot.define do
       # 覆盖基类的 initialize_with
       initialize_with { AuditWorkOrder.new }
       
+      # 添加回调以设置fee_detail_ids_to_select
+      after(:build) do |audit_work_order, evaluator|
+        # 如果没有设置fee_detail_ids_to_select，则设置一个空数组
+        audit_work_order.instance_variable_set('@fee_detail_ids_to_select', []) unless audit_work_order.instance_variable_get('@fee_detail_ids_to_select')
+      end
+      
       trait :processing do
         status { "processing" }
       end
@@ -58,6 +64,12 @@ FactoryBot.define do
       
       # 覆盖基类的 initialize_with
       initialize_with { CommunicationWorkOrder.new }
+      
+      # 添加回调以设置fee_detail_ids_to_select
+      after(:build) do |communication_work_order, evaluator|
+        # 如果没有设置fee_detail_ids_to_select，则设置一个空数组
+        communication_work_order.instance_variable_set('@fee_detail_ids_to_select', []) unless communication_work_order.instance_variable_get('@fee_detail_ids_to_select')
+      end
       
       trait :processing do
         status { "processing" }

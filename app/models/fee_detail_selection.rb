@@ -7,7 +7,23 @@ class FeeDetailSelection < ApplicationRecord
   
   # 验证
   validates :verification_status, presence: true, inclusion: { in: %w[pending problematic verified] }
-  validates :fee_detail_id, uniqueness: { scope: [:work_order_id, :work_order_type] }
+  
+  # 条件唯一性验证 - 只在work_order_type不为WorkOrder时验证
+  validate :validate_fee_detail_uniqueness, if: -> { work_order_id.present? }
+  
+  def validate_fee_detail_uniqueness
+    # 跳过基类验证，只验证具体子类
+    return if work_order_type == 'WorkOrder'
+    
+    # 检查是否已存在相同的记录
+    if FeeDetailSelection.where(
+      fee_detail_id: fee_detail_id,
+      work_order_id: work_order_id,
+      work_order_type: work_order_type
+    ).where.not(id: id || 0).exists?
+      errors.add(:base, "费用明细 ##{fee_detail_id} 已被选择")
+    end
+  end
   
   # 回调
   after_save :update_fee_detail_status, if: :saved_change_to_verification_status?

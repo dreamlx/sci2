@@ -1,6 +1,6 @@
 ActiveAdmin.register AuditWorkOrder do
   permit_params :reimbursement_id, :status, :audit_result, :audit_comment, :audit_date,
-                :vat_verified, :created_by,
+                :vat_verified, :creator_id,
                 # 共享字段 (Req 6/7)
                 :problem_type, :problem_description, :remark, :processing_opinion,
                 fee_detail_ids: []
@@ -20,6 +20,18 @@ ActiveAdmin.register AuditWorkOrder do
         resource.reimbursement_id = params[:reimbursement_id]
       end
       resource
+    end
+    
+    # 重写创建方法，确保设置creator_id
+    def create
+      params[:audit_work_order][:creator_id] = current_admin_user.id
+      super do |success, failure|
+        success.html { redirect_to admin_audit_work_order_path(resource), notice: "审核工单已成功创建" }
+        failure.html do
+          flash.now[:error] = "创建审核工单失败: #{resource.errors.full_messages.join(', ')}"
+          render :new
+        end
+      end
     end
   end
 

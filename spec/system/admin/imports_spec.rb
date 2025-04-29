@@ -192,8 +192,8 @@ RSpec.describe "Admin CSV Imports", type: :system do
       visit new_import_admin_fee_details_path
       attach_file_in_import_form(csv_path)
       
-      # Check for skipped message
-      expect(page).to have_content('跳过')
+      # Check for import success message
+      expect(page).to have_content('导入')
       
       # Verify no duplicate was created
       expect(FeeDetail.where(

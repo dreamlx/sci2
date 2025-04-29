@@ -333,6 +333,7 @@ end
 
 *   State machine: `pending` -> `processing` -> `approved`/`rejected`.
 *   Callbacks update `FeeDetail` status.
+*   **修改**: 添加从 `pending` 直接到 `approved` 的状态转换路径
 
 ```ruby
 # app/models/audit_work_order.rb
@@ -353,7 +354,8 @@ class AuditWorkOrder < WorkOrder
     end
 
     event :approve do
-      transition :processing => :approved
+      # 修改: 添加从pending直接到approved的路径，支持直接通过 (WF-A-008)
+      transition [:pending, :processing] => :approved
       before { self.audit_result = 'approved'; self.audit_date = Time.current }
       # Mark details as verified on approval
       after { update_associated_fee_details_status(FeeDetail::VERIFICATION_STATUS_VERIFIED) }
@@ -402,6 +404,8 @@ end
 
 *   State machine: `pending` -> `processing`/`needs_communication` -> `approved`/`rejected`.
 *   Callbacks update `FeeDetail` status.
+*   **修改**: 添加从 `pending` 直接到 `approved` 的状态转换路径
+*   **添加**: `needs_communication` 布尔字段
 
 ```ruby
 # app/models/communication_work_order.rb
@@ -428,7 +432,8 @@ class CommunicationWorkOrder < WorkOrder
     end
 
     event :approve do
-      transition [:processing, :needs_communication] => :approved
+      # 修改: 添加从pending直接到approved的路径，支持直接通过 (WF-C-008)
+      transition [:pending, :processing, :needs_communication] => :approved
       # Update resolution_summary?
       after { update_associated_fee_details_status(FeeDetail::VERIFICATION_STATUS_VERIFIED) }
     end
@@ -468,7 +473,7 @@ class CommunicationWorkOrder < WorkOrder
   # Override ransackable methods
   def self.subclass_ransackable_attributes
     # Inherited common + Req 6/7 fields + specific fields
-    %w[communication_method initiator_role resolution_summary problem_type problem_description remark processing_opinion]
+    %w[communication_method initiator_role resolution_summary problem_type problem_description remark processing_opinion needs_communication]
   end
 
   def self.subclass_ransackable_associations
@@ -638,6 +643,7 @@ classDiagram
         +String communication_method
         +String initiator_role
         +String resolution_summary
+        +Boolean needs_communication
         +has_many communication_records
         +state_machine status (pending, processing, needs_communication, approved, rejected)
         +add_communication_record()

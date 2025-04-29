@@ -1,10 +1,21 @@
 # SCI2 工单系统数据库结构设计 (STI - Drop & Rebuild - v2)
 
+## 0 补充更新说明
+
+需要添加的字段：
+
+沟通工单的 needs_communication 标志字段（测试用例 WF-C-003 要求）
+建议在 work_orders 表中添加此字段：
+
+t.boolean :needs_communication, default: false # 用于沟通工单
+
+
 ## 1. 设计策略
 
 本数据库结构设计基于 **"Drop and Rebuild"** 策略。系统将从干净的数据库开始，并通过导入 `docs/3.数据导入格式参考.md` 中定义的四种 CSV 文件 (`2.HLY报销单报表.csv`, `1.HLY快递收单导出数据.csv`, `4.HLY单据费用明细报表.csv`, `3.HLY每单操作历史数据.csv`) 来填充初始数据。
 
 核心设计采用 **单表继承 (STI)** 模型管理工单 (`work_orders` 表)。
+
 
 ## 2. 表结构设计
 

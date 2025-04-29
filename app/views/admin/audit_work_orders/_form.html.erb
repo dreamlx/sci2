@@ -51,7 +51,7 @@
                 <tr>
                   <td>
                     <%= check_box_tag "audit_work_order[fee_detail_ids][]", fee_detail.id,
-                                     f.object.fee_detail_ids.include?(fee_detail.id) %>
+                                     f.object.fee_detail_ids.present? && f.object.fee_detail_ids.include?(fee_detail.id) %>
                   </td>
                   <td><%= fee_detail.id %></td>
                   <td><%= fee_detail.fee_type %></td>

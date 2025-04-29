@@ -37,11 +37,22 @@ RSpec.describe "Status Interactions", type: :model do
   describe "work order status affecting fee detail status" do
     let(:reimbursement) { create(:reimbursement) }
     let(:fee_detail) { create(:fee_detail, document_number: reimbursement.invoice_number) }
-    let(:audit_work_order) { create(:audit_work_order, reimbursement: reimbursement) }
     
-    before do
-      # 关联费用明细和工单
-      create(:fee_detail_selection, work_order: audit_work_order, fee_detail: fee_detail)
+    # 创建审核工单
+    let(:audit_work_order) do
+      # 先构建工单对象
+      wo = build(:audit_work_order, reimbursement: reimbursement)
+      
+      # 设置fee_detail_ids_to_select
+      wo.instance_variable_set('@fee_detail_ids_to_select', [fee_detail.id])
+      
+      # 保存工单
+      wo.save!
+      
+      # 处理费用明细关联
+      wo.process_fee_detail_selections
+      
+      wo
     end
     
     it "can update fee detail status to problematic" do
@@ -61,10 +72,18 @@ RSpec.describe "Status Interactions", type: :model do
     end
     
     it "can create a fee detail selection with problematic status" do
+      # Create a new fee detail
+      new_fee_detail = create(:fee_detail, document_number: reimbursement.invoice_number)
+      
+      # Create a new audit work order
+      new_audit_work_order = build(:audit_work_order, reimbursement: reimbursement)
+      new_audit_work_order.instance_variable_set('@fee_detail_ids_to_select', [])
+      new_audit_work_order.save!
+      
       # Create a fee detail selection with problematic status
       selection = FeeDetailSelection.create!(
-        work_order: audit_work_order,
-        fee_detail: fee_detail,
+        work_order: new_audit_work_order,
+        fee_detail: new_fee_detail,
         verification_status: 'problematic'
       )
       

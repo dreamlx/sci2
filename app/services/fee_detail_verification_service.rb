@@ -7,8 +7,9 @@ class FeeDetailVerificationService
   
   # 更新单个费用明细的验证状态
   def update_verification_status(fee_detail, status, comment = nil)
-    # 验证状态有效性
-    unless FeeDetail::VERIFICATION_STATUSES.include?(status)
+    # 验证状态有效性 - 同时支持字符串和常量
+    valid_statuses = ['pending', 'problematic', 'verified']
+    unless valid_statuses.include?(status) || FeeDetail::VERIFICATION_STATUSES.include?(status)
       fee_detail.errors.add(:verification_status, "无效的验证状态: #{status}")
       return false
     end
@@ -19,21 +20,33 @@ class FeeDetailVerificationService
       return false
     end
     
+    # 标准化状态值
+    normalized_status = case status
+                        when 'verified', FeeDetail::VERIFICATION_STATUS_VERIFIED
+                          FeeDetail::VERIFICATION_STATUS_VERIFIED
+                        when 'problematic', FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
+                          FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
+                        when 'pending', FeeDetail::VERIFICATION_STATUS_PENDING
+                          FeeDetail::VERIFICATION_STATUS_PENDING
+                        else
+                          status
+                        end
+    
     # 更新费用明细验证状态
-    result = case status
+    result = case normalized_status
              when FeeDetail::VERIFICATION_STATUS_VERIFIED
                fee_detail.mark_as_verified(@current_admin_user, comment)
              when FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
                fee_detail.mark_as_problematic(@current_admin_user, comment)
              else
-               fee_detail.update(verification_status: status)
+               fee_detail.update(verification_status: normalized_status)
              end
     
     # 更新关联的费用明细选择记录
-    update_fee_detail_selections(fee_detail, status, comment) if result
+    update_fee_detail_selections(fee_detail, normalized_status, comment) if result
 
     # 触发报销单状态更新检查
-    fee_detail.reimbursement.update_status_based_on_fee_details! if fee_detail.reimbursement
+    fee_detail.reimbursement.update_status_based_on_fee_details! if fee_detail.reimbursement && result
 
     result
   end
@@ -64,7 +77,7 @@ class FeeDetailVerificationService
       selection.update(
         verification_status: status,
         verification_comment: comment,
-        verified_by: @current_admin_user.id,
+        verifier_id: @current_admin_user&.id,
         verified_at: Time.current
       )
     end

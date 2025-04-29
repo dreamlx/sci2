@@ -8,6 +8,10 @@ zh-CN:
   time:
     formats:
       long: "%Y年%m月%d日 %H:%M:%S"
+  date:
+    formats:
+      long: "%Y年%m月%d日"
+      default: "%Y-%m-%d"
   activemodel:
     attributes:
       # Add activemodel attribute translations here
@@ -27,6 +31,18 @@ zh-CN:
           attributes:
             reimbursement_id:
               blank: "必须选择一个报销单"
-        # Add activerecord model errors here
+            fee_detail_selections:
+              invalid: "费用明细选择无效"
+        audit_work_order:
+          attributes:
+            reimbursement_id:
+              blank: "必须选择一个报销单"
+            fee_detail_selections:
+              invalid: "费用明细选择无效"
+        work_order:
+          attributes:
+            fee_detail_selections:
+              invalid: "费用明细选择无效"
       attributes:
-        # Add activerecord attribute errors here
+        fee_detail_selections:
+          invalid: "费用明细选择无效"

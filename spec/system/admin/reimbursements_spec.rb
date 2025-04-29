@@ -116,4 +116,45 @@ RSpec.describe "Admin Reimbursements", type: :system do
       expect(page).to have_content('更新用户名')
     end
   end
+  
+  describe "Work Order Creation" do
+    let!(:reimbursement) { create(:reimbursement, invoice_number: 'R202501001', applicant: '测试用户1', status: 'processing') }
+    let!(:fee_detail) { create(:fee_detail, document_number: 'R202501001', fee_type: '交通费', amount: 100.00) }
+    
+    it "navigates to the new audit work order page" do
+      visit admin_reimbursement_path(reimbursement)
+      
+      # Click on the new audit work order button (using the first one)
+      first(:link, '新建审核工单').click
+      
+      # Check we're on the new audit work order page
+      expect(page).to have_content('新建 Audit Work Order')
+      
+      # Check the reimbursement is shown on the page
+      expect(page).to have_content('R202501001')
+    end
+    
+    it "navigates to the new communication work order page" do
+      visit admin_reimbursement_path(reimbursement)
+      
+      # Click on the new communication work order button (using the first one)
+      first(:link, '新建沟通工单').click
+      
+      # Check we're on the new communication work order page
+      expect(page).to have_content('新建 Communication Work Order')
+      
+      # Check the reimbursement is shown on the page
+      expect(page).to have_content('R202501001')
+    end
+    
+    it "displays reimbursement status" do
+      # Set reimbursement to pending status
+      reimbursement.update(status: 'pending')
+      
+      visit admin_reimbursement_path(reimbursement)
+      
+      # Check that reimbursement status is displayed
+      expect(page).to have_css('.status_tag')
+    end
+  end
 end

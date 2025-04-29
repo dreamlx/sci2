@@ -1,0 +1,30 @@
+<%= form_tag import_path, multipart: true do %>
+  <div class="panel">
+    <h3><%= title %></h3>
+    
+    <div class="panel_contents">
+      <% if instructions.present? %>
+        <div class="instructions">
+          <h4>导入说明</h4>
+          <ul>
+            <% instructions.each do |instruction| %>
+              <li><%= instruction %></li>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+      
+      <div class="form-inputs">
+        <div class="input file">
+          <label for="file">选择文件</label>
+          <%= file_field_tag :file, required: true, accept: '.csv,.xlsx,.xls' %>
+        </div>
+      </div>
+      
+      <div class="form-actions">
+        <%= submit_tag "导入", class: "button" %>
+        <%= link_to "取消", cancel_path, class: "button" %>
+      </div>
+    </div>
+  </div>
+<% end %>

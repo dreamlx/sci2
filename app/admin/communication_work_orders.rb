@@ -1,6 +1,6 @@
 ActiveAdmin.register CommunicationWorkOrder do
   permit_params :reimbursement_id, :status, :communication_method,
-                :initiator_role, :resolution_summary, :created_by,
+                :initiator_role, :resolution_summary, :creator_id,
                 # 共享字段 (Req 6/7)
                 :problem_type, :problem_description, :remark, :processing_opinion,
                 fee_detail_ids: []
@@ -20,6 +20,18 @@ ActiveAdmin.register CommunicationWorkOrder do
         resource.reimbursement_id = params[:reimbursement_id]
       end
       resource
+    end
+    
+    # 重写创建方法，确保设置creator_id
+    def create
+      params[:communication_work_order][:creator_id] = current_admin_user.id
+      super do |success, failure|
+        success.html { redirect_to admin_communication_work_order_path(resource), notice: "沟通工单已成功创建" }
+        failure.html do
+          flash.now[:error] = "创建沟通工单失败: #{resource.errors.full_messages.join(', ')}"
+          render :new
+        end
+      end
     end
   end
 

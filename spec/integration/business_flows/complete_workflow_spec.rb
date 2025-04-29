@@ -25,17 +25,22 @@ RSpec.describe "Complete Business Flows", type: :integration do
       expect(reimbursement.status).to eq('processing')
       
       # 2. 创建审核工单
-      audit_work_order = create(:audit_work_order, 
-                               reimbursement: reimbursement,
-                               problem_type: "发票问题",
-                               problem_description: "发票信息不完整",
-                               remark: "需要补充完整的发票信息",
-                               processing_opinion: "需要补充材料")
+      # 先构建工单对象
+      audit_work_order = build(:audit_work_order,
+                              reimbursement: reimbursement,
+                              problem_type: "发票问题",
+                              problem_description: "发票信息不完整",
+                              remark: "需要补充完整的发票信息",
+                              processing_opinion: "需要补充材料")
       
-      # 3. 关联费用明细
-      fee_details.each do |fd|
-        audit_work_order.select_fee_detail(fd)
-      end
+      # 设置fee_detail_ids_to_select
+      audit_work_order.instance_variable_set('@fee_detail_ids_to_select', fee_details.map(&:id))
+      
+      # 保存工单
+      audit_work_order.save!
+      
+      # 处理费用明细关联
+      audit_work_order.process_fee_detail_selections
       
       # 4. 开始处理审核工单
       audit_service = AuditWorkOrderService.new(audit_work_order, admin_user)
@@ -88,17 +93,22 @@ RSpec.describe "Complete Business Flows", type: :integration do
       expect(reimbursement.status).to eq('processing')
       
       # 2. 创建审核工单
-      audit_work_order = create(:audit_work_order, 
-                               reimbursement: reimbursement,
-                               problem_type: "金额错误",
-                               problem_description: "发票金额与申报金额不符",
-                               remark: "需要核实金额",
-                               processing_opinion: "需要修改申报信息")
+      # 先构建工单对象
+      audit_work_order = build(:audit_work_order,
+                              reimbursement: reimbursement,
+                              problem_type: "金额错误",
+                              problem_description: "发票金额与申报金额不符",
+                              remark: "需要核实金额",
+                              processing_opinion: "需要修改申报信息")
       
-      # 关联费用明细
-      fee_details.each do |fd|
-        audit_work_order.select_fee_detail(fd)
-      end
+      # 设置fee_detail_ids_to_select
+      audit_work_order.instance_variable_set('@fee_detail_ids_to_select', fee_details.map(&:id))
+      
+      # 保存工单
+      audit_work_order.save!
+      
+      # 处理费用明细关联
+      audit_work_order.process_fee_detail_selections
       
       # 3. 开始处理审核工单
       audit_service = AuditWorkOrderService.new(audit_work_order, admin_user)
@@ -123,19 +133,24 @@ RSpec.describe "Complete Business Flows", type: :integration do
       expect(audit_work_order.audit_result).to eq('rejected')
       
       # 5. 创建沟通工单
-      communication_work_order = create(:communication_work_order, 
-                                       reimbursement: reimbursement,
-                                       problem_type: "金额错误",
-                                       problem_description: "发票金额与申报金额不符",
-                                       remark: "需要与申请人沟通",
-                                       processing_opinion: "需要修改申报信息",
-                                       communication_method: "电话",
-                                       initiator_role: "财务人员")
+      # 先构建工单对象
+      communication_work_order = build(:communication_work_order,
+                                      reimbursement: reimbursement,
+                                      problem_type: "金额错误",
+                                      problem_description: "发票金额与申报金额不符",
+                                      remark: "需要与申请人沟通",
+                                      processing_opinion: "需要修改申报信息",
+                                      communication_method: "电话",
+                                      initiator_role: "财务人员")
       
-      # 关联相同费用明细
-      fee_details.each do |fd|
-        communication_work_order.select_fee_detail(fd)
-      end
+      # 设置fee_detail_ids_to_select
+      communication_work_order.instance_variable_set('@fee_detail_ids_to_select', fee_details.map(&:id))
+      
+      # 保存工单
+      communication_work_order.save!
+      
+      # 处理费用明细关联
+      communication_work_order.process_fee_detail_selections
       
       # 6. 标记需要沟通
       comm_service = CommunicationWorkOrderService.new(communication_work_order, admin_user)
@@ -185,12 +200,30 @@ RSpec.describe "Complete Business Flows", type: :integration do
     
     it "handles fee details associated with multiple work orders" do
       # 1. 创建审核工单，关联费用明细
-      audit_work_order = create(:audit_work_order, reimbursement: reimbursement)
-      audit_work_order.select_fee_detail(fee_detail)
+      # 先构建工单对象
+      audit_work_order = build(:audit_work_order, reimbursement: reimbursement)
+      
+      # 设置fee_detail_ids_to_select
+      audit_work_order.instance_variable_set('@fee_detail_ids_to_select', [fee_detail.id])
+      
+      # 保存工单
+      audit_work_order.save!
+      
+      # 处理费用明细关联
+      audit_work_order.process_fee_detail_selections
       
       # 2. 创建沟通工单，关联相同费用明细
-      communication_work_order = create(:communication_work_order, reimbursement: reimbursement)
-      communication_work_order.select_fee_detail(fee_detail)
+      # 先构建工单对象
+      communication_work_order = build(:communication_work_order, reimbursement: reimbursement)
+      
+      # 设置fee_detail_ids_to_select
+      communication_work_order.instance_variable_set('@fee_detail_ids_to_select', [fee_detail.id])
+      
+      # 保存工单
+      communication_work_order.save!
+      
+      # 处理费用明细关联
+      communication_work_order.process_fee_detail_selections
       
       # 3. 处理审核工单，拒绝
       audit_service = AuditWorkOrderService.new(audit_work_order, admin_user)

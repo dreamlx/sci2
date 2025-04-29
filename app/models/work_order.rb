@@ -16,6 +16,36 @@ class WorkOrder < ApplicationRecord
   validates :reimbursement_id, presence: true
   validates :type, presence: true
   validates :status, presence: true
+  
+  # 添加虚拟属性以接收表单提交的fee_detail_ids
+  attr_accessor :fee_detail_ids
+  
+  # 初始化fee_detail_ids为空数组
+  def fee_detail_ids
+    @fee_detail_ids ||= []
+  end
+  
+  # 验证费用明细选择 - 只对审核工单和沟通工单进行验证
+  validate :validate_fee_detail_selections, if: -> {
+    new_record? && (self.is_a?(AuditWorkOrder) || self.is_a?(CommunicationWorkOrder))
+  }
+  
+  def validate_fee_detail_selections
+    # 检查是否有费用明细ID
+    if @fee_detail_ids_to_select.blank? && fee_detail_ids.blank?
+      errors.add(:fee_detail_selections, :invalid)
+    end
+  end
+  
+  # 在保存前处理表单提交的fee_detail_ids
+  after_initialize :process_fee_detail_ids
+  
+  def process_fee_detail_ids
+    # 如果fee_detail_ids存在且不为空，则设置@fee_detail_ids_to_select
+    if fee_detail_ids.present?
+      @fee_detail_ids_to_select = fee_detail_ids
+    end
+  end
 
   # 回调
   # 使用 after_commit 确保状态变更在成功保存后记录
@@ -57,25 +87,26 @@ class WorkOrder < ApplicationRecord
   
   # 状态机回调的辅助方法
   def update_associated_fee_details_status(new_status)
-    # For test environment, just return a non-nil value for string statuses
-    return true if ['problematic', 'verified'].include?(new_status)
+    # 确保状态是有效的
+    valid_statuses = ['problematic', 'verified']
     
-    # For production, use constants
-    valid_statuses = [
+    # 同时支持字符串和常量
+    return unless valid_statuses.include?(new_status) || [
       FeeDetail::VERIFICATION_STATUS_PROBLEMATIC,
       FeeDetail::VERIFICATION_STATUS_VERIFIED
-    ]
-    
-    return unless valid_statuses.include?(new_status)
+    ].include?(new_status)
     
     # 使用 FeeDetailVerificationService
     # 确保在调用状态机事件前适当设置 Current.admin_user
     verification_service = FeeDetailVerificationService.new(Current.admin_user || creator)
+    
     # 如果性能成为问题，使用预加载
     fee_details.find_each do |fee_detail|
       # 仅当未验证时更新（允许 problematic -> verified）
-      # Only update if not already verified (allow problematic -> verified)
-      if fee_detail.pending? || fee_detail.problematic?
+      # 或者当状态从verified变为problematic时
+      if fee_detail.pending? ||
+         fee_detail.problematic? ||
+         (fee_detail.verified? && new_status == 'problematic')
         verification_service.update_verification_status(fee_detail, new_status)
       end
     end

@@ -10,8 +10,20 @@ RSpec.describe "FeeDetail Associations", type: :model do
   end
   
   it "has many fee detail selections" do
-    audit_work_order = create(:audit_work_order, reimbursement: reimbursement)
-    selection = create(:fee_detail_selection, work_order: audit_work_order, fee_detail: fee_detail)
+    # 先构建工单对象
+    audit_work_order = build(:audit_work_order, reimbursement: reimbursement)
+    
+    # 设置fee_detail_ids_to_select
+    audit_work_order.instance_variable_set('@fee_detail_ids_to_select', [fee_detail.id])
+    
+    # 保存工单
+    audit_work_order.save!
+    
+    # 处理费用明细关联
+    audit_work_order.process_fee_detail_selections
+    
+    # 获取创建的fee_detail_selection
+    selection = FeeDetailSelection.find_by(work_order: audit_work_order, fee_detail: fee_detail)
     
     # Reload to ensure associations are properly loaded
     fee_detail.reload
@@ -20,10 +32,20 @@ RSpec.describe "FeeDetail Associations", type: :model do
   end
   
   it "can be associated with audit work orders" do
-    audit_work_order = create(:audit_work_order, reimbursement: reimbursement)
+    # 先构建工单对象
+    audit_work_order = build(:audit_work_order, reimbursement: reimbursement)
     
-    # Create fee detail selection
-    selection = create(:fee_detail_selection, work_order: audit_work_order, fee_detail: fee_detail)
+    # 设置fee_detail_ids_to_select
+    audit_work_order.instance_variable_set('@fee_detail_ids_to_select', [fee_detail.id])
+    
+    # 保存工单
+    audit_work_order.save!
+    
+    # 处理费用明细关联
+    audit_work_order.process_fee_detail_selections
+    
+    # 获取创建的fee_detail_selection
+    selection = FeeDetailSelection.find_by(work_order: audit_work_order, fee_detail: fee_detail)
     
     # Reload to ensure associations are properly loaded
     fee_detail.reload
