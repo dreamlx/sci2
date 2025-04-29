@@ -36,9 +36,8 @@ RSpec.describe "Complex Scenarios", type: :model do
       
       # 验证关联
       expect(communication_work_order.reimbursement).to eq(reimbursement)
-      expect(communication_work_order.audit_work_order).to eq(audit_work_order)
+      # audit_work_order association has been removed
       expect(reimbursement.communication_work_orders).to include(communication_work_order)
-      expect(audit_work_order.communication_work_orders).to include(communication_work_order)
     end
     
     it "can add communication record to communication work order" do

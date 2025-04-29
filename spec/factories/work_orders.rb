@@ -55,7 +55,6 @@ FactoryBot.define do
     factory :communication_work_order, class: 'CommunicationWorkOrder' do
       type { "CommunicationWorkOrder" }
       status { "pending" }
-      # Remove audit_work_order association as it's not in the schema
       
       # 覆盖基类的 initialize_with
       initialize_with { CommunicationWorkOrder.new }
