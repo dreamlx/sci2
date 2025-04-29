@@ -11,6 +11,7 @@ abort("The Rails environment is running in production mode!") if Rails.env.produ
 # return unless Rails.env.test?
 require 'rspec/rails'
 require 'capybara/rspec' # Require Capybara RSpec integration
+require 'selenium-webdriver' # For JavaScript-enabled tests
 # Manually require state_machines-activerecord with error handling
 begin
   require 'state_machines/active_record'
@@ -32,7 +33,8 @@ end
 # directory. Alternatively, in the individual `*_spec.rb` files, manually
 # require only the support files necessary.
 #
-# Rails.root.glob('spec/support/**/*.rb').sort_by(&:to_s).each { |f| require f }
+# Load support files
+Dir[Rails.root.join('spec/support/**/*.rb')].sort.each { |f| require f }
 #
 # Checks for pending migrations and applies them before tests are run.
 # If you are not using ActiveRecord, you can remove these lines.
@@ -48,8 +50,21 @@ RSpec.configure do |config|
   # Include Devise test helpers for request specs
   config.include Devise::Test::IntegrationHelpers, type: :request
 
-  # Include Warden test helpers for feature specs (Capybara)
+  # Include Warden test helpers for feature and system specs (Capybara)
   config.include Warden::Test::Helpers, type: :feature
+  config.include Warden::Test::Helpers, type: :system
+  
+  # Include Devise test helpers for system specs
+  config.include Devise::Test::IntegrationHelpers, type: :system
+  
+  # Configure Capybara for system tests
+  config.before(:each, type: :system) do
+    driven_by :rack_test
+  end
+  
+  config.before(:each, type: :system, js: true) do
+    driven_by :selenium_chrome_headless
+  end
 
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures
   config.fixture_paths = [

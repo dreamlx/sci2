@@ -45,6 +45,10 @@ ActiveAdmin.register Reimbursement do
   action_item :import, only: :index do
     link_to "导入报销单", new_import_admin_reimbursements_path
   end
+  
+  action_item :import_operation_histories, only: :index do
+    link_to "导入操作历史", operation_histories_admin_imports_path
+  end
   action_item :new_audit_work_order, only: :show, if: proc{!resource.closed?} do
     link_to "新建审核工单", new_admin_audit_work_order_path(reimbursement_id: resource.id)
   end

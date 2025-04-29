@@ -1,0 +1,39 @@
+<h1>导入操作历史</h1>
+
+<div class="panel">
+  <div class="panel_contents">
+    <div class="attributes_table">
+      <h3>导入说明</h3>
+      <ul>
+        <li>请上传CSV格式文件</li>
+        <li>文件必须包含以下列：单据编号,操作类型,操作日期,操作人,操作意见</li>
+        <li>系统会根据单据编号关联到已存在的报销单</li>
+        <li>如果操作历史已存在（根据单据编号+操作类型+操作日期+操作人判断），将跳过该记录</li>
+        <li>如果操作类型为"审批"且操作意见为"审批通过"，系统会自动将对应报销单状态更新为"已关闭"</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<%= form_tag import_operation_histories_admin_imports_path, multipart: true do %>
+  <div class="panel">
+    <div class="panel_contents">
+      <div class="attributes_table">
+        <fieldset class="inputs">
+          <legend><span>选择文件</span></legend>
+          <ol>
+            <li class="file input">
+              <label for="file">文件</label>
+              <%= file_field_tag :file, accept: '.csv,.xlsx,.xls' %>
+            </li>
+          </ol>
+        </fieldset>
+      </div>
+    </div>
+  </div>
+  
+  <div class="actions">
+    <%= submit_tag "导入", class: "button" %>
+    <%= link_to "取消", admin_reimbursements_path, class: "button" %>
+  </div>
+<% end %>
