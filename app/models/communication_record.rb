@@ -5,6 +5,7 @@ class CommunicationRecord < ApplicationRecord
   
   # 验证
   validates :content, presence: true
+  validates :communicator_role, presence: true
   validates :communication_work_order_id, presence: true
   
   # 回调

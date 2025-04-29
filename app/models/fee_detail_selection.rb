@@ -21,4 +21,13 @@ class FeeDetailSelection < ApplicationRecord
     # 更新费用明细状态
     fee_detail.update(verification_status: verification_status)
   end
+  
+  # ActiveAdmin配置
+  def self.ransackable_attributes(auth_object = nil)
+    %w[id fee_detail_id work_order_id work_order_type verification_status verification_comment verified_by verified_at created_at updated_at]
+  end
+  
+  def self.ransackable_associations(auth_object = nil)
+    %w[fee_detail work_order]
+  end
 end

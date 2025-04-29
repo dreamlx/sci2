@@ -9,8 +9,8 @@ RSpec.describe "Reimbursement Associations", type: :model do
       # 创建不同类型的工单
       create(:express_receipt_work_order, reimbursement: reimbursement)
       create(:audit_work_order, reimbursement: reimbursement)
-      audit_work_order = create(:audit_work_order, reimbursement: reimbursement)
-      create(:communication_work_order, reimbursement: reimbursement, audit_work_order: audit_work_order)
+      create(:audit_work_order, reimbursement: reimbursement)
+      create(:communication_work_order, reimbursement: reimbursement)
       
       # 验证关联 - 不检查具体数量，只检查存在性
       expect(reimbursement.work_orders.count).to be > 0

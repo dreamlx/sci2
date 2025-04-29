@@ -10,6 +10,9 @@ class WorkOrderStatusChange < ApplicationRecord
   
   # 范围查询
   scope :recent, -> { order(changed_at: :desc) }
+  scope :for_audit_work_orders, -> { where(work_order_type: 'AuditWorkOrder') }
+  scope :for_communication_work_orders, -> { where(work_order_type: 'CommunicationWorkOrder') }
+  scope :for_express_receipt_work_orders, -> { where(work_order_type: 'ExpressReceiptWorkOrder') }
   
   # 便捷方法
   def status_change_description
@@ -18,5 +21,14 @@ class WorkOrderStatusChange < ApplicationRecord
     else
       "初始状态设置为 #{to_status}"
     end
+  end
+  
+  # ActiveAdmin配置
+  def self.ransackable_attributes(auth_object = nil)
+    %w[id work_order_type work_order_id from_status to_status changed_at changed_by created_at updated_at]
+  end
+  
+  def self.ransackable_associations(auth_object = nil)
+    %w[work_order changer]
   end
 end
