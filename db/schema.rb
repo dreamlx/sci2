@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_04_28_155451) do
+ActiveRecord::Schema[7.1].define(version: 2025_04_29_124000) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -61,6 +61,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_04_28_155451) do
     t.datetime "updated_at", null: false
     t.index ["fee_detail_id", "work_order_id", "work_order_type"], name: "index_fee_detail_selections_on_fee_detail_and_work_order", unique: true
     t.index ["fee_detail_id"], name: "index_fee_detail_selections_on_fee_detail_id"
+    t.index ["verification_status"], name: "index_fee_detail_selections_on_verification_status"
     t.index ["verifier_id"], name: "index_fee_detail_selections_on_verifier_id"
     t.index ["work_order_type", "work_order_id"], name: "index_fee_detail_selections_on_work_order"
   end
@@ -80,6 +81,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_04_28_155451) do
     t.text "notes"
     t.index ["document_number", "fee_type", "amount", "fee_date"], name: "index_fee_details_on_document_and_details", unique: true
     t.index ["document_number"], name: "index_fee_details_on_document_number"
+    t.index ["fee_date"], name: "index_fee_details_on_fee_date"
     t.index ["verification_status"], name: "index_fee_details_on_verification_status"
   end
 
@@ -95,6 +97,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_04_28_155451) do
     t.datetime "updated_at", null: false
     t.index ["document_number", "operation_type", "operation_time", "operator"], name: "index_operation_histories_on_document_and_operation", unique: true
     t.index ["document_number"], name: "index_operation_histories_on_document_number"
+    t.index ["operation_time"], name: "index_operation_histories_on_operation_time"
   end
 
   create_table "reimbursements", force: :cascade do |t|
@@ -118,7 +121,9 @@ ActiveRecord::Schema[7.1].define(version: 2025_04_28_155451) do
     t.string "document_tags"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index ["external_status"], name: "index_reimbursements_on_external_status"
     t.index ["invoice_number"], name: "index_reimbursements_on_invoice_number", unique: true
+    t.index ["is_electronic"], name: "index_reimbursements_on_is_electronic"
     t.index ["status"], name: "index_reimbursements_on_status"
   end
 
@@ -131,6 +136,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_04_28_155451) do
     t.integer "changer_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index ["changed_at"], name: "index_work_order_status_changes_on_changed_at"
     t.index ["changer_id"], name: "index_work_order_status_changes_on_changer_id"
     t.index ["work_order_type", "work_order_id"], name: "index_work_order_status_changes_on_work_order"
   end
