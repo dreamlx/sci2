@@ -203,4 +203,118 @@ RSpec.describe CommunicationWorkOrder, type: :model do
       expect(work_order.rejected?).to be_truthy
     end
   end
+  
+  # 非法状态转换测试 (WF-C-007)
+  describe "invalid state transitions" do
+    let(:reimbursement) { build_stubbed(:reimbursement) }
+    
+    it "cannot transition directly from pending to approved" do
+      work_order = build(:communication_work_order, reimbursement: reimbursement)
+      expect(work_order.status).to eq("pending")
+      
+      # 尝试直接从 pending 转换到 approved 应该失败
+      expect { work_order.approve! }.to raise_error(StateMachines::InvalidTransition)
+      expect(work_order.status).to eq("pending") # 状态应保持不变
+    end
+    
+    it "cannot transition directly from pending to rejected" do
+      work_order = build(:communication_work_order, reimbursement: reimbursement)
+      expect(work_order.status).to eq("pending")
+      
+      # 尝试直接从 pending 转换到 rejected 应该失败
+      expect { work_order.reject! }.to raise_error(StateMachines::InvalidTransition)
+      expect(work_order.status).to eq("pending") # 状态应保持不变
+    end
+    
+    it "cannot transition from processing to needs_communication" do
+      work_order = build(:communication_work_order, :processing, reimbursement: reimbursement)
+      expect(work_order.status).to eq("processing")
+      
+      # 尝试从 processing 转换到 needs_communication 应该失败
+      expect { work_order.mark_needs_communication! }.to raise_error(StateMachines::InvalidTransition)
+      expect(work_order.status).to eq("processing") # 状态应保持不变
+    end
+  end
+  
+  # 状态变更记录测试 (WF-C-006)
+  describe "status change recording" do
+    let(:reimbursement) { create(:reimbursement) }
+    let(:admin_user) { create(:admin_user) }
+    
+    before do
+      # 模拟 Current.admin_user
+      allow(Current).to receive(:admin_user).and_return(admin_user)
+    end
+    
+    it "records status change when transitioning from pending to processing" do
+      work_order = create(:communication_work_order, reimbursement: reimbursement)
+      
+      # 模拟 update_associated_fee_details_status 方法以避免实际调用
+      allow(work_order).to receive(:update_associated_fee_details_status)
+      
+      expect {
+        work_order.start_processing!
+      }.to change(WorkOrderStatusChange, :count).by(1)
+      
+      status_change = work_order.work_order_status_changes.last
+      expect(status_change.from_status).to eq("pending")
+      expect(status_change.to_status).to eq("processing")
+      expect(status_change.changer_id).to eq(admin_user.id)
+      expect(status_change.changed_at).to be_present
+    end
+    
+    it "records status change when transitioning from pending to needs_communication" do
+      work_order = create(:communication_work_order, reimbursement: reimbursement)
+      
+      # 模拟 update_associated_fee_details_status 方法以避免实际调用
+      allow(work_order).to receive(:update_associated_fee_details_status)
+      
+      expect {
+        work_order.mark_needs_communication!
+      }.to change(WorkOrderStatusChange, :count).by(1)
+      
+      status_change = work_order.work_order_status_changes.last
+      expect(status_change.from_status).to eq("pending")
+      expect(status_change.to_status).to eq("needs_communication")
+      expect(status_change.changer_id).to eq(admin_user.id)
+      expect(status_change.changed_at).to be_present
+    end
+    
+    it "records status change when transitioning from processing to approved" do
+      work_order = create(:communication_work_order, :processing, reimbursement: reimbursement)
+      work_order.resolution_summary = "问题已解决"
+      
+      # 模拟 update_associated_fee_details_status 方法以避免实际调用
+      allow(work_order).to receive(:update_associated_fee_details_status)
+      
+      expect {
+        work_order.approve!
+      }.to change(WorkOrderStatusChange, :count).by(1)
+      
+      status_change = work_order.work_order_status_changes.last
+      expect(status_change.from_status).to eq("processing")
+      expect(status_change.to_status).to eq("approved")
+      expect(status_change.changer_id).to eq(admin_user.id)
+      expect(status_change.changed_at).to be_present
+    end
+    
+    it "records status change when transitioning from needs_communication to rejected" do
+      work_order = create(:communication_work_order, :needs_communication, reimbursement: reimbursement)
+      work_order.problem_type = "documentation_issue"
+      work_order.resolution_summary = "无法解决"
+      
+      # 模拟 update_associated_fee_details_status 方法以避免实际调用
+      allow(work_order).to receive(:update_associated_fee_details_status)
+      
+      expect {
+        work_order.reject!
+      }.to change(WorkOrderStatusChange, :count).by(1)
+      
+      status_change = work_order.work_order_status_changes.last
+      expect(status_change.from_status).to eq("needs_communication")
+      expect(status_change.to_status).to eq("rejected")
+      expect(status_change.changer_id).to eq(admin_user.id)
+      expect(status_change.changed_at).to be_present
+    end
+  end
 end
