@@ -31,7 +31,7 @@
         <div class="fee-detail-selection">
           <div class="select-actions">
             <a href="#" class="select-all">全选</a>
-            <%= text_node " | " %>
+            |
             <a href="#" class="deselect-all">取消全选</a>
           </div>
           
@@ -57,7 +57,7 @@
                   <td><%= fee_detail.fee_type %></td>
                   <td><%= number_to_currency(fee_detail.amount, unit: "¥") %></td>
                   <td><%= fee_detail.fee_date %></td>
-                  <td><%= status_tag fee_detail.verification_status %></td>
+                  <td><%= fee_detail.verification_status %></td>
                 </tr>
               <% end %>
             </tbody>

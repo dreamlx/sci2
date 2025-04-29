@@ -1,5 +1,5 @@
 ActiveAdmin.register CommunicationWorkOrder do
-  permit_params :reimbursement_id, :audit_work_order_id, :status, :communication_method,
+  permit_params :reimbursement_id, :status, :communication_method,
                 :initiator_role, :resolution_summary, :created_by,
                 # 共享字段 (Req 6/7)
                 :problem_type, :problem_description, :remark, :processing_opinion,
