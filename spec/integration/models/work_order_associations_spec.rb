@@ -39,32 +39,4 @@ RSpec.describe "WorkOrder Associations", type: :model do
     end
   end
   
-  describe "AuditWorkOrder associations" do
-    let(:audit_work_order) { create(:audit_work_order) }
-    
-    it "has many communication work orders" do
-      communication_work_order = create(:communication_work_order, 
-                                       reimbursement: audit_work_order.reimbursement,
-                                       audit_work_order: audit_work_order)
-      
-      expect(audit_work_order.communication_work_orders).to include(communication_work_order)
-    end
-  end
-  
-  describe "CommunicationWorkOrder associations" do
-    let(:audit_work_order) { create(:audit_work_order) }
-    let(:communication_work_order) { create(:communication_work_order, 
-                                          reimbursement: audit_work_order.reimbursement,
-                                          audit_work_order: audit_work_order) }
-    
-    it "belongs to audit work order" do
-      expect(communication_work_order.audit_work_order).to eq(audit_work_order)
-    end
-    
-    it "has many communication records" do
-      record = create(:communication_record, communication_work_order: communication_work_order)
-      
-      expect(communication_work_order.communication_records).to include(record)
-    end
-  end
 end

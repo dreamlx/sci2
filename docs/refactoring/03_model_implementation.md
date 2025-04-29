@@ -337,9 +337,6 @@ end
 ```ruby
 # app/models/audit_work_order.rb
 class AuditWorkOrder < WorkOrder
-  # 关联
-  has_many :communication_work_orders, foreign_key: 'audit_work_order_id', dependent: :nullify, inverse_of: :audit_work_order
-
   # 验证
   validates :status, inclusion: { in: %w[pending processing approved rejected] }
   validates :audit_result, presence: true, if: -> { approved? || rejected? }
@@ -396,7 +393,7 @@ class AuditWorkOrder < WorkOrder
   end
 
   def self.subclass_ransackable_associations
-    %w[communication_work_orders]
+    []
   end
 end
 ```
@@ -410,12 +407,10 @@ end
 # app/models/communication_work_order.rb
 class CommunicationWorkOrder < WorkOrder
   # 关联
-  belongs_to :audit_work_order, class_name: 'AuditWorkOrder', foreign_key: 'audit_work_order_id', optional: false # Must link to parent AuditWO
   has_many :communication_records, foreign_key: 'communication_work_order_id', dependent: :destroy, inverse_of: :communication_work_order
 
   # 验证
   validates :status, inclusion: { in: %w[pending processing needs_communication approved rejected] }
-  validates :audit_work_order_id, presence: true
   # Add validations for Req 7 fields if needed
 
   # 状态机
@@ -473,11 +468,11 @@ class CommunicationWorkOrder < WorkOrder
   # Override ransackable methods
   def self.subclass_ransackable_attributes
     # Inherited common + Req 6/7 fields + specific fields
-    %w[communication_method initiator_role resolution_summary audit_work_order_id problem_type problem_description remark processing_opinion]
+    %w[communication_method initiator_role resolution_summary problem_type problem_description remark processing_opinion]
   end
 
   def self.subclass_ransackable_associations
-    %w[audit_work_order communication_records]
+    %w[communication_records]
   end
 end
 ```
@@ -634,7 +629,6 @@ classDiagram
         +String audit_comment
         +DateTime audit_date
         +Boolean vat_verified
-        +has_many communication_work_orders
         +state_machine status (pending, processing, approved, rejected)
         +select_fee_detail()
     }
@@ -644,8 +638,6 @@ classDiagram
         +String communication_method
         +String initiator_role
         +String resolution_summary
-        +Integer audit_work_order_id
-        +belongs_to audit_work_order
         +has_many communication_records
         +state_machine status (pending, processing, needs_communication, approved, rejected)
         +add_communication_record()
@@ -705,7 +697,6 @@ classDiagram
     WorkOrder "1" -- "*" FeeDetailSelection : work_order (poly)
     FeeDetail "1" -- "*" FeeDetailSelection : fee_detail
     WorkOrder "1" -- "*" WorkOrderStatusChange : work_order (poly)
-    AuditWorkOrder "1" -- "*" CommunicationWorkOrder : audit_work_order
     CommunicationWorkOrder "1" -- "*" CommunicationRecord : communication_work_order
     WorkOrder "1" -- "0..1" AdminUser : creator
     WorkOrderStatusChange "1" -- "0..1" AdminUser : changer

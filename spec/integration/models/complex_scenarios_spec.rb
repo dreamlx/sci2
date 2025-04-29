@@ -32,8 +32,7 @@ RSpec.describe "Complex Scenarios", type: :model do
       
       # 创建沟通工单
       communication_work_order = create(:communication_work_order,
-                                      reimbursement: reimbursement,
-                                      audit_work_order: audit_work_order)
+                                      reimbursement: reimbursement)
       
       # 验证关联
       expect(communication_work_order.reimbursement).to eq(reimbursement)
@@ -46,8 +45,7 @@ RSpec.describe "Complex Scenarios", type: :model do
       # 创建审核工单和沟通工单
       audit_work_order = create(:audit_work_order, reimbursement: reimbursement)
       communication_work_order = create(:communication_work_order,
-                                      reimbursement: reimbursement,
-                                      audit_work_order: audit_work_order)
+                                      reimbursement: reimbursement)
       
       # 添加沟通记录
       communication_record = create(:communication_record,

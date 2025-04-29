@@ -10,6 +10,7 @@ abort("The Rails environment is running in production mode!") if Rails.env.produ
 # that will avoid rails generators crashing because migrations haven't been run yet
 # return unless Rails.env.test?
 require 'rspec/rails'
+require 'capybara/rspec' # Require Capybara RSpec integration
 # Manually require state_machines-activerecord with error handling
 begin
   require 'state_machines/active_record'
@@ -41,6 +42,15 @@ rescue ActiveRecord::PendingMigrationError => e
   abort e.to_s.strip
 end
 RSpec.configure do |config|
+  # Include Rails controller testing helpers
+  config.include Rails::Controller::Testing::TemplateAssertions, type: :request
+
+  # Include Devise test helpers for request specs
+  config.include Devise::Test::IntegrationHelpers, type: :request
+
+  # Include Warden test helpers for feature specs (Capybara)
+  config.include Warden::Test::Helpers, type: :feature
+
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures
   config.fixture_paths = [
     Rails.root.join('spec/fixtures')

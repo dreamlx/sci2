@@ -6,7 +6,7 @@ RSpec.describe ServiceRegistry do
   let(:file) { double('File') }
   let(:reimbursement) { create(:reimbursement) }
   let(:audit_work_order) { create(:audit_work_order, reimbursement: reimbursement) }
-  let(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement, audit_work_order: audit_work_order) }
+  let(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement) }
   let(:express_receipt_work_order) { create(:express_receipt_work_order, reimbursement: reimbursement) }
   
   # 模拟服务实例

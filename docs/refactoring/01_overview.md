@@ -56,7 +56,6 @@ erDiagram
         string communication_method # Communication
         string initiator_role # Communication
         text resolution_summary # Communication
-        integer audit_work_order_id FK # Communication link to parent AuditWO
         # --- Timestamps ---
         datetime created_at
         datetime updated_at

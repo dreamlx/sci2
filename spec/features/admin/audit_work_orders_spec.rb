@@ -62,7 +62,9 @@ RSpec.describe "审核工单管理", type: :feature do
   describe "工单状态流转", js: true do
     it "可以开始处理工单" do
       visit admin_audit_work_order_path(audit_work_order)
-      click_link "开始处理"
+      accept_alert do
+        click_link "开始处理"
+      end
 
       expect(page).to have_content("工单已开始处理")
       expect(page).to have_content("processing")

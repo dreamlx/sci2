@@ -369,7 +369,6 @@ class FeeDetailImportService
       nil
     end
   end
-end
 ```
 
 ### 1.4 操作历史导入服务 (OperationHistoryImportService)
@@ -728,14 +727,11 @@ end
 # Example for creating CommunicationWorkOrder
 def create_communication_work_order
   @reimbursement = Reimbursement.find(params[:reimbursement_id])
-  # Or find parent AuditWorkOrder if creating from there
-  # @audit_work_order = AuditWorkOrder.find(params[:audit_work_order_id])
 
   # Build with permitted params, including shared fields
   @communication_work_order = @reimbursement.communication_work_orders.build(
      communication_creation_params.merge(created_by: current_admin_user.id)
   )
-  # Or: @audit_work_order.communication_work_orders.build(...)
 
   # Use transaction to ensure atomicity of WO creation and fee detail selection
   ActiveRecord::Base.transaction do
@@ -768,7 +764,6 @@ private
 def communication_creation_params
   # Permit shared fields on creation as well
   params.require(:communication_work_order).permit(
-    :audit_work_order_id,
     :communication_method,
     :initiator_role,
     :problem_type, # Shared field
@@ -777,4 +772,6 @@ def communication_creation_params
     :processing_opinion # Shared field
     # resolution_summary likely not set on creation
   )
+end
+```
 end

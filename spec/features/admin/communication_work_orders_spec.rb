@@ -4,7 +4,7 @@ RSpec.describe "沟通工单管理", type: :feature do
   let!(:admin_user) { create(:admin_user) }
   let!(:reimbursement) { create(:reimbursement) }
   let!(:fee_detail) { create(:fee_detail, document_number: reimbursement.invoice_number) }
-  let!(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement, status: 'pending') } # 移除 audit_work_order 关联
+  let!(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement, status: 'pending') }
 
   before do
     login_as(admin_user, scope: :admin_user)

@@ -116,7 +116,6 @@ processing_opinion: string (来自 Req 6 处理意见下拉列表)
 communication_method: string
 initiator_role: string
 resolution_summary: text
-audit_work_order_id: integer (FK, references work_orders.id, nullable, 关联父审核工单)
 # Req 7 表单字段与 AuditWorkOrder 相同，复用上面 Audit 的字段
 
 # --- Timestamps ---
@@ -270,7 +269,6 @@ class CreateWorkOrders < ActiveRecord::Migration[7.0]
       t.string :communication_method
       t.string :initiator_role
       t.text :resolution_summary
-      t.references :audit_work_order, foreign_key: { to_table: :work_orders }, null: true, index: true
 
       t.timestamps
     end
@@ -329,7 +327,7 @@ end
 *   **`reimbursements`**: `invoice_number` (unique), `status`, `external_status`, `is_electronic`.
 *   **`fee_details`**: `document_number`, `verification_status`, `fee_date`, `[:document_number, :fee_type, :amount, :fee_date]` (for duplicate check).
 *   **`operation_histories`**: `document_number`, `operation_time`, `[:document_number, :operation_type, :operation_time, :operator]` (for duplicate check).
-*   **`work_orders`**: `type`, `status`, `reimbursement_id`, `audit_work_order_id`, `created_by`, `[:reimbursement_id, :tracking_number]` (for express duplicate check).
+*   **`work_orders`**: `type`, `status`, `reimbursement_id`, `created_by`, `[:reimbursement_id, :tracking_number]` (for express duplicate check).
 *   **`fee_detail_selections`**: `[:work_order_id, :work_order_type]`, `fee_detail_id`, optional unique index.
 *   **`communication_records`**: `communication_work_order_id`.
 *   **`work_order_status_changes`**: `[:work_order_id, :work_order_type]`, `changed_at`, `changed_by`.
