@@ -209,6 +209,10 @@ ActiveAdmin.setup do |config|
   #
   # To load a javascript file:
   #   config.register_javascript 'my_javascript.js'
+  
+  # Register custom JavaScript files for work order forms
+  config.register_javascript 'audit_work_order_form.js'
+  config.register_javascript 'communication_work_order_form.js'
 
   # == CSV options
   #

@@ -35,7 +35,8 @@ RSpec.describe "沟通工单管理", type: :feature do
     it "显示状态操作按钮" do
       visit admin_communication_work_order_path(communication_work_order)
       expect(page).to have_link("开始处理")
-      expect(page).to have_link("标记需沟通")
+      expect(page).to have_link("标记为需要沟通")
+      expect(page).to have_link("沟通后通过") # 支持直接通过
     end
   end
 
@@ -74,15 +75,28 @@ RSpec.describe "沟通工单管理", type: :feature do
 
     it "可以标记需要沟通" do
       visit admin_communication_work_order_path(communication_work_order)
-      click_link "标记需沟通"
+      click_link "标记为需要沟通"
 
-      expect(page).to have_content("工单已标记为需要沟通")
-      expect(page).to have_content("needs_communication")
+      expect(page).to have_content("已标记为需要沟通")
+      expect(page).to have_content("需要沟通")
+    end
+
+    it "可以直接沟通通过工单" do
+      # 工单状态为pending
+      visit admin_communication_work_order_path(communication_work_order)
+      click_link "沟通后通过"
+
+      fill_in "communication_work_order[resolution_summary]", with: "直接沟通通过测试"
+      click_button "确认通过"
+
+      expect(page).to have_content("工单已沟通通过")
+      expect(page).to have_content("approved")
+      expect(page).to have_content("直接沟通通过测试")
     end
 
     it "可以沟通后通过工单" do
-      # 先将工单状态设为needs_communication
-      communication_work_order.update(status: 'needs_communication')
+      # 先将工单状态设为processing
+      communication_work_order.update(status: 'processing')
 
       visit admin_communication_work_order_path(communication_work_order)
       click_link "沟通后通过"
@@ -96,8 +110,8 @@ RSpec.describe "沟通工单管理", type: :feature do
     end
 
     it "可以沟通后拒绝工单" do
-      # 先将工单状态设为needs_communication
-      communication_work_order.update(status: 'needs_communication')
+      # 先将工单状态设为processing
+      communication_work_order.update(status: 'processing')
 
       visit admin_communication_work_order_path(communication_work_order)
       click_link "沟通后拒绝"

@@ -54,7 +54,7 @@
       </table>
     </div>
 
-    <%= form_tag do_verify_fee_detail_polymorphic_path([:admin, @work_order]), method: :post do %>
+    <%= form_tag do_verify_fee_detail_admin_audit_work_order_path(@work_order), method: :post do %>
       <%= hidden_field_tag :fee_detail_id, @fee_detail.id %>
 
       <div class="input">

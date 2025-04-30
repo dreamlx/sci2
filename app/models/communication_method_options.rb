@@ -4,8 +4,8 @@ class CommunicationMethodOptions
       "电话",
       "邮件",
       "微信",
-      "面谈",
-      "其他"
+      "当面沟通",
+      "其他方式"
     ]
   end
 end

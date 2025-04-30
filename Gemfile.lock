@@ -114,6 +114,10 @@ GEM
     connection_pool (2.5.2)
     crass (1.0.6)
     csv (3.3.4)
+    database_cleaner-active_record (2.2.0)
+      activerecord (>= 5.a)
+      database_cleaner-core (~> 2.0.0)
+    database_cleaner-core (2.0.1)
     date (3.4.1)
     devise (4.9.4)
       bcrypt (~> 3.0)
@@ -379,6 +383,7 @@ DEPENDENCIES
   bootsnap
   byebug
   capybara
+  database_cleaner-active_record
   devise
   factory_bot_rails
   jquery-rails

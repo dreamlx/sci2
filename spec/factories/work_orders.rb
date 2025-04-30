@@ -87,6 +87,7 @@ FactoryBot.define do
       trait :rejected do
         status { "rejected" }
         resolution_summary { "测试拒绝原因" }
+        problem_type { "documentation_issue" }
       end
     end
   end

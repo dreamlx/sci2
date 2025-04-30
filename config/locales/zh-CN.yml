@@ -1,48 +1,112 @@
 zh-CN:
-  hello: "你好世界"
-  devise:
-    sessions:
-      signed_in: "登录成功。"
-      admin_user:
-        signed_in: "管理员登录成功。"
-  time:
-    formats:
-      long: "%Y年%m月%d日 %H:%M:%S"
-  date:
-    formats:
-      long: "%Y年%m月%d日"
-      default: "%Y-%m-%d"
-  activemodel:
-    attributes:
-      # Add activemodel attribute translations here
-    errors:
-      models:
-        # Add activemodel model errors here
-      attributes:
-        # Add activemodel attribute errors here
   activerecord:
-    attributes:
-      # Add activerecord attribute translations here
     errors:
       messages:
-        blank: "不能为空"
-      models:
-        communication_work_order:
-          attributes:
-            reimbursement_id:
-              blank: "必须选择一个报销单"
-            fee_detail_selections:
-              invalid: "费用明细选择无效"
-        audit_work_order:
-          attributes:
-            reimbursement_id:
-              blank: "必须选择一个报销单"
-            fee_detail_selections:
-              invalid: "费用明细选择无效"
-        work_order:
-          attributes:
-            fee_detail_selections:
-              invalid: "费用明细选择无效"
-      attributes:
-        fee_detail_selections:
-          invalid: "费用明细选择无效"
+        record_invalid: "验证失败: %{errors}"
+        restrict_dependent_destroy:
+          has_one: "由于存在依赖的%{record}，无法删除记录"
+          has_many: "由于存在依赖的%{record}，无法删除记录"
+    models:
+      reimbursement: "报销单"
+      work_order: "工单"
+      audit_work_order: "审核工单"
+      communication_work_order: "沟通工单"
+      express_receipt_work_order: "快递收单工单"
+      fee_detail: "费用明细"
+      fee_detail_selection: "费用明细选择"
+      operation_history: "操作历史"
+      work_order_status_change: "工单状态变更"
+      communication_record: "沟通记录"
+      admin_user: "管理员用户"
+    attributes:
+      reimbursement:
+        invoice_number: "报销单号"
+        document_name: "单据名称"
+        applicant: "申请人"
+        applicant_id: "申请人工号"
+        company: "公司"
+        department: "部门"
+        receipt_status: "收单状态"
+        receipt_date: "收单日期"
+        submission_date: "提交日期"
+        amount: "金额"
+        is_electronic: "电子发票"
+        status: "状态"
+        external_status: "外部状态"
+        approval_date: "审批通过日期"
+        approver_name: "审批人"
+      work_order:
+        reimbursement_id: "报销单ID"
+        status: "状态"
+        created_by: "创建人"
+        problem_type: "问题类型"
+        problem_description: "问题说明"
+        remark: "备注"
+        processing_opinion: "处理意见"
+      audit_work_order:
+        audit_result: "审核结果"
+        audit_comment: "审核意见"
+        audit_date: "审核日期"
+        vat_verified: "增值税已验证"
+      communication_work_order:
+        communication_method: "沟通方式"
+        initiator_role: "发起人角色"
+        resolution_summary: "解决方案摘要"
+        needs_communication: "需要沟通"
+      express_receipt_work_order:
+        tracking_number: "快递单号"
+        received_at: "收到时间"
+        courier_name: "快递公司"
+      fee_detail:
+        document_number: "单据编号"
+        fee_type: "费用类型"
+        amount: "金额"
+        currency: "币种"
+        fee_date: "费用日期"
+        payment_method: "支付方式"
+        verification_status: "验证状态"
+      operation_history:
+        document_number: "单据编号"
+        operation_type: "操作类型"
+        operation_time: "操作时间"
+        operator: "操作人"
+        notes: "操作意见"
+        form_type: "表单类型"
+        operation_node: "操作节点"
+  time:
+    formats:
+      default: "%Y-%m-%d %H:%M:%S"
+      short: "%Y-%m-%d"
+      long: "%Y年%m月%d日 %H:%M"
+  date:
+    formats:
+      default: "%Y-%m-%d"
+      short: "%Y-%m-%d"
+      long: "%Y年%m月%d日"
+  errors:
+    format: "%{attribute}%{message}"
+    messages:
+      accepted: "必须接受"
+      blank: "不能为空"
+      confirmation: "与%{attribute}不匹配"
+      empty: "不能为空"
+      equal_to: "必须等于%{count}"
+      even: "必须为偶数"
+      exclusion: "是保留的"
+      greater_than: "必须大于%{count}"
+      greater_than_or_equal_to: "必须大于或等于%{count}"
+      inclusion: "不包含于列表中"
+      invalid: "是无效的"
+      less_than: "必须小于%{count}"
+      less_than_or_equal_to: "必须小于或等于%{count}"
+      model_invalid: "验证失败: %{errors}"
+      not_a_number: "不是数字"
+      not_an_integer: "必须是整数"
+      odd: "必须为奇数"
+      other_than: "长度非法（不可为%{count}个字符）"
+      present: "必须为空"
+      required: "必须存在"
+      taken: "已经被使用"
+      too_long: "过长（最长为%{count}个字符）"
+      too_short: "过短（最短为%{count}个字符）"
+      wrong_length: "长度非法（必须为%{count}个字符）"

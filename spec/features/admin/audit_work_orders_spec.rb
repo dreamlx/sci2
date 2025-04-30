@@ -70,6 +70,19 @@ RSpec.describe "审核工单管理", type: :feature do
       expect(page).to have_content("processing")
     end
 
+    it "可以直接审核通过工单" do
+      # 工单状态为pending
+      visit admin_audit_work_order_path(audit_work_order)
+      click_link "审核通过"
+
+      fill_in "audit_work_order[audit_comment]", with: "直接审核通过测试"
+      click_button "确认通过"
+
+      expect(page).to have_content("审核已通过")
+      expect(page).to have_content("approved")
+      expect(page).to have_content("直接审核通过测试")
+    end
+
     it "可以审核通过工单" do
       # 先将工单状态设为processing
       audit_work_order.update(status: 'processing')

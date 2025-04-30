@@ -1,9 +1,10 @@
 ActiveAdmin.register AuditWorkOrder do
-  permit_params :reimbursement_id, :status, :audit_result, :audit_comment, :audit_date,
+  permit_params :reimbursement_id, :audit_result, :audit_comment, :audit_date,
                 :vat_verified, :creator_id,
                 # 共享字段 (Req 6/7)
                 :problem_type, :problem_description, :remark, :processing_opinion,
                 fee_detail_ids: []
+  # 移除 status 从 permit_params 中，状态由系统自动管理
 
   menu priority: 3, label: "审核工单", parent: "工单管理"
   config.sort_order = 'created_at_desc'
@@ -61,11 +62,11 @@ ActiveAdmin.register AuditWorkOrder do
   scope :approved
   scope :rejected
 
-  # 操作按钮
+  # 操作按钮 - 更新为支持直接通过路径
   action_item :start_processing, only: :show, if: proc { resource.pending? } do
-    link_to "开始处理", start_processing_admin_audit_work_order_path(resource), method: :put, data: { confirm: "确定要开始处理此工单吗?" }
+    link_to "开始处理", start_processing_admin_audit_work_order_path(resource), method: :post, data: { confirm: "确定要开始处理此工单吗?" }
   end
-  action_item :approve, only: :show, if: proc { resource.processing? } do
+  action_item :approve, only: :show, if: proc { resource.pending? || resource.processing? } do
     link_to "审核通过", approve_admin_audit_work_order_path(resource)
   end
   action_item :reject, only: :show, if: proc { resource.processing? } do
@@ -73,7 +74,7 @@ ActiveAdmin.register AuditWorkOrder do
   end
 
   # 成员操作
-  member_action :start_processing, method: :put do
+  member_action :start_processing, method: :post do
     service = AuditWorkOrderService.new(resource, current_admin_user)
     if service.start_processing
       redirect_to admin_audit_work_order_path(resource), notice: "工单已开始处理"
@@ -205,4 +206,9 @@ ActiveAdmin.register AuditWorkOrder do
 
   # 表单使用 partial
   form partial: 'form'
+  
+  # 处理意见与状态关系由模型的 set_status_based_on_processing_opinion 回调自动处理
+  
+  # 移除控制器方法处理处理意见与状态关系
+  # 处理意见与状态的关系由模型的 set_status_based_on_processing_opinion 回调自动处理
 end

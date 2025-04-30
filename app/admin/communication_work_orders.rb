@@ -1,9 +1,11 @@
 ActiveAdmin.register CommunicationWorkOrder do
-  permit_params :reimbursement_id, :status, :communication_method,
+  permit_params :reimbursement_id, :communication_method,
                 :initiator_role, :resolution_summary, :creator_id,
                 # 共享字段 (Req 6/7)
                 :problem_type, :problem_description, :remark, :processing_opinion,
+                :needs_communication,
                 fee_detail_ids: []
+  # 移除 status 从 permit_params 中，状态由系统自动管理
 
   menu priority: 4, label: "沟通工单", parent: "工单管理"
   config.sort_order = 'created_at_desc'
@@ -40,6 +42,8 @@ ActiveAdmin.register CommunicationWorkOrder do
   filter :status, as: :select, collection: CommunicationWorkOrder.state_machines[:status].states.map(&:value)
   filter :communication_method
   filter :initiator_role
+  filter :needs_communication, as: :boolean, label: '需要沟通'
+  filter :problem_type, as: :select, collection: ProblemTypeOptions.all
   filter :creator
   filter :created_at
 
@@ -53,12 +57,16 @@ ActiveAdmin.register CommunicationWorkOrder do
 
   # 操作按钮
   action_item :start_processing, only: :show, if: proc { resource.pending? } do
-    link_to "开始处理", start_processing_admin_communication_work_order_path(resource), method: :put, data: { confirm: "确定要开始处理此工单吗?" }
+    link_to "开始处理", start_processing_admin_communication_work_order_path(resource), method: :post, data: { confirm: "确定要开始处理此工单吗?" }
   end
-  action_item :mark_needs_communication, only: :show, if: proc { resource.pending? } do
-    link_to "标记需沟通", mark_needs_communication_admin_communication_work_order_path(resource), method: :put, data: { confirm: "确定要标记为需要沟通吗?" }
+  action_item :toggle_needs_communication, only: :show do
+    if resource.needs_communication?
+      link_to "取消需要沟通标记", toggle_needs_communication_admin_communication_work_order_path(resource), method: :post, data: { confirm: "确定要取消需要沟通标记吗?" }
+    else
+      link_to "标记为需要沟通", toggle_needs_communication_admin_communication_work_order_path(resource), method: :post, data: { confirm: "确定要标记为需要沟通吗?" }
+    end
   end
-  action_item :approve, only: :show, if: proc { resource.processing? || resource.needs_communication? } do
+  action_item :approve, only: :show, if: proc { resource.pending? || resource.processing? || resource.needs_communication? } do
     link_to "沟通后通过", approve_admin_communication_work_order_path(resource)
   end
   action_item :reject, only: :show, if: proc { resource.processing? || resource.needs_communication? } do
@@ -69,7 +77,7 @@ ActiveAdmin.register CommunicationWorkOrder do
   end
 
   # 成员操作
-  member_action :start_processing, method: :put do
+  member_action :start_processing, method: :post do
     service = CommunicationWorkOrderService.new(resource, current_admin_user)
     if service.start_processing
       redirect_to admin_communication_work_order_path(resource), notice: "工单已开始处理"
@@ -78,12 +86,16 @@ ActiveAdmin.register CommunicationWorkOrder do
     end
   end
 
-  member_action :mark_needs_communication, method: :put do
-     service = CommunicationWorkOrderService.new(resource, current_admin_user)
-    if service.mark_needs_communication
-      redirect_to admin_communication_work_order_path(resource), notice: "工单已标记为需要沟通"
+  member_action :toggle_needs_communication, method: :post do
+    @work_order = CommunicationWorkOrder.find(params[:id])
+    service = CommunicationWorkOrderService.new(@work_order, current_admin_user)
+    
+    if service.toggle_needs_communication
+      redirect_to admin_communication_work_order_path(@work_order),
+        notice: @work_order.needs_communication? ? "已标记为需要沟通" : "已取消需要沟通标记"
     else
-      redirect_to admin_communication_work_order_path(resource), alert: "操作失败: #{resource.errors.full_messages.join(', ')}"
+      redirect_to admin_communication_work_order_path(@work_order),
+        alert: "无法更新沟通标志: #{@work_order.errors.full_messages.join(', ')}"
     end
   end
 
@@ -166,6 +178,9 @@ ActiveAdmin.register CommunicationWorkOrder do
     id_column
     column :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
     column :status do |wo| status_tag wo.status end
+    column :problem_type
+    column :problem_description
+    column :needs_communication do |wo| status_tag wo.needs_communication? ? "需要沟通" : "无需沟通" end
     column :initiator_role
     column :creator
     column :created_at
@@ -184,6 +199,7 @@ ActiveAdmin.register CommunicationWorkOrder do
            row :communication_method
            row :initiator_role
            row :resolution_summary
+           row :needs_communication do |wo| status_tag wo.needs_communication? ? "需要沟通" : "无需沟通" end
            # 显示共享字段 (Req 6/7)
            row :problem_type
            row :problem_description
@@ -245,4 +261,9 @@ ActiveAdmin.register CommunicationWorkOrder do
 
   # 表单使用 partial
   form partial: 'form'
+  
+  # 处理意见与状态关系由模型的 set_status_based_on_processing_opinion 回调自动处理
+  
+  # 移除控制器方法处理处理意见与状态关系
+  # 处理意见与状态的关系由模型的 set_status_based_on_processing_opinion 回调自动处理
 end

@@ -4,7 +4,7 @@ RSpec.describe "自定义视图", type: :feature do
   let!(:admin_user) { create(:admin_user) }
   let!(:reimbursement) { create(:reimbursement) }
   let!(:audit_work_order) { create(:audit_work_order, reimbursement: reimbursement, status: 'processing') }
-  let!(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement, status: 'needs_communication') }
+  let!(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement, status: 'processing', needs_communication: true) }
   let!(:fee_detail) { create(:fee_detail, document_number: reimbursement.invoice_number) }
   let!(:fee_detail_selection) { create(:fee_detail_selection, work_order: audit_work_order, fee_detail: fee_detail) }
 
@@ -22,7 +22,9 @@ RSpec.describe "自定义视图", type: :feature do
       expect(page).to have_content(reimbursement.invoice_number)
 
       expect(page).to have_field("audit_work_order[audit_comment]")
-      expect(page).to have_field("audit_work_order[audit_date]")
+      expect(page).to have_select("audit_work_order[audit_date(1i)]") # 年份选择器
+      expect(page).to have_select("audit_work_order[audit_date(2i)]") # 月份选择器
+      expect(page).to have_select("audit_work_order[audit_date(3i)]") # 日期选择器
       expect(page).to have_field("audit_work_order[vat_verified]")
 
       expect(page).to have_button("确认通过")
@@ -40,7 +42,9 @@ RSpec.describe "自定义视图", type: :feature do
       expect(page).to have_content(reimbursement.invoice_number)
 
       expect(page).to have_field("audit_work_order[audit_comment]")
-      expect(page).to have_field("audit_work_order[audit_date]")
+      expect(page).to have_select("audit_work_order[audit_date(1i)]") # 年份选择器
+      expect(page).to have_select("audit_work_order[audit_date(2i)]") # 月份选择器
+      expect(page).to have_select("audit_work_order[audit_date(3i)]") # 日期选择器
 
       expect(page).to have_button("确认拒绝")
       expect(page).to have_link("取消")

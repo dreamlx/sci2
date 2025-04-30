@@ -77,7 +77,7 @@ class FeeDetailVerificationService
       selection.update(
         verification_status: status,
         verification_comment: comment,
-        verifier_id: @current_admin_user&.id,
+        verifier: @current_admin_user,
         verified_at: Time.current
       )
     end

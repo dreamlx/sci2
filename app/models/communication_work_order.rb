@@ -45,6 +45,7 @@ class CommunicationWorkOrder < WorkOrder
   scope :processing, -> { where(status: 'processing') }
   scope :approved, -> { where(status: 'approved') }
   scope :rejected, -> { where(status: 'rejected') }
+  scope :needs_communication, -> { where(needs_communication: true) }
   
   def pending?
     status == 'pending'
@@ -96,6 +97,10 @@ class CommunicationWorkOrder < WorkOrder
   end
   
   # 方法来设置和取消 needs_communication 标志
+  def needs_communication?
+    self.needs_communication == true
+  end
+  
   def mark_needs_communication!
     update(needs_communication: true)
   end
