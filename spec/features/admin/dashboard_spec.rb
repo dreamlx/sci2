@@ -39,7 +39,7 @@ RSpec.describe "Dashboard", type: :feature do
 
       # 创建不同状态的工单来测试计数
       create(:audit_work_order, status: 'processing')
-      create(:communication_work_order, status: 'needs_communication')
+      create(:communication_work_order, :needs_communication, status: 'processing')
       visit admin_dashboard_path
 
       expect(page).to have_content("待处理审核工单 1") # 初始创建的 audit_work_order

@@ -72,26 +72,35 @@ class CommunicationWorkOrder < WorkOrder
   end
   
   def select_fee_details(fee_detail_ids)
-    # Store the fee detail IDs to be processed after save
-    @fee_detail_ids_to_select = fee_detail_ids
-    # Return true to allow the save to continue
-    true
+    return [] if fee_detail_ids.blank? || !persisted?
+    
+    # 直接处理费用明细选择
+    fee_details_to_select = FeeDetail.where(id: fee_detail_ids, document_number: self.reimbursement.invoice_number)
+    selections = []
+    
+    fee_details_to_select.each do |fd|
+      selection = select_fee_detail(fd)
+      selections << selection if selection
+    end
+    
+    selections
   end
   
-  # Override after_create callback to handle fee detail selection after the work order is saved
+  # 保留回调以兼容现有代码
   after_create :process_fee_detail_selections
   
   def process_fee_detail_selections
-    # 使用@fee_detail_ids_to_select或fee_detail_ids，以支持两种方式
-    ids_to_select = @fee_detail_ids_to_select.presence || fee_detail_ids
-    return unless ids_to_select.present?
+    # 使用@fee_detail_ids_to_select，如果存在
+    return unless @fee_detail_ids_to_select.present?
     
-    fee_details_to_select = FeeDetail.where(id: ids_to_select, document_number: self.reimbursement.invoice_number)
-    fee_details_to_select.each { |fd| select_fee_detail(fd) }
+    select_fee_details(@fee_detail_ids_to_select)
   end
   
   # 沟通记录方法
   def add_communication_record(params)
+    # 如果没有提供 communicator_name，则使用当前用户的 email
+    params[:communicator_name] ||= Current.admin_user&.email if Current.admin_user.present?
+    
     # 确保正确设置外键
     communication_records.create(params.merge(communication_work_order_id: self.id))
   end

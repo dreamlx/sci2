@@ -11,8 +11,29 @@ RSpec.describe AuditWorkOrder, type: :model do
     it { should validate_presence_of(:type) }
     it { should validate_presence_of(:status) }
     it { should validate_inclusion_of(:status).in_array(%w[pending processing approved rejected]) }
-    it { should validate_presence_of(:audit_result).if(:approved?).or(:rejected?) }
-    it { should validate_presence_of(:problem_type).if(:rejected?) }
+    
+    # 手动测试条件验证，因为 shoulda-matchers 不支持 .if 条件
+    it "validates presence of audit_result when approved or rejected" do
+      work_order = build(:audit_work_order, reimbursement: reimbursement, status: 'approved', audit_result: nil)
+      expect(work_order).not_to be_valid
+      expect(work_order.errors[:audit_result]).to include("不能为空")
+      
+      work_order = build(:audit_work_order, reimbursement: reimbursement, status: 'rejected', audit_result: nil)
+      expect(work_order).not_to be_valid
+      expect(work_order.errors[:audit_result]).to include("不能为空")
+      
+      work_order = build(:audit_work_order, reimbursement: reimbursement, status: 'pending', audit_result: nil)
+      expect(work_order).to be_valid
+    end
+    
+    it "validates presence of problem_type when rejected" do
+      work_order = build(:audit_work_order, reimbursement: reimbursement, status: 'rejected', problem_type: nil, audit_result: 'rejected')
+      expect(work_order).not_to be_valid
+      expect(work_order.errors[:problem_type]).to include("不能为空")
+      
+      work_order = build(:audit_work_order, reimbursement: reimbursement, status: 'approved', problem_type: nil, audit_result: 'approved')
+      expect(work_order).to be_valid
+    end
   end
 
   # 关联测试
@@ -119,6 +140,9 @@ RSpec.describe AuditWorkOrder, type: :model do
     let(:fee_detail2) { create(:fee_detail, reimbursement: reimbursement) }
 
     it "selects multiple fee details" do
+      # 确保 audit_work_order 已保存到数据库
+      audit_work_order.save!
+      
       expect {
         audit_work_order.select_fee_details([fee_detail1.id, fee_detail2.id])
       }.to change(FeeDetailSelection, :count).by(2)

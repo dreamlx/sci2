@@ -76,7 +76,7 @@ FactoryBot.define do
       end
       
       trait :needs_communication do
-        status { "needs_communication" }
+        needs_communication { true }
       end
       
       trait :approved do
@@ -138,15 +138,12 @@ FactoryBot.define do
       expect(build(:communication_work_order, :processing, reimbursement: reimbursement, creator: creator)).to be_valid
     end
 
-    # Correct the needs_communication trait in the factory or skip the test if the trait is removed
-    # Based on the model implementation, needs_communication is a boolean field, not a status.
-    # The trait in the factory incorrectly sets the status.
-    # I will skip this test for now and address the factory trait later if needed.
-    # it "communication_work_order with needs_communication trait is valid" do
-    #   reimbursement = create(:reimbursement)
-    #   creator = create(:admin_user)
-    #   expect(build(:communication_work_order, :needs_communication, reimbursement: reimbursement, creator: creator)).to be_valid
-    # end
+    # needs_communication is now correctly implemented as a boolean flag
+    it "communication_work_order with needs_communication trait is valid" do
+      reimbursement = create(:reimbursement)
+      creator = create(:admin_user)
+      expect(build(:communication_work_order, :needs_communication, reimbursement: reimbursement, creator: creator)).to be_valid
+    end
 
     it "communication_work_order with approved trait is valid" do
       reimbursement = create(:reimbursement)

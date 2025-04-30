@@ -4,7 +4,7 @@ RSpec.describe "Admin::CustomViews", type: :request do
   let!(:admin_user) { create(:admin_user) }
   let!(:reimbursement) { create(:reimbursement) }
   let!(:audit_work_order) { create(:audit_work_order, reimbursement: reimbursement, status: 'processing') }
-  let!(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement, status: 'needs_communication') }
+  let!(:communication_work_order) { create(:communication_work_order, :needs_communication, reimbursement: reimbursement, status: 'processing') }
   let!(:fee_detail) { create(:fee_detail, document_number: reimbursement.invoice_number) }
   let!(:fee_detail_selection) { create(:fee_detail_selection, work_order: audit_work_order, fee_detail: fee_detail) }
 

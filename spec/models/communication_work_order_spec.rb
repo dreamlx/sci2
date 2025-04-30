@@ -13,7 +13,7 @@ RSpec.describe CommunicationWorkOrder, type: :model do
     it { should validate_inclusion_of(:status).in_array(%w[pending processing approved rejected]) }
     # Rewrite validations using manual checks as .if is not supported by shoulda-matchers
     it "validates presence of resolution_summary if approved or rejected" do
-      communication_work_order = build(:communication_work_order, status: 'approved', resolution_summary: nil)
+      communication_work_order = build(:communication_work_order, reimbursement: reimbursement, status: 'approved', resolution_summary: nil)
       expect(communication_work_order).not_to be_valid
       expect(communication_work_order.errors[:resolution_summary]).to include("不能为空")
 
@@ -32,12 +32,13 @@ RSpec.describe CommunicationWorkOrder, type: :model do
     end
 
     it "validates presence of problem_type if rejected" do
-      communication_work_order = build(:communication_work_order, status: 'rejected', problem_type: nil)
+      communication_work_order = build(:communication_work_order, reimbursement: reimbursement, status: 'rejected', problem_type: nil, resolution_summary: "测试拒绝原因")
       expect(communication_work_order).not_to be_valid
       expect(communication_work_order.errors[:problem_type]).to include("不能为空")
 
       communication_work_order.status = 'approved'
       communication_work_order.problem_type = nil
+      communication_work_order.resolution_summary = "测试通过原因"
       expect(communication_work_order).to be_valid
     end
   end
@@ -65,6 +66,7 @@ RSpec.describe CommunicationWorkOrder, type: :model do
 
       it "can transition directly to approved" do
         communication_work_order.processing_opinion = "审核通过"
+        communication_work_order.resolution_summary = "测试通过原因"
         expect(communication_work_order.approve!).to be_truthy
         expect(communication_work_order.status).to eq("approved")
       end
@@ -73,6 +75,7 @@ RSpec.describe CommunicationWorkOrder, type: :model do
         communication_work_order.processing_opinion = "否决"
         # problem_type is required for rejected state based on validations
         communication_work_order.problem_type = "documentation_issue"
+        communication_work_order.resolution_summary = "测试拒绝原因"
         expect(communication_work_order.reject!).to be_truthy
         expect(communication_work_order.status).to eq("rejected")
       end
@@ -82,12 +85,14 @@ RSpec.describe CommunicationWorkOrder, type: :model do
       let(:communication_work_order) { create(:communication_work_order, :processing, reimbursement: reimbursement) }
 
       it "can transition to approved" do
+        communication_work_order.resolution_summary = "测试通过原因"
         expect(communication_work_order.approve!).to be_truthy
         expect(communication_work_order.status).to eq("approved")
       end
 
       it "can transition to rejected" do
         communication_work_order.problem_type = "documentation_issue"
+        communication_work_order.resolution_summary = "测试拒绝原因"
         expect(communication_work_order.reject!).to be_truthy
         expect(communication_work_order.status).to eq("rejected")
       end
@@ -138,12 +143,17 @@ RSpec.describe CommunicationWorkOrder, type: :model do
       expect(communication_work_order.start_processing!).to be_truthy
       expect(communication_work_order.status).to eq("processing")
 
-      communication_work_order.approve!
+      communication_work_order.resolution_summary = "测试通过原因"
+      expect(communication_work_order.approve!).to be_truthy
       expect(communication_work_order.status).to eq("approved")
 
-      communication_work_order.unmark_needs_communication!
-      expect(communication_work_order.reject!).to be_truthy
-      expect(communication_work_order.status).to eq("rejected")
+      # 不能从 approved 状态转换到 rejected 状态，所以我们创建一个新的工单
+      new_work_order = create(:communication_work_order, :processing, reimbursement: reimbursement)
+      new_work_order.mark_needs_communication!
+      new_work_order.problem_type = "documentation_issue"
+      new_work_order.resolution_summary = "测试拒绝原因"
+      expect(new_work_order.reject!).to be_truthy
+      expect(new_work_order.status).to eq("rejected")
     end
   end
 
@@ -169,6 +179,9 @@ RSpec.describe CommunicationWorkOrder, type: :model do
 
     it "sets communicator_name to current admin user's email if not provided" do
       allow(Current).to receive(:admin_user).and_return(admin_user)
+
+      # 确保 communication_work_order 已保存到数据库
+      communication_work_order.save!
 
       expect {
         communication_work_order.add_communication_record(
@@ -215,6 +228,9 @@ RSpec.describe CommunicationWorkOrder, type: :model do
     let(:fee_detail2) { create(:fee_detail, reimbursement: reimbursement) }
 
     it "selects multiple fee details" do
+      # 确保 communication_work_order 已保存到数据库
+      communication_work_order.save!
+      
       expect {
         communication_work_order.select_fee_details([fee_detail1.id, fee_detail2.id])
       }.to change(FeeDetailSelection, :count).by(2)
