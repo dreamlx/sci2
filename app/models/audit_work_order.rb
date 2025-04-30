@@ -115,9 +115,9 @@ class AuditWorkOrder < WorkOrder
     [] # 移除与 CommunicationWorkOrder 的关联
   end
   
-  # 覆盖基类的 ransackable_associations 方法，确保返回空数组
+  # 覆盖基类的 ransackable_associations 方法
   def self.ransackable_associations(auth_object = nil)
-    []
+    %w[reimbursement creator] # 允许搜索关联的报销单和创建者
   end
   
   # 单元测试将在下面步骤中添加
