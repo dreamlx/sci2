@@ -2,7 +2,7 @@ require 'rails_helper'
 
 RSpec.describe "Fee Detail Selection", type: :system do
   let(:admin_user) { create(:admin_user) }
-  let!(:reimbursement) { create(:reimbursement, invoice_number: 'R202501001', applicant: '测试用户1') }
+  let!(:reimbursement) { create(:reimbursement, invoice_number: 'R202501001') }
   let!(:fee_detail1) { create(:fee_detail, document_number: 'R202501001', fee_type: '交通费', amount: 100.00) }
   let!(:fee_detail2) { create(:fee_detail, document_number: 'R202501001', fee_type: '餐费', amount: 200.00) }
   

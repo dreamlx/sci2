@@ -2,7 +2,7 @@ require 'rails_helper'
 
 RSpec.describe "Audit Work Order Creation", type: :system do
   let(:admin_user) { create(:admin_user) }
-  let!(:reimbursement) { create(:reimbursement, invoice_number: 'R202501001', applicant: '测试用户1') }
+  let!(:reimbursement) { create(:reimbursement, invoice_number: 'R202501001') }
   let!(:fee_detail) { create(:fee_detail, document_number: 'R202501001', fee_type: '交通费', amount: 100.00) }
   
   before do

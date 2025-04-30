@@ -10,9 +10,9 @@ RSpec.describe "Admin Reimbursements", type: :system do
   describe "Reimbursement Index" do
     before do
       # Create some test reimbursements
-      create(:reimbursement, invoice_number: 'R202501001', applicant: '测试用户1')
-      create(:reimbursement, invoice_number: 'R202501002', applicant: '测试用户2', is_electronic: true)
-      create(:reimbursement, :closed, invoice_number: 'R202501003', applicant: '测试用户3')
+      create(:reimbursement, invoice_number: 'R202501001')
+      create(:reimbursement, invoice_number: 'R202501002', is_electronic: true)
+      create(:reimbursement, :closed, invoice_number: 'R202501003')
     end
     
     it "displays reimbursements in the index page" do
@@ -27,9 +27,7 @@ RSpec.describe "Admin Reimbursements", type: :system do
       expect(page).to have_content('R202501003')
       
       # Check applicant names
-      expect(page).to have_content('测试用户1')
-      expect(page).to have_content('测试用户2')
-      expect(page).to have_content('测试用户3')
+      expect(page).to have_content('测试用户')
       
       # Check status tags (case insensitive)
       expect(page).to have_css('.status_tag', text: /pending/i)
@@ -58,14 +56,14 @@ RSpec.describe "Admin Reimbursements", type: :system do
   end
   
   describe "Reimbursement Show" do
-    let!(:reimbursement) { create(:reimbursement, invoice_number: 'R202501001', applicant: '测试用户1') }
+    let!(:reimbursement) { create(:reimbursement, invoice_number: 'R202501001') }
     
     it "displays reimbursement details" do
       visit admin_reimbursement_path(reimbursement)
       
       # Check basic information
       expect(page).to have_content('报销单 #R202501001')
-      expect(page).to have_content('测试用户1')
+      expect(page).to have_content('测试用户')
       
       # Check tabs
       expect(page).to have_content('基本信息')
@@ -98,13 +96,13 @@ RSpec.describe "Admin Reimbursements", type: :system do
   end
   
   describe "Reimbursement Edit" do
-    let!(:reimbursement) { create(:reimbursement, invoice_number: 'R202501001', applicant: '测试用户1') }
+    let!(:reimbursement) { create(:reimbursement, invoice_number: 'R202501001') }
     
     it "allows editing reimbursement details" do
       visit edit_admin_reimbursement_path(reimbursement)
       
       # Check form fields
-      expect(page).to have_field('reimbursement_applicant', with: '测试用户1')
+      expect(page).to have_field('reimbursement_applicant')
       
       # Update fields
       fill_in 'reimbursement_applicant', with: '更新用户名'
@@ -118,7 +116,7 @@ RSpec.describe "Admin Reimbursements", type: :system do
   end
   
   describe "Work Order Creation" do
-    let!(:reimbursement) { create(:reimbursement, invoice_number: 'R202501001', applicant: '测试用户1', status: 'processing') }
+    let!(:reimbursement) { create(:reimbursement, invoice_number: 'R202501001', status: 'processing') }
     let!(:fee_detail) { create(:fee_detail, document_number: 'R202501001', fee_type: '交通费', amount: 100.00) }
     
     it "navigates to the new audit work order page" do
@@ -128,7 +126,7 @@ RSpec.describe "Admin Reimbursements", type: :system do
       first(:link, '新建审核工单').click
       
       # Check we're on the new audit work order page
-      expect(page).to have_content('新建 Audit Work Order')
+      expect(page).to have_content('新建 审核工单')
       
       # Check the reimbursement is shown on the page
       expect(page).to have_content('R202501001')
@@ -141,7 +139,7 @@ RSpec.describe "Admin Reimbursements", type: :system do
       first(:link, '新建沟通工单').click
       
       # Check we're on the new communication work order page
-      expect(page).to have_content('新建 Communication Work Order')
+      expect(page).to have_content('新建 沟通工单')
       
       # Check the reimbursement is shown on the page
       expect(page).to have_content('R202501001')

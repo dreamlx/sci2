@@ -249,7 +249,7 @@ ActiveAdmin.register Reimbursement do
       f.input :applicant_id
       f.input :company
       f.input :department
-      f.input :amount
+      f.input :amount, min: 0.01
       f.input :status, label: "内部状态", as: :select, collection: Reimbursement.state_machines[:status].states.map(&:value), include_blank: false
       f.input :external_status, label: "外部状态", input_html: { readonly: true }
       f.input :receipt_status, as: :select, collection: ["pending", "received"]

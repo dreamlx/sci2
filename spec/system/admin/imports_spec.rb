@@ -33,7 +33,7 @@ RSpec.describe "Admin CSV Imports", type: :system do
     
     it "handles duplicate reimbursements by updating existing records (IMP-R-006)" do
       # Create an existing reimbursement
-      create(:reimbursement, invoice_number: 'R202501001', applicant: 'Original User')
+      create(:reimbursement, invoice_number: 'R202501001')
       
       # Import the CSV which contains the same invoice number
       visit new_import_admin_reimbursements_path

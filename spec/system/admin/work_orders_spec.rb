@@ -2,7 +2,7 @@ require 'rails_helper'
 
 RSpec.describe "Admin Work Orders", type: :system do
   let(:admin_user) { create(:admin_user) }
-  let!(:reimbursement) { create(:reimbursement, invoice_number: 'R202501001', applicant: '测试用户1') }
+  let!(:reimbursement) { create(:reimbursement, invoice_number: 'R202501001') }
   let!(:fee_detail) { create(:fee_detail, document_number: 'R202501001', fee_type: '交通费', amount: 100.00) }
   
   before do
@@ -29,7 +29,7 @@ RSpec.describe "Admin Work Orders", type: :system do
     it "displays express receipt work order details" do
       visit admin_express_receipt_work_order_path(express_receipt_work_order)
       
-      expect(page).to have_content('Express Receipt Work Order 详情')
+      expect(page).to have_content('快递收单工单 详情')
       expect(page).to have_content('SF1234567890')
       expect(page).to have_content('R202501001')
       expect(page).to have_content('顺丰快递')
@@ -72,7 +72,7 @@ RSpec.describe "Admin Work Orders", type: :system do
     it "displays audit work order details" do
       visit admin_audit_work_order_path(audit_work_order)
       
-      expect(page).to have_content('Audit Work Order 详情')
+      expect(page).to have_content('审核工单 详情')
       expect(page).to have_content('R202501001')
       expect(page).to have_content('发票问题')
       expect(page).to have_content('测试审核备注')
@@ -83,7 +83,7 @@ RSpec.describe "Admin Work Orders", type: :system do
       visit admin_reimbursement_path(reimbursement)
       first(:link, '新建审核工单').click
       
-      expect(page).to have_content('新建 Audit Work Order')
+      expect(page).to have_content('新建 审核工单')
       expect(page).to have_content('R202501001')
     end
     
@@ -92,8 +92,8 @@ RSpec.describe "Admin Work Orders", type: :system do
       visit admin_audit_work_order_path(audit_work_order)
       
       # Just check if the page loads successfully
-      expect(page).to have_content('Audit Work Order 详情')
-      expect(page).to have_content('Status')
+      expect(page).to have_content('审核工单 详情')
+      expect(page).to have_content('状态')
       expect(page).to have_content('Pending')
     end
   end
@@ -134,7 +134,7 @@ RSpec.describe "Admin Work Orders", type: :system do
     it "displays communication work order details" do
       visit admin_communication_work_order_path(communication_work_order)
       
-      expect(page).to have_content('Communication Work Order 详情')
+      expect(page).to have_content('沟通工单 详情')
       expect(page).to have_content('R202501001')
       expect(page).to have_content('申请人')
       expect(page).to have_content('电话')
@@ -146,7 +146,7 @@ RSpec.describe "Admin Work Orders", type: :system do
       visit admin_reimbursement_path(reimbursement)
       first(:link, '新建沟通工单').click
       
-      expect(page).to have_content('新建 Communication Work Order')
+      expect(page).to have_content('新建 沟通工单')
       expect(page).to have_content('R202501001')
     end
     
@@ -155,8 +155,8 @@ RSpec.describe "Admin Work Orders", type: :system do
       visit admin_communication_work_order_path(communication_work_order)
       
       # Just check if the page loads successfully
-      expect(page).to have_content('Communication Work Order 详情')
-      expect(page).to have_content('Status')
+      expect(page).to have_content('沟通工单 详情')
+      expect(page).to have_content('状态')
       expect(page).to have_content('Pending')
     end
     
