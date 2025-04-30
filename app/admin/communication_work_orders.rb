@@ -7,7 +7,7 @@ ActiveAdmin.register CommunicationWorkOrder do
                 fee_detail_ids: []
   # 移除 status 从 permit_params 中，状态由系统自动管理
 
-  menu priority: 4, label: "沟通工单", parent: "工单管理"
+  menu priority: 5, label: "沟通工单", parent: "工单管理"
   config.sort_order = 'created_at_desc'
 
   controller do
@@ -156,7 +156,9 @@ ActiveAdmin.register CommunicationWorkOrder do
    # 费用明细验证操作
    member_action :verify_fee_detail, method: :get do
       @work_order = resource
-      @fee_detail = resource.fee_details.find(params[:fee_detail_id])
+      @fee_detail = FeeDetail.joins(:fee_detail_selections)
+                            .where(fee_detail_selections: {work_order_id: resource.id, work_order_type: 'CommunicationWorkOrder'})
+                            .find(params[:fee_detail_id])
       render 'admin/shared/verify_fee_detail'
    end
 
@@ -166,7 +168,9 @@ ActiveAdmin.register CommunicationWorkOrder do
         redirect_to admin_communication_work_order_path(resource), notice: "费用明细 ##{params[:fee_detail_id]} 状态已更新"
      else
         @work_order = resource
-        @fee_detail = resource.fee_details.find(params[:fee_detail_id])
+        @fee_detail = FeeDetail.joins(:fee_detail_selections)
+                              .where(fee_detail_selections: {work_order_id: resource.id, work_order_type: 'CommunicationWorkOrder'})
+                              .find(params[:fee_detail_id])
         flash.now[:alert] = "费用明细 ##{params[:fee_detail_id]} 更新失败: #{@fee_detail.errors.full_messages.join(', ')}"
         render 'admin/shared/verify_fee_detail'
      end
@@ -229,9 +233,9 @@ ActiveAdmin.register CommunicationWorkOrder do
           end
        end
 
-       tab "费用明细 (#{resource.fee_details.count})" do
+       tab "费用明细 (#{FeeDetail.joins(:fee_detail_selections).where(fee_detail_selections: {work_order_id: resource.id, work_order_type: 'CommunicationWorkOrder'}).count})" do
           panel "费用明细信息" do
-            table_for resource.fee_detail_selections.includes(:fee_detail) do |selection|
+            table_for FeeDetailSelection.where(work_order_id: resource.id, work_order_type: 'CommunicationWorkOrder').includes(:fee_detail) do |selection|
                column "费用明细ID", :fee_detail_id do |sel| link_to sel.fee_detail_id, admin_fee_detail_path(sel.fee_detail) end
                column "费用类型", :fee_type do |sel| sel.fee_detail.fee_type end
                column "金额", :amount do |sel| number_to_currency(sel.fee_detail.amount, unit: "¥") end
@@ -247,7 +251,7 @@ ActiveAdmin.register CommunicationWorkOrder do
 
        tab "状态变更历史" do
           panel "状态变更历史" do
-            table_for resource.work_order_status_changes.order(changed_at: :desc) do
+            table_for WorkOrderStatusChange.where(work_order_id: resource.id, work_order_type: 'CommunicationWorkOrder').order(changed_at: :desc) do
               column :from_status
               column :to_status
               column :changed_at

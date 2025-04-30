@@ -1,0 +1,9 @@
+<div class="custom-action-bar">
+  <a href="<%= new_admin_audit_work_order_path(reimbursement_id: resource.id) %>" class="custom-action-button">新建审核工单</a>
+  <a href="<%= new_admin_communication_work_order_path(reimbursement_id: resource.id) %>" class="custom-action-button">新建沟通工单</a>
+  <a href="<%= edit_admin_reimbursement_path(resource) %>" class="custom-action-button">编辑报销单</a>
+  <a href="<%= admin_reimbursement_path(resource) %>" 
+     data-method="delete" 
+     data-confirm="确定要删除此报销单吗？此操作不可逆。" 
+     class="custom-action-button">删除报销单</a>
+</div>

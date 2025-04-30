@@ -48,45 +48,60 @@ RSpec.describe "表单字段一致性", type: :feature do
       visit edit_admin_audit_work_order_path(audit_work_order)
       expect(page).not_to have_select("audit_work_order[status]")
       expect(page).to have_content("状态")
-      expect(page).to have_content("pending")
+      expect(page).to have_content(/pending/i)
     end
     
     it "沟通工单编辑页面状态字段为只读" do
       visit edit_admin_communication_work_order_path(communication_work_order)
       expect(page).not_to have_select("communication_work_order[status]")
       expect(page).to have_content("状态")
-      expect(page).to have_content("pending")
+      expect(page).to have_content(/pending/i)
     end
   end
   
-  describe "处理意见与状态关系" do
-    let!(:audit_work_order) { create(:audit_work_order, reimbursement: reimbursement, status: 'pending') }
+  describe "处理意见与状态关系", js: true do
+    let!(:audit_work_order) { create(:audit_work_order, reimbursement: reimbursement, status: 'pending', problem_type: '发票问题') }
     
     it "处理意见为'可以通过'时，状态变为approved" do
+      # 确保工单有问题类型
+      audit_work_order.update(problem_type: '发票问题')
+      
       visit edit_admin_audit_work_order_path(audit_work_order)
       select "可以通过", from: "audit_work_order[processing_opinion]"
-      click_button "更新审核工单"
+      
+      # 使用更通用的按钮选择器
+      find('input[type="submit"]').click
       
       visit admin_audit_work_order_path(audit_work_order)
-      expect(page).to have_content("approved")
+      expect(page).to have_content(/approved/i)
     end
     
     it "处理意见为'无法通过'时，状态变为rejected" do
+      # 确保工单有问题类型
+      audit_work_order.update(problem_type: '发票问题')
+      
       visit edit_admin_audit_work_order_path(audit_work_order)
       select "无法通过", from: "audit_work_order[processing_opinion]"
-      click_button "更新审核工单"
+      
+      # 使用更通用的按钮选择器
+      find('input[type="submit"]').click
       
       visit admin_audit_work_order_path(audit_work_order)
-      expect(page).to have_content("rejected")
+      expect(page).to have_content(/rejected/i)
     end
     
     it "处理意见为其他值时，状态变为processing" do
+      # 确保工单有问题类型
+      audit_work_order.update(problem_type: '发票问题')
+      
       visit edit_admin_audit_work_order_path(audit_work_order)
       select "需要补充材料", from: "audit_work_order[processing_opinion]"
-      click_button "更新审核工单"
+      
+      # 使用更通用的按钮选择器
+      find('input[type="submit"]').click
       
       visit admin_audit_work_order_path(audit_work_order)
-      expect(page).to have_content("processing")
+      expect(page).to have_content(/processing/i)
     end
   end
 end

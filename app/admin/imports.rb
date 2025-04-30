@@ -1,15 +1,13 @@
-class Admin::ImportsController < ApplicationController
-  before_action :authenticate_admin_user!
-  
-  # GET /admin/imports/operation_histories
-  def operation_histories
+ActiveAdmin.register_page "Imports" do
+  menu false # 隐藏菜单项，仅用于API
+
+  page_action :operation_histories, method: :get do
     render "admin/imports/operation_histories"
   end
-  
-  # POST /admin/imports/import_operation_histories
-  def import_operation_histories
+
+  page_action :import_operation_histories, method: :post do
     unless params[:file].present?
-      redirect_to admin_imports_operation_histories_path, alert: "请选择要导入的文件。"
+      redirect_to operation_histories_admin_imports_path, alert: "请选择要导入的文件。"
       return
     end
     
@@ -25,7 +23,7 @@ class Admin::ImportsController < ApplicationController
     else
       alert_message = "导入失败: #{result[:errors].join(', ')}"
       alert_message += " 错误详情: #{result[:error_details].join('; ')}" if result[:error_details].present?
-      redirect_to admin_imports_operation_histories_path, alert: alert_message
+      redirect_to operation_histories_admin_imports_path, alert: alert_message
     end
   end
 end

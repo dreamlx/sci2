@@ -1,5 +1,7 @@
 ActiveAdmin.register AdminUser do
   permit_params :email, :password, :password_confirmation
+  
+  menu priority: 10, label: "管理员用户"
 
   index do
     selectable_column

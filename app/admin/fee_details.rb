@@ -2,7 +2,7 @@ ActiveAdmin.register FeeDetail do
   permit_params :reimbursement_id, :document_number, :fee_type, :amount, :fee_date,
                 :verification_status, :payment_method, :notes
 
-  menu parent: "数据管理", label: "费用明细"
+  menu priority: 3, parent: "数据管理", label: "费用明细"
 
   filter :document_number, as: :string, label: "报销单号"
   filter :fee_type

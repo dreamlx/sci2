@@ -7,78 +7,80 @@ ActiveAdmin.register_page "Dashboard" do
         panel "系统概览" do
           div class: 'dashboard-stats' do
             div class: 'stat-box' do
+              h4 "报销单总数"
               h3 Reimbursement.count
-              p "报销单总数"
             end
 
             div class: 'stat-box' do
+              h4 "工单总数"
               h3 WorkOrder.count
-              p "工单总数"
             end
 
             div class: 'stat-box' do
+              h4 "费用明细总数"
               h3 FeeDetail.count
-              p "费用明细总数"
             end
 
             div class: 'stat-box' do
+              h4 "已验证费用明细"
               h3 FeeDetail.where(verification_status: 'verified').count
-              p "已验证费用明细"
+            end
+          end
+        end
+        
+        panel "ERP数据导入" do
+          div class: 'dashboard-stats' do
+            div class: 'stat-box' do
+              p "导入报销单"
+              a href: new_import_admin_reimbursements_path, class: 'import-button' do
+                i class: 'fa fa-file-import fa-3x', 'data-label': '导入报销单'
+              end
+            end
+
+            div class: 'stat-box' do
+              p "导入费用明细"
+              a href: new_import_admin_fee_details_path, class: 'import-button' do
+                i class: 'fa fa-file-import fa-3x', 'data-label': '导入费用明细'
+              end
+            end
+
+            div class: 'stat-box' do
+              p "导入快递收单"
+              a href: new_import_admin_express_receipt_work_orders_path, class: 'import-button' do
+                i class: 'fa fa-file-import fa-3x', 'data-label': '导入快递收单'
+              end
+            end
+
+            div class: 'stat-box' do
+              p "导入操作历史"
+              a href: operation_histories_admin_imports_path, class: 'import-button' do
+                i class: 'fa fa-file-import fa-3x', 'data-label': '导入操作历史'
+              end
             end
           end
         end
 
         panel "报销单状态分布" do
-          div class: 'dashboard-chart', id: 'reimbursement-status-chart' do
-            # 图表将通过JavaScript渲染
-          end
-
-          div class: 'chart-legend' do
-            ul do
-              li do
-                span class: 'legend-color pending'
-                text_node "待处理"
-              end
-              li do
-                span class: 'legend-color processing'
-                text_node "处理中"
-              end
-              li do
-                span class: 'legend-color waiting_completion'
-                text_node "等待完成"
-              end
-              li do
-                span class: 'legend-color closed'
-                text_node "已关闭"
-              end
+          div class: 'status-distribution' do
+            div class: 'status-box pending' do
+              h3 "待处理"
+              h3 Reimbursement.where(status: 'pending').count
             end
-          end
 
-          script do
-            raw "
-              document.addEventListener('DOMContentLoaded', function() {
-                const ctx = document.getElementById('reimbursement-status-chart').getContext('2d');
+            div class: 'status-box processing' do
+              h3 "处理中"
+              h3 Reimbursement.where(status: 'processing').count
+            end
 
-                fetch('/admin/statistics/reimbursement_status_counts')
-                  .then(response => response.json())
-                  .then(data => {
-                    new Chart(ctx, {
-                      type: 'doughnut',
-                      data: {
-                        labels: ['待处理', '处理中', '等待完成', '已关闭'],
-                        datasets: [{
-                          data: [data.pending, data.processing, data.waiting_completion, data.closed],
-                          backgroundColor: ['#6c757d', '#007bff', '#fd7e14', '#28a745']
-                        }]
-                      },
-                      options: {
-                        responsive: true,
-                        maintainAspectRatio: false
-                      }
-                    });
-                  });
-              });
-            "
+            div class: 'status-box waiting_completion' do
+              h3 "等待完成"
+              h3 Reimbursement.where(status: 'waiting_completion').count
+            end
+
+            div class: 'status-box closed' do
+              h3 "已关闭"
+              h3 Reimbursement.where(status: 'closed').count
+            end
           end
         end
       end
@@ -122,66 +124,6 @@ ActiveAdmin.register_page "Dashboard" do
       end
     end
 
-    columns do
-      column do
-        panel "快速操作" do
-          div class: 'quick-actions' do
-            div class: 'action-button' do
-              link_to admin_reimbursements_path do
-                i class: 'fa fa-file-invoice'
-                span "报销单管理"
-              end
-            end
-
-            div class: 'action-button' do
-              link_to new_admin_audit_work_order_path do
-                i class: 'fa fa-clipboard-check'
-                span "新建审核工单"
-              end
-            end
-
-            div class: 'action-button' do
-              link_to new_admin_communication_work_order_path do
-                i class: 'fa fa-comments'
-                span "新建沟通工单"
-              end
-            end
-
-            div class: 'action-button' do
-              link_to new_import_admin_reimbursements_path do
-                i class: 'fa fa-file-import'
-                span "导入报销单"
-              end
-            end
-
-            div class: 'action-button' do
-              link_to new_import_admin_fee_details_path do
-                i class: 'fa fa-file-import'
-                span "导入费用明细"
-              end
-            end
-
-            div class: 'action-button' do
-              link_to new_import_admin_express_receipt_work_orders_path do
-                i class: 'fa fa-file-import'
-                span "导入快递收单"
-              end
-            end
-          end
-        end
-      end
-
-      column do
-        panel "最近验证的费用明细" do
-          table_for FeeDetail.where(verification_status: 'verified').order(updated_at: :desc).limit(10) do
-            column("ID") { |fd| link_to(fd.id, admin_fee_detail_path(fd)) }
-            column("报销单") { |fd| link_to(fd.document_number, admin_reimbursement_path(fd.reimbursement)) if fd.reimbursement }
-            column("费用类型") { |fd| fd.fee_type }
-            column("金额") { |fd| number_to_currency(fd.amount, unit: "¥") }
-            column("验证时间") { |fd| fd.updated_at.strftime("%Y-%m-%d %H:%M") }
-          end
-        end
-      end
-    end
+    # 移除了快速操作和最近验证的费用明细区块
   end
 end

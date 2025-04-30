@@ -54,7 +54,17 @@
       </table>
     </div>
 
-    <%= form_tag do_verify_fee_detail_admin_audit_work_order_path(@work_order), method: :post do %>
+    <%
+      # 使用多态路径，根据工单类型选择正确的控制器
+      form_path = if @work_order.is_a?(AuditWorkOrder)
+                    do_verify_fee_detail_admin_audit_work_order_path(@work_order)
+                  elsif @work_order.is_a?(CommunicationWorkOrder)
+                    do_verify_fee_detail_admin_communication_work_order_path(@work_order)
+                  else
+                    raise "不支持的工单类型: #{@work_order.class.name}"
+                  end
+    %>
+    <%= form_tag form_path, method: :post do %>
       <%= hidden_field_tag :fee_detail_id, @fee_detail.id %>
 
       <div class="input">

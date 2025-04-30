@@ -66,7 +66,13 @@ class CommunicationWorkOrder < WorkOrder
   # 费用明细选择方法
   def select_fee_detail(fee_detail)
     return nil unless fee_detail.document_number == self.reimbursement.invoice_number
-    fee_detail_selections.find_or_create_by!(fee_detail: fee_detail) do |selection|
+    
+    # 确保使用正确的work_order_type
+    FeeDetailSelection.find_or_create_by!(
+      fee_detail: fee_detail,
+      work_order_id: self.id,
+      work_order_type: 'CommunicationWorkOrder'
+    ) do |selection|
       selection.verification_status = fee_detail.verification_status # 创建时同步状态
     end
   end
@@ -93,7 +99,25 @@ class CommunicationWorkOrder < WorkOrder
     # 使用@fee_detail_ids_to_select，如果存在
     return unless @fee_detail_ids_to_select.present?
     
-    select_fee_details(@fee_detail_ids_to_select)
+    # 添加日志以便调试
+    Rails.logger.info "Processing fee detail selections for CommunicationWorkOrder ##{id}: #{@fee_detail_ids_to_select.inspect}"
+    
+    # 确保我们有关联的报销单
+    if reimbursement.nil?
+      Rails.logger.error "CommunicationWorkOrder ##{id} has no associated reimbursement"
+      return
+    end
+    
+    # 查找费用明细
+    fee_details = FeeDetail.where(id: @fee_detail_ids_to_select, document_number: reimbursement.invoice_number)
+    Rails.logger.info "Found #{fee_details.count} fee details for CommunicationWorkOrder ##{id}"
+    
+    # 创建费用明细选择
+    fee_details.each do |fee_detail|
+      selection = fee_detail_selections.find_or_create_by(fee_detail: fee_detail)
+      selection.update(verification_status: fee_detail.verification_status)
+      Rails.logger.info "Created/updated fee detail selection for fee detail ##{fee_detail.id} with status #{selection.verification_status}"
+    end
   end
   
   # 沟通记录方法

@@ -2,9 +2,11 @@ ActiveAdmin.register OperationHistory do
   # 设置为只读资源，只允许查看和导入，不允许创建、编辑和删除
   actions :index, :show
   
+  menu parent: "数据管理", label: "操作历史"
+  
   # 添加导入功能
   action_item :import, only: :index do
-    link_to '导入操作历史', admin_imports_operation_histories_path
+    link_to '导入操作历史', operation_histories_admin_imports_path
   end
   
   # 过滤器

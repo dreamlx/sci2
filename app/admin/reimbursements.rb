@@ -3,7 +3,7 @@ ActiveAdmin.register Reimbursement do
                 :amount, :receipt_status, :status, :receipt_date, :submission_date,
                 :is_electronic, :external_status, :approval_date, :approver_name
 
-  menu priority: 1, label: "报销单管理"
+  menu priority: 2, label: "报销单管理"
 
   # 过滤器
   filter :invoice_number
@@ -49,11 +49,27 @@ ActiveAdmin.register Reimbursement do
   action_item :import_operation_histories, only: :index do
     link_to "导入操作历史", operation_histories_admin_imports_path
   end
-  action_item :new_audit_work_order, only: :show, if: proc{!resource.closed?} do
+  
+  # 移除默认的编辑和删除按钮
+  config.action_items.delete_if { |item| item.name == :edit || item.name == :destroy }
+  
+  # 添加自定义按钮，按照指定顺序排列
+  action_item :new_audit_work_order, only: :show, priority: 0 do
     link_to "新建审核工单", new_admin_audit_work_order_path(reimbursement_id: resource.id)
   end
-  action_item :new_communication_work_order, only: :show, if: proc{!resource.closed?} do
-     link_to "新建沟通工单", new_admin_communication_work_order_path(reimbursement_id: resource.id)
+  
+  action_item :new_communication_work_order, only: :show, priority: 1 do
+    link_to "新建沟通工单", new_admin_communication_work_order_path(reimbursement_id: resource.id)
+  end
+  
+  action_item :edit_reimbursement, only: :show, priority: 2 do
+    link_to "编辑报销单", edit_admin_reimbursement_path(resource)
+  end
+  
+  action_item :delete_reimbursement, only: :show, priority: 3 do
+    link_to "删除报销单", admin_reimbursement_path(resource),
+            method: :delete,
+            data: { confirm: "确定要删除此报销单吗？此操作不可逆。" }
   end
 
   # 导入操作

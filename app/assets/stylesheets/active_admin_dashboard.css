@@ -1,0 +1,125 @@
+/* Panel titles */
+.panel h3 {
+  font-size: 16px !important;
+  font-weight: bold !important;
+  color: #2e6da4 !important;
+  margin-bottom: 15px !important;
+  border-bottom: 1px solid #2e6da4 !important;
+  padding-bottom: 5px !important;
+}
+
+/* Dashboard stats */
+.dashboard-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.stat-box {
+  flex: 1;
+  min-width: 150px;
+  margin: 10px;
+  padding: 15px;
+  text-align: center;
+  background-color: #f9f9f9;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.stat-box p {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.stat-box h3 {
+  font-size: 24px !important;
+  color: #2e6da4 !important;
+  margin: 0 !important;
+  border: none !important;
+}
+
+/* Import buttons */
+.import-button {
+  display: block;
+  margin-top: 10px;
+  color: #2e6da4;
+  transition: color 0.3s;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.import-button:hover {
+  color: #23527c;
+}
+
+.stat-box a {
+  display: block;
+  width: 100%;
+  height: 100%;
+  text-decoration: none;
+}
+
+.fa-3x {
+  font-size: 3em;
+}
+
+/* Add labels under import icons */
+.stat-box .fa-file-import:after {
+  content: attr(data-label);
+  display: block;
+  font-size: 14px;
+  margin-top: 5px;
+  font-weight: normal;
+}
+
+/* Status distribution styles */
+.status-distribution {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.status-box {
+  flex: 1;
+  min-width: 150px;
+  margin: 10px;
+  padding: 15px;
+  text-align: center;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  color: white;
+}
+
+.status-box p {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.status-box h3 {
+  font-size: 24px !important;
+  margin: 0 !important;
+  border: none !important;
+  color: white !important;
+}
+
+.status-box.pending {
+  background-color: #6c757d;
+}
+
+.status-box.processing {
+  background-color: #007bff;
+}
+
+.status-box.waiting_completion {
+  background-color: #fd7e14;
+}
+
+.status-box.closed {
+  background-color: #28a745;
+}

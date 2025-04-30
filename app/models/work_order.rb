@@ -108,9 +108,9 @@ class WorkOrder < ApplicationRecord
     case processing_opinion
     when nil, ""
       # 保持当前状态
-    when "审核通过"
+    when "审核通过", "可以通过"
       self.status = "approved" unless status == "approved"
-    when "否决"
+    when "否决", "无法通过"
       self.status = "rejected" unless status == "rejected"
     else
       self.status = "processing" if status == "pending"

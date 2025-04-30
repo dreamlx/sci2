@@ -45,11 +45,17 @@ class FeeDetail < ApplicationRecord
   
   # 业务方法
   def mark_as_verified(verifier = nil, comment = nil)
-    update(verification_status: VERIFICATION_STATUS_VERIFIED)
+    update(
+      verification_status: VERIFICATION_STATUS_VERIFIED,
+      notes: comment
+    )
   end
   
   def mark_as_problematic(verifier = nil, comment = nil)
-    update(verification_status: VERIFICATION_STATUS_PROBLEMATIC)
+    update(
+      verification_status: VERIFICATION_STATUS_PROBLEMATIC,
+      notes: comment
+    )
   end
   
   # ActiveAdmin 配置

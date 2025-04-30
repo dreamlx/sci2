@@ -133,8 +133,14 @@ class AuditWorkOrderService
       end
     end
     
-    # 生产环境正常处理
-    fee_detail = @audit_work_order.fee_details.find_by(id: fee_detail_id)
+    # 生产环境正常处理 - 使用正确的work_order_type
+    fee_detail = FeeDetail.joins(:fee_detail_selections)
+                         .where(fee_detail_selections: {
+                           work_order_id: @audit_work_order.id,
+                           work_order_type: 'AuditWorkOrder'
+                         })
+                         .find_by(id: fee_detail_id)
+    
     unless fee_detail
       @audit_work_order.errors.add(:base, "无法更新费用明细验证状态: 未找到关联的费用明细 ##{fee_detail_id}")
       return false
