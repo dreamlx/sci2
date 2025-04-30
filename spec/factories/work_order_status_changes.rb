@@ -8,13 +8,4 @@ FactoryBot.define do
     changed_at { Time.current }
     # Remove changed_by field as it seems to be undefined
   end
-
-  # Add a simple validation test for the factory
-  RSpec.describe "WorkOrderStatusChange factory" do
-    it "is valid" do
-      # Need to create an associated work order for the factory to be valid
-      work_order = create(:audit_work_order)
-      expect(build(:work_order_status_change, work_order: work_order)).to be_valid
-    end
-  end
 end

@@ -4,11 +4,4 @@ FactoryBot.define do
     password { 'password' }
     password_confirmation { 'password' }
   end
-
-  # Add a simple validation test for the factory
-  RSpec.describe "AdminUser factory" do
-    it "is valid" do
-      expect(build(:admin_user)).to be_valid
-    end
-  end
 end

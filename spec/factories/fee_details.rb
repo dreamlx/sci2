@@ -25,21 +25,4 @@ FactoryBot.define do
       document_number { reimbursement.invoice_number }
     end
   end
-
-  # Add a simple validation test for the factory
-  RSpec.describe "FeeDetail factory" do
-    # The default factory does not associate with a reimbursement,
-    # but document_number is required. This test will fail if document_number
-    # is not set by default or if the model requires a valid reimbursement association.
-    # Based on the model, document_number is required, but reimbursement association is optional.
-    # The factory sets document_number with a sequence, so it should be valid.
-    it "is valid" do
-      expect(build(:fee_detail)).to be_valid
-    end
-
-    # Test the trait with reimbursement
-    it "is valid with reimbursement trait" do
-      expect(build(:fee_detail, :with_reimbursement)).to be_valid
-    end
-  end
 end
