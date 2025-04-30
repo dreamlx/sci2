@@ -41,7 +41,7 @@ RSpec.describe FeeDetailVerificationService do
           hash_including(
             verification_status: 'verified',
             verification_comment: nil,
-            verified_by: admin_user.id
+            verifier: admin_user
           )
         )
         

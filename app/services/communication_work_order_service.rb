@@ -22,9 +22,13 @@ class CommunicationWorkOrderService
   # 切换需要沟通标志（布尔字段，非状态值）
   def toggle_needs_communication(value = nil)
     value = !@communication_work_order.needs_communication if value.nil?
-    if @communication_work_order.update(needs_communication: value)
+    
+    # 使用 update_column 而不是 update 来避免触发回调
+    begin
+      @communication_work_order.update_column(:needs_communication, value)
       true
-    else
+    rescue => e
+      Rails.logger.error "Error in toggle_needs_communication: #{e.message}"
       @communication_work_order.errors.add(:base, "无法更新沟通标志")
       false
     end

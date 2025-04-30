@@ -68,14 +68,28 @@ class WorkOrder < ApplicationRecord
     return unless status_change # 确保状态确实发生了变化
     
     old_status, new_status = status_change
-    work_order_status_changes.create!(
-      work_order_type: self.class.sti_name,
+    
+    # 使用 build 和 save 而不是 create! 以便于调试
+    status_change = work_order_status_changes.build(
+      work_order_type: self.class.name, # 使用 class.name 而不是 sti_name
       from_status: old_status,
       to_status: new_status,
-      changed_at: Time.current,
-      # 确保 Current.admin_user 在服务/控制器中设置
-      changer: Current.admin_user || creator
+      changed_at: Time.current
     )
+    
+    # 只有在 Current.admin_user 或 creator 存在时才设置 changer
+    if Current.admin_user.present?
+      status_change.changer = Current.admin_user
+    elsif creator.present?
+      status_change.changer = creator
+    end
+    
+    # 使用 save 而不是 save! 以避免异常
+    unless status_change.save
+      Rails.logger.error "Failed to save WorkOrderStatusChange: #{status_change.errors.full_messages.join(', ')}"
+    end
+  rescue => e
+    Rails.logger.error "Error in record_status_change: #{e.message}"
   end
   
   def update_reimbursement_status_on_create

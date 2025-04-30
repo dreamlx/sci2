@@ -23,19 +23,19 @@ RSpec.describe CommunicationWorkOrderService, type: :service do
   
   describe "#toggle_needs_communication" do
     it "toggles the needs_communication flag to true when it was false" do
-      communication_work_order.update(needs_communication: false)
+      communication_work_order.update_column(:needs_communication, false)
       expect(subject.toggle_needs_communication).to be_truthy
       expect(communication_work_order.reload.needs_communication).to be_truthy
     end
     
     it "toggles the needs_communication flag to false when it was true" do
-      communication_work_order.update(needs_communication: true)
+      communication_work_order.update_column(:needs_communication, true)
       expect(subject.toggle_needs_communication).to be_truthy
       expect(communication_work_order.reload.needs_communication).to be_falsey
     end
     
     it "sets the needs_communication flag to the specified value" do
-      communication_work_order.update(needs_communication: false)
+      communication_work_order.update_column(:needs_communication, false)
       expect(subject.toggle_needs_communication(true)).to be_truthy
       expect(communication_work_order.reload.needs_communication).to be_truthy
       
@@ -44,7 +44,7 @@ RSpec.describe CommunicationWorkOrderService, type: :service do
     end
     
     it "adds errors if update fails" do
-      allow(communication_work_order).to receive(:update).and_return(false)
+      allow(communication_work_order).to receive(:update_column).and_raise(StandardError, "Test error")
       expect(subject.toggle_needs_communication).to be_falsey
       expect(communication_work_order.errors.full_messages).to include("无法更新沟通标志")
     end
