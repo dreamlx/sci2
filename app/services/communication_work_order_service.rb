@@ -9,6 +9,8 @@ class CommunicationWorkOrderService
   
   # 开始处理
   def start_processing(params = {})
+    # 注意：处理意见(processing_opinion)与工单状态(status)的关系由模型的
+    # set_status_based_on_processing_opinion回调自动处理，无需在服务层显式设置
     assign_shared_attributes(params) # 分配共享字段
     @communication_work_order.start_processing!
     true
@@ -17,18 +19,20 @@ class CommunicationWorkOrderService
     false
   end
   
-  # 标记需要沟通
-  def mark_needs_communication(params = {})
-    assign_shared_attributes(params) # 分配共享字段
-    @communication_work_order.mark_needs_communication!
-    true
-  rescue StandardError => e
-    @communication_work_order.errors.add(:base, "无法标记为需要沟通: #{e.message}")
-    false
+  # 切换需要沟通标志（布尔字段，非状态值）
+  def toggle_needs_communication(value = nil)
+    value = !@communication_work_order.needs_communication if value.nil?
+    if @communication_work_order.update(needs_communication: value)
+      true
+    else
+      @communication_work_order.errors.add(:base, "无法更新沟通标志")
+      false
+    end
   end
   
   # 沟通通过
   def approve(params = {})
+    # 支持从pending或processing状态直接到approved的转换
     assign_shared_attributes(params) # 分配共享字段
     @communication_work_order.resolution_summary = params[:resolution_summary] if params[:resolution_summary].present?
     @communication_work_order.approve!

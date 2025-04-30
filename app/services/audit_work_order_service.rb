@@ -9,6 +9,8 @@ class AuditWorkOrderService
   
   # 开始处理
   def start_processing(params = {})
+    # 注意：处理意见(processing_opinion)与工单状态(status)的关系由模型的
+    # set_status_based_on_processing_opinion回调自动处理，无需在服务层显式设置
     assign_shared_attributes(params) # 分配共享字段
     @audit_work_order.start_processing!
     true
@@ -19,6 +21,7 @@ class AuditWorkOrderService
   
   # 审核通过
   def approve(params = {})
+    # 支持从pending或processing状态直接到approved的转换
     assign_shared_attributes(params) # 分配共享字段
     @audit_work_order.audit_comment = params[:audit_comment] if params[:audit_comment].present?
     @audit_work_order.approve!
