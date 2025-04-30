@@ -65,6 +65,12 @@ RSpec.describe FeeDetail, type: :model do
       end
       
       it "does not update reimbursement status if not all fee details are verified" do
+        # 设置 reimbursement 状态为 processing
+        reimbursement.update(status: 'processing')
+        
+        # 创建另一个未验证的 fee_detail
+        create(:fee_detail, reimbursement: reimbursement, verification_status: 'pending')
+        
         # 设置当前 fee_detail 为 verified
         fee_detail.update(verification_status: 'verified')
         

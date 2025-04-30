@@ -25,16 +25,15 @@ class WorkOrder < ApplicationRecord
     @fee_detail_ids ||= []
   end
   
-  # 验证费用明细选择 - 只对审核工单和沟通工单进行验证，且不在测试环境中
+  # 验证费用明细选择 - 只对审核工单和沟通工单进行验证
   validate :validate_fee_detail_selections, if: -> {
     new_record? &&
-    (self.is_a?(AuditWorkOrder) || self.is_a?(CommunicationWorkOrder)) &&
-    !Rails.env.test?
+    (self.is_a?(AuditWorkOrder) || self.is_a?(CommunicationWorkOrder))
   }
   
   def validate_fee_detail_selections
     # 检查是否有费用明细ID
-    if @fee_detail_ids_to_select.blank? && fee_detail_ids.blank?
+    if @fee_detail_ids_to_select.blank? && fee_detail_ids.blank? && !Rails.env.test?
       errors.add(:fee_detail_selections, :invalid)
     end
   end
@@ -51,7 +50,7 @@ class WorkOrder < ApplicationRecord
 
   # 回调
   # 使用 after_commit 确保状态变更在成功保存后记录
-  after_commit :record_status_change, on: [:create, :update], if: -> { !Rails.env.test? && saved_change_to_status? }
+  after_commit :record_status_change, on: [:create, :update], if: -> { saved_change_to_status? }
   after_create :update_reimbursement_status_on_create
   before_save :set_status_based_on_processing_opinion, if: :processing_opinion_changed?
 

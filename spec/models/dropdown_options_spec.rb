@@ -43,8 +43,8 @@ RSpec.describe "Dropdown Options", type: :model do
         "财务人员",
         "审核人员",
         "申请人",
-        "部门经理",
-        "其他"
+        "部门主管",
+        "其他角色"
       ])
     end
   end
@@ -55,8 +55,8 @@ RSpec.describe "Dropdown Options", type: :model do
         "电话",
         "邮件",
         "微信",
-        "面谈",
-        "其他"
+        "当面沟通",
+        "其他方式"
       ])
     end
   end

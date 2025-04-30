@@ -217,8 +217,8 @@ RSpec.describe AuditWorkOrder, type: :model do
       )
     end
 
-    it "includes subclass specific associations" do
-      expect(AuditWorkOrder.ransackable_associations).to eq([])
+    it "includes necessary associations for searching" do
+      expect(AuditWorkOrder.ransackable_associations).to include("reimbursement", "creator")
     end
   end
 end

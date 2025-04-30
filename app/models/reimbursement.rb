@@ -14,11 +14,17 @@ class Reimbursement < ApplicationRecord
 
   # 验证
   validates :invoice_number, presence: true, uniqueness: true
+  validates :document_name, presence: true
+  validates :applicant, presence: true
+  validates :applicant_id, presence: true
+  validates :company, presence: true
+  validates :department, presence: true
   validates :status, presence: true, inclusion: { in: %w[pending processing waiting_completion closed] }
+  validates :receipt_status, inclusion: { in: %w[pending received] }
   validates :is_electronic, inclusion: { in: [true, false] }
   
   # 可选的其他验证
-  validates :amount, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
+  validates :amount, presence: true, numericality: { greater_than: 0 }
 
   # 范围查询
   scope :electronic, -> { where(is_electronic: true) }

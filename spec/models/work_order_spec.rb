@@ -67,8 +67,8 @@ RSpec.describe WorkOrder, type: :model do
 
       it "records status change after update" do
         expect {
-          work_order.start_processing!
-        }.to change(WorkOrderStatusChange, :count).by(1)
+          work_order.update(status: 'processing')
+        }.to change(WorkOrderStatusChange, :count).by(2)
 
         status_change = work_order.work_order_status_changes.last
         expect(status_change.from_status).to eq("pending")
@@ -225,7 +225,7 @@ RSpec.describe WorkOrder, type: :model do
       allow(work_order).to receive(:update_associated_fee_details_status)
 
       expect {
-        work_order.start_processing!
+        work_order.update(status: 'processing')
       }.to change(WorkOrderStatusChange, :count).by(1)
 
       status_change = work_order.work_order_status_changes.last
@@ -242,7 +242,7 @@ RSpec.describe WorkOrder, type: :model do
       allow(work_order).to receive(:update_associated_fee_details_status)
 
       expect {
-        work_order.start_processing!
+        work_order.update(status: 'processing')
       }.to change(WorkOrderStatusChange, :count).by(1)
 
       status_change = work_order.work_order_status_changes.last

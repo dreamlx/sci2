@@ -71,14 +71,16 @@ class FeeDetail < ApplicationRecord
     
     # 如果状态变更为已验证，检查报销单是否可以标记为等待完成
     if verification_status == VERIFICATION_STATUS_VERIFIED
-      reimbursement.update_status_based_on_fee_details!
+      # 检查所有费用明细是否都已验证
+      if reimbursement.all_fee_details_verified?
+        reimbursement.update(status: 'waiting_completion')
+      else
+        reimbursement.update(status: 'processing') unless reimbursement.pending?
+      end
     # 如果状态从已验证变为其他状态，确保报销单回到处理中
-    elsif verification_status_before_last_save == VERIFICATION_STATUS_VERIFIED
-      reimbursement.start_processing! if reimbursement.waiting_completion?
+    elsif verification_status_before_last_save == VERIFICATION_STATUS_VERIFIED && reimbursement.waiting_completion?
+      reimbursement.update(status: 'processing')
     end
-  # 处理状态转换过程中可能出现的错误
-  rescue StateMachines::InvalidTransition => e
-    Rails.logger.error "Error updating reimbursement status from FeeDetail ##{id}: #{e.message}"
   rescue ActiveRecord::RecordNotFound
     Rails.logger.error "Reimbursement not found for FeeDetail ##{id} during status update callback."
   end

@@ -5,6 +5,8 @@ class WorkOrderStatusChange < ApplicationRecord
   belongs_to :changer, class_name: 'AdminUser', foreign_key: 'changer_id', optional: true
   
   # 验证
+  validates :work_order_id, presence: true
+  validates :work_order_type, presence: true
   validates :to_status, presence: true
   validates :changed_at, presence: true
   

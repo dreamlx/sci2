@@ -7,7 +7,10 @@ RSpec.describe Reimbursement, type: :model do
   # 验证测试
   describe "validations" do
     it { should validate_presence_of(:invoice_number) }
-    it { should validate_uniqueness_of(:invoice_number).with_subject(create(:reimbursement)) }
+    
+    # Use a subject with all required attributes for uniqueness validation
+    subject { create(:reimbursement) }
+    it { should validate_uniqueness_of(:invoice_number) }
     # Rewrite presence and numericality validations using manual checks
     it "validates presence of required fields" do
       reimbursement = build(:reimbursement, document_name: nil, applicant: nil, applicant_id: nil, company: nil, department: nil, amount: nil)
@@ -23,15 +26,15 @@ RSpec.describe Reimbursement, type: :model do
     it "validates numericality of amount" do
       reimbursement = build(:reimbursement, amount: 0)
       expect(reimbursement).not_to be_valid
-      expect(reimbursement.errors[:amount]).to include("必须大于 0") # Assuming this is the error message
+      expect(reimbursement.errors[:amount]).to include("必须大于0") # Updated error message
 
       reimbursement.amount = -100
       expect(reimbursement).not_to be_valid
-      expect(reimbursement.errors[:amount]).to include("必须大于 0")
+      expect(reimbursement.errors[:amount]).to include("必须大于0") # Updated error message
 
       reimbursement.amount = "abc"
       expect(reimbursement).not_to be_valid
-      expect(reimbursement.errors[:amount]).to include("不是一个数字") # Assuming this is the error message
+      expect(reimbursement.errors[:amount]).to include("不是数字") # Updated error message
     end
 
     it { should validate_inclusion_of(:status).in_array(%w[pending processing waiting_completion closed]) }
@@ -41,7 +44,7 @@ RSpec.describe Reimbursement, type: :model do
     it "validates inclusion of receipt_status" do
       reimbursement = build(:reimbursement, receipt_status: "invalid_status")
       expect(reimbursement).not_to be_valid
-      expect(reimbursement.errors[:receipt_status]).to include("不在有效范围内") # Assuming this is the error message
+      expect(reimbursement.errors[:receipt_status]).to include("不包含于列表中") # Updated error message
     end
 
     # Rewrite validation for external_status using manual checks
