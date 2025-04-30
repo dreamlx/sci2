@@ -1,189 +1,141 @@
 # spec/services/audit_work_order_service_spec.rb
 require 'rails_helper'
 
-RSpec.describe AuditWorkOrderService do
-  # 使用 double 而不是实际创建记录，避免数据库操作
-  let(:admin_user) { instance_double(AdminUser, id: 1) }
-  let(:reimbursement) { instance_double(Reimbursement, id: 1, invoice_number: 'R202501001') }
-  let(:audit_work_order) do
-    instance_double(AuditWorkOrder,
-      id: 1,
-      reimbursement: reimbursement,
-      errors: instance_double(ActiveModel::Errors, add: nil, '[]': [], empty?: true),
-      assign_attributes: nil
-    )
-  end
-  let(:service) { described_class.new(audit_work_order, admin_user) }
-
-  before do
-    # 允许 audit_work_order 接收 is_a? 方法调用
-    allow(audit_work_order).to receive(:is_a?).with(AuditWorkOrder).and_return(true)
-    # 允许 Current 接收 admin_user= 方法调用
-    allow(Current).to receive(:admin_user=)
-  end
+RSpec.describe AuditWorkOrderService, type: :service do
+  let(:reimbursement) { create(:reimbursement) }
+  let(:audit_work_order) { create(:audit_work_order, reimbursement: reimbursement) }
+  let(:admin_user) { create(:admin_user) }
   
-  describe '#initialize' do
-    it 'raises error if not given an AuditWorkOrder' do
-      expect { described_class.new("not a work order", admin_user) }.to raise_error(ArgumentError)
+  subject { described_class.new(audit_work_order, admin_user) }
+  
+  describe "#start_processing" do
+    it "starts processing the audit work order" do
+      expect(subject.start_processing).to be_truthy
+      expect(audit_work_order.status).to eq("processing")
     end
     
-    it 'sets Current.admin_user' do
-      expect(Current).to receive(:admin_user=).with(admin_user)
-      described_class.new(audit_work_order, admin_user)
+    it "adds errors if processing fails" do
+      allow(audit_work_order).to receive(:start_processing!).and_raise(StandardError, "Test error")
+      expect(subject.start_processing).to be_falsey
+      expect(audit_work_order.errors.full_messages).to include("无法开始处理: Test error")
     end
   end
   
-  describe '#start_processing' do
-    before do
-      allow(audit_work_order).to receive(:start_processing!)
+  describe "#approve" do
+    it "approves the audit work order" do
+      params = { audit_comment: "All issues resolved" }
+      expect(subject.approve(params)).to be_truthy
+      expect(audit_work_order.status).to eq("approved")
+      expect(audit_work_order.audit_comment).to eq("All issues resolved")
+      expect(audit_work_order.audit_date).to be_within(1.second).of(Time.current)
     end
     
-    it 'calls start_processing! on the work order' do
-      expect(audit_work_order).to receive(:start_processing!)
-      service.start_processing
+    it "adds errors if approval fails" do
+      params = { audit_comment: "All issues resolved" }
+      allow(audit_work_order).to receive(:approve!).and_raise(StandardError, "Test error")
+      expect(subject.approve(params)).to be_falsey
+      expect(audit_work_order.errors.full_messages).to include("无法批准: Test error")
     end
     
-    it 'returns true on success' do
-      expect(service.start_processing).to be true
+    it "requires an audit comment" do
+      params = {}
+      expect(subject.approve(params)).to be_falsey
+      expect(audit_work_order.errors.full_messages).to include("无法批准: 必须填写拒绝理由")
+    end
+  end
+  
+  describe "#reject" do
+    it "rejects the audit work order" do
+      params = { audit_comment: "Issues unresolved" }
+      expect(subject.reject(params)).to be_truthy
+      expect(audit_work_order.status).to eq("rejected")
+      expect(audit_work_order.audit_comment).to eq("Issues unresolved")
+      expect(audit_work_order.audit_date).to be_within(1.second).of(Time.current)
     end
     
-    it 'returns false on failure' do
-      # 使用 StandardError 代替 StateMachines::InvalidTransition
-      allow(audit_work_order).to receive(:start_processing!).and_raise(StandardError.new("Invalid transition"))
-      allow(audit_work_order.errors).to receive(:add)
-      expect(audit_work_order.errors).to receive(:add).with(:base, /无法开始处理/)
+    it "adds errors if rejection fails" do
+      params = { audit_comment: "Issues unresolved" }
+      allow(audit_work_order).to receive(:reject!).and_raise(StandardError, "Test error")
+      expect(subject.reject(params)).to be_falsey
+      expect(audit_work_order.errors.full_messages).to include("无法拒绝: Test error")
+    end
+    
+    it "requires an audit comment" do
+      params = {}
+      expect(subject.reject(params)).to be_falsey
+      expect(audit_work_order.errors.full_messages).to include("无法拒绝: 必须填写拒绝理由")
+    end
+  end
+  
+  describe "#select_fee_detail" do
+    let(:fee_detail) { create(:fee_detail, reimbursement: reimbursement) }
+    
+    it "selects a fee detail" do
+      expect {
+        subject.select_fee_detail(fee_detail)
+      }.to change(FeeDetailSelection, :count).by(1)
       
-      expect(service.start_processing).to be false
+      selection = FeeDetailSelection.last
+      expect(selection.fee_detail_id).to eq(fee_detail.id)
+      expect(selection.work_order_id).to eq(audit_work_order.id)
+      expect(selection.verification_status).to eq(fee_detail.verification_status)
     end
     
-    it 'assigns shared attributes' do
-      params = { problem_type: '问题类型A', problem_description: '问题描述1', remark: '备注', processing_opinion: '处理意见X' }
-      expect(audit_work_order).to receive(:assign_attributes).with(params)
-      service.start_processing(params)
+    it "does not select a fee detail if it does not belong to the same reimbursement" do
+      other_reimbursement = create(:reimbursement)
+      other_fee_detail = create(:fee_detail, reimbursement: other_reimbursement)
+      
+      expect {
+        subject.select_fee_detail(other_fee_detail)
+      }.not_to change(FeeDetailSelection, :count)
     end
   end
   
-  describe '#approve' do
-    before do
-      allow(audit_work_order).to receive(:approve!)
-      allow(audit_work_order).to receive(:audit_comment=)
-    end
+  describe "#select_fee_details" do
+    let(:fee_detail1) { create(:fee_detail, reimbursement: reimbursement) }
+    let(:fee_detail2) { create(:fee_detail, reimbursement: reimbursement) }
     
-    it 'calls approve! on the work order' do
-      expect(audit_work_order).to receive(:approve!)
-      service.approve
-    end
-    
-    it 'sets audit_comment if provided' do
-      expect(audit_work_order).to receive(:audit_comment=).with('测试审核意见')
-      service.approve(audit_comment: '测试审核意见')
-    end
-    
-    it 'returns true on success' do
-      expect(service.approve).to be true
-    end
-    
-    it 'returns false on failure' do
-      # 使用 StandardError 代替 StateMachines::InvalidTransition
-      allow(audit_work_order).to receive(:approve!).and_raise(StandardError.new("Invalid transition"))
-      allow(audit_work_order.errors).to receive(:add)
-      expect(audit_work_order.errors).to receive(:add).with(:base, /无法批准/)
+    it "selects multiple fee details" do
+      expect {
+        subject.select_fee_details([fee_detail1.id, fee_detail2.id])
+      }.to change(FeeDetailSelection, :count).by(2)
       
-      expect(service.approve).to be false
+      selections = FeeDetailSelection.all
+      expect(selections.map(&:fee_detail_id)).to include(fee_detail1.id, fee_detail2.id)
+      expect(selections.map(&:work_order_id)).to all(eq(audit_work_order.id))
     end
     
-    it 'assigns shared attributes' do
-      params = { problem_type: '问题类型A', audit_comment: '审核意见' }
-      expect(audit_work_order).to receive(:assign_attributes).with(hash_including(problem_type: '问题类型A'))
-      service.approve(params)
+    it "does not select fee details if they do not belong to the same reimbursement" do
+      other_reimbursement = create(:reimbursement)
+      other_fee_detail = create(:fee_detail, reimbursement: other_reimbursement)
+      
+      expect {
+        subject.select_fee_details([other_fee_detail.id])
+      }.not_to change(FeeDetailSelection, :count)
     end
   end
   
-  describe '#reject' do
-    before do
-      allow(audit_work_order).to receive(:reject!)
-      allow(audit_work_order).to receive(:audit_comment=)
-    end
+  describe "#update_fee_detail_verification" do
+    let(:fee_detail) { create(:fee_detail, reimbursement: reimbursement) }
     
-    it 'requires audit_comment' do
-      allow(audit_work_order.errors).to receive(:add)
-      expect(audit_work_order.errors).to receive(:add).with(:audit_comment, /必须填写拒绝理由/)
+    it "updates the verification status of a fee detail" do
+      expect {
+        subject.update_fee_detail_verification(fee_detail.id, 'verified', 'Test comment')
+      }.not_to change(FeeDetailSelection, :count)
       
-      expect(service.reject).to be false
+      fee_detail.reload
+      expect(fee_detail.verification_status).to eq('verified')
     end
     
-    it 'calls reject! on the work order' do
-      expect(audit_work_order).to receive(:reject!)
-      service.reject(audit_comment: '测试拒绝理由')
+    it "adds errors if the fee detail is not found" do
+      expect(subject.update_fee_detail_verification(9999, 'verified', 'Test comment')).to be_falsey
+      expect(audit_work_order.errors.full_messages).to include("无法更新费用明细验证状态: 未找到关联的费用明细 #9999")
     end
     
-    it 'sets audit_comment' do
-      expect(audit_work_order).to receive(:audit_comment=).with('测试拒绝理由')
-      service.reject(audit_comment: '测试拒绝理由')
-    end
-    
-    it 'returns true on success' do
-      expect(service.reject(audit_comment: '测试拒绝理由')).to be true
-    end
-    
-    it 'returns false on failure' do
-      # 使用 StandardError 代替 StateMachines::InvalidTransition
-      allow(audit_work_order).to receive(:reject!).and_raise(StandardError.new("Invalid transition"))
-      allow(audit_work_order.errors).to receive(:add)
-      expect(audit_work_order.errors).to receive(:add).with(:base, /无法拒绝/)
-      
-      expect(service.reject(audit_comment: '测试拒绝理由')).to be false
-    end
-    
-    it 'assigns shared attributes' do
-      params = { problem_type: '问题类型A', audit_comment: '拒绝理由' }
-      expect(audit_work_order).to receive(:assign_attributes).with(hash_including(problem_type: '问题类型A'))
-      service.reject(params)
-    end
-  end
-  
-  describe '#select_fee_details' do
-    let(:fee_detail_ids) { [1, 2, 3] }
-    
-    it 'delegates to the work order' do
-      expect(audit_work_order).to receive(:select_fee_details).with(fee_detail_ids)
-      service.select_fee_details(fee_detail_ids)
-    end
-  end
-  
-  describe '#update_fee_detail_verification' do
-    let(:fee_detail) { instance_double(FeeDetail, id: 1) }
-    let(:verification_service) { instance_double(FeeDetailVerificationService) }
-    let(:fee_details) { instance_double(ActiveRecord::Relation) }
-    
-    before do
-      allow(audit_work_order).to receive(:fee_details).and_return(fee_details)
-      allow(fee_details).to receive(:find_by).with(id: fee_detail.id).and_return(fee_detail)
-      allow(fee_details).to receive(:find_by).with(id: 999).and_return(nil)
-      allow(FeeDetailVerificationService).to receive(:new).and_return(verification_service)
-      allow(verification_service).to receive(:update_verification_status)
-    end
-    
-    it 'creates a FeeDetailVerificationService with the current admin user' do
-      expect(FeeDetailVerificationService).to receive(:new).with(admin_user)
-      service.update_fee_detail_verification(fee_detail.id, 'verified')
-    end
-    
-    it 'calls update_verification_status on the verification service' do
-      expect(verification_service).to receive(:update_verification_status).with(fee_detail, 'verified', nil)
-      service.update_fee_detail_verification(fee_detail.id, 'verified')
-    end
-    
-    it 'passes comment to the verification service if provided' do
-      expect(verification_service).to receive(:update_verification_status).with(fee_detail, 'verified', '测试验证意见')
-      service.update_fee_detail_verification(fee_detail.id, 'verified', '测试验证意见')
-    end
-    
-    it 'returns false if fee detail not found' do
-      allow(audit_work_order.errors).to receive(:add)
-      expect(audit_work_order.errors).to receive(:add).with(:base, /未找到关联的费用明细/)
-      
-      expect(service.update_fee_detail_verification(999, 'verified')).to be false
+    it "adds errors if the verification update fails" do
+      allow_any_instance_of(FeeDetailVerificationService).to receive(:update_verification_status).and_raise(StandardError, "Test error")
+      expect(subject.update_fee_detail_verification(fee_detail.id, 'verified', 'Test comment')).to be_falsey
+      expect(audit_work_order.errors.full_messages).to include("无法更新费用明细验证状态: Test error")
     end
   end
 end

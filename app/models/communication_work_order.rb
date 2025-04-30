@@ -4,7 +4,7 @@ class CommunicationWorkOrder < WorkOrder
   has_many :communication_records, foreign_key: 'communication_work_order_id', dependent: :destroy, inverse_of: :communication_work_order
   
   # 验证
-  validates :status, inclusion: { in: %w[pending processing needs_communication approved rejected] }
+  validates :status, inclusion: { in: %w[pending processing approved rejected] }
   
   # 可选的其他验证
   validates :resolution_summary, presence: true, if: -> { approved? || rejected? }
@@ -16,25 +16,16 @@ class CommunicationWorkOrder < WorkOrder
       transition :pending => :processing
     end
     
-    event :mark_needs_communication do
-      transition :pending => :needs_communication
-    end
-    
     event :approve do
-      transition [:processing, :needs_communication] => :approved
+      transition [:pending, :processing] => :approved
     end
     
     event :reject do
-      transition [:processing, :needs_communication] => :rejected
+      transition [:pending, :processing] => :rejected
     end
     
     # 开始处理时将费用明细标记为有问题
     after_transition on: :start_processing do |work_order, transition|
-      work_order.update_associated_fee_details_status('problematic')
-    end
-    
-    # 标记需要沟通时将费用明细标记为有问题
-    after_transition on: :mark_needs_communication do |work_order, transition|
       work_order.update_associated_fee_details_status('problematic')
     end
     
@@ -52,20 +43,15 @@ class CommunicationWorkOrder < WorkOrder
   # 状态检查方法和作用域
   scope :pending, -> { where(status: 'pending') }
   scope :processing, -> { where(status: 'processing') }
-  scope :needs_communication, -> { where(status: 'needs_communication') }
   scope :approved, -> { where(status: 'approved') }
   scope :rejected, -> { where(status: 'rejected') }
-
+  
   def pending?
     status == 'pending'
   end
   
   def processing?
     status == 'processing'
-  end
-  
-  def needs_communication?
-    status == 'needs_communication'
   end
   
   def approved?
@@ -109,13 +95,22 @@ class CommunicationWorkOrder < WorkOrder
     communication_records.create(params.merge(communication_work_order_id: self.id))
   end
   
+  # 方法来设置和取消 needs_communication 标志
+  def mark_needs_communication!
+    update(needs_communication: true)
+  end
+  
+  def unmark_needs_communication!
+    update(needs_communication: false)
+  end
+  
   # 覆盖基类的 ransackable 方法
   def self.subclass_ransackable_attributes
     # 继承的通用字段 + Req 6/7 字段 + 特定字段
-    %w[communication_method initiator_role resolution_summary problem_type problem_description remark processing_opinion] # 移除 audit_work_order_id
+    %w[communication_method initiator_role resolution_summary problem_type problem_description remark processing_opinion needs_communication]
   end
   
   def self.subclass_ransackable_associations
-    %w[communication_records] # 移除 audit_work_order
+    %w[communication_records]
   end
 end

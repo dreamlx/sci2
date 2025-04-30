@@ -48,22 +48,82 @@ RSpec.describe FeeDetail, type: :model do
   end
   
   # 业务方法测试
-  describe "#mark_as_verified" do
-    let(:fee_detail) { build(:fee_detail, verification_status: 'pending') }
+  describe "#update_reimbursement_status" do
+    let(:reimbursement) { create(:reimbursement) }
+    let(:fee_detail) { create(:fee_detail, reimbursement: reimbursement, verification_status: 'pending') }
     
-    it "updates verification_status to verified" do
-      expect(fee_detail).to receive(:update).with(verification_status: 'verified')
-      fee_detail.mark_as_verified
+    context "when fee detail is verified" do
+      it "updates reimbursement status to waiting_completion if all fee details are verified" do
+        # 创建另一个 fee_detail 并设置为 verified
+        create(:fee_detail, reimbursement: reimbursement, verification_status: 'verified')
+        
+        # 设置当前 fee_detail 为 verified
+        fee_detail.update(verification_status: 'verified')
+        
+        # 检查 reimbursement 状态是否变为 waiting_completion
+        expect(reimbursement.reload.status).to eq('waiting_completion')
+      end
+      
+      it "does not update reimbursement status if not all fee details are verified" do
+        # 设置当前 fee_detail 为 verified
+        fee_detail.update(verification_status: 'verified')
+        
+        # 检查 reimbursement 状态是否保持为 processing
+        expect(reimbursement.reload.status).to eq('processing')
+      end
+    end
+    
+    context "when fee detail is marked as problematic" do
+      it "updates reimbursement status to processing if it was waiting_completion" do
+        # 创建另一个 fee_detail 并设置为 verified
+        create(:fee_detail, reimbursement: reimbursement, verification_status: 'verified')
+        
+        # 设置当前 fee_detail 为 verified，使 reimbursement 状态变为 waiting_completion
+        fee_detail.update(verification_status: 'verified')
+        expect(reimbursement.reload.status).to eq('waiting_completion')
+        
+        # 设置当前 fee_detail 为 problematic
+        fee_detail.update(verification_status: 'problematic')
+        
+        # 检查 reimbursement 状态是否变为 processing
+        expect(reimbursement.reload.status).to eq('processing')
+      end
+    end
+    
+    context "when fee detail is marked as pending" do
+      it "updates reimbursement status to processing if it was waiting_completion" do
+        # 创建另一个 fee_detail 并设置为 verified
+        create(:fee_detail, reimbursement: reimbursement, verification_status: 'verified')
+        
+        # 设置当前 fee_detail 为 verified，使 reimbursement 状态变为 waiting_completion
+        fee_detail.update(verification_status: 'verified')
+        expect(reimbursement.reload.status).to eq('waiting_completion')
+        
+        # 设置当前 fee_detail 为 pending
+        fee_detail.update(verification_status: 'pending')
+        
+        # 检查 reimbursement 状态是否变为 processing
+        expect(reimbursement.reload.status).to eq('processing')
+      end
     end
   end
   
-  describe "#mark_as_problematic" do
-    let(:fee_detail) { build(:fee_detail, verification_status: 'pending') }
-    
-    it "updates verification_status to problematic" do
-      expect(fee_detail).to receive(:update).with(verification_status: 'problematic')
-      fee_detail.mark_as_problematic
+  # 回调测试
+  describe "callbacks" do
+    describe "after_commit" do
+      let(:reimbursement) { create(:reimbursement) }
+      let(:fee_detail) { create(:fee_detail, reimbursement: reimbursement, verification_status: 'pending') }
+      
+      it "calls update_reimbursement_status after verification_status change" do
+        # 模拟 update_reimbursement_status 方法
+        allow(fee_detail).to receive(:update_reimbursement_status)
+        
+        # 更改 verification_status
+        fee_detail.update(verification_status: 'verified')
+        
+        # 验证 update_reimbursement_status 方法被调用
+        expect(fee_detail).to have_received(:update_reimbursement_status)
+      end
     end
   end
-  
 end

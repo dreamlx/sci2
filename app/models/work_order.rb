@@ -51,6 +51,7 @@ class WorkOrder < ApplicationRecord
   # 使用 after_commit 确保状态变更在成功保存后记录
   after_commit :record_status_change, on: [:create, :update], if: :saved_change_to_status?
   after_create :update_reimbursement_status_on_create
+  before_save :set_status_based_on_processing_opinion, if: :processing_opinion_changed?
 
   # 类方法
   def self.sti_name
@@ -85,6 +86,24 @@ class WorkOrder < ApplicationRecord
     Rails.logger.error "Error updating reimbursement status from WorkOrder ##{id} creation: #{e.message}"
   end
   
+  # 根据处理意见设置状态
+  def set_status_based_on_processing_opinion
+    return unless self.is_a?(AuditWorkOrder) || self.is_a?(CommunicationWorkOrder)
+    
+    case processing_opinion
+    when nil, ""
+      # 保持当前状态
+    when "审核通过"
+      self.status = "approved" unless status == "approved"
+    when "否决"
+      self.status = "rejected" unless status == "rejected"
+    else
+      self.status = "processing" if status == "pending"
+    end
+  rescue => e
+    Rails.logger.error "无法基于处理意见更新状态: #{e.message}"
+  end
+
   # 状态机回调的辅助方法
   def update_associated_fee_details_status(new_status)
     # 确保状态是有效的

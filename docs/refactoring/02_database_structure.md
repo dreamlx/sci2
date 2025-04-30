@@ -1,11 +1,11 @@
-# SCI2 工单系统数据库结构设计 (STI - Drop & Rebuild - v2)
+# SCI2 工单系统数据库结构设计 (STI - Drop & Rebuild - v2.1)
 
 ## 0 补充更新说明
 
 需要添加的字段：
 
 沟通工单的 needs_communication 标志字段（测试用例 WF-C-003 要求）
-建议在 work_orders 表中添加此字段：
+已在 work_orders 表中添加此字段：
 
 t.boolean :needs_communication, default: false # 用于沟通工单
 
@@ -127,6 +127,7 @@ processing_opinion: string (来自 Req 6 处理意见下拉列表)
 communication_method: string
 initiator_role: string
 resolution_summary: text
+needs_communication: boolean (default: false) # 布尔标志，非状态值
 # Req 7 表单字段与 AuditWorkOrder 相同，复用上面 Audit 的字段
 
 # --- Timestamps ---
@@ -280,6 +281,7 @@ class CreateWorkOrders < ActiveRecord::Migration[7.0]
       t.string :communication_method
       t.string :initiator_role
       t.text :resolution_summary
+      t.boolean :needs_communication, default: false # 添加布尔标志字段
 
       t.timestamps
     end
@@ -355,3 +357,31 @@ end
 *   **Import Focus**: Structure prioritizes mapping from import files. Duplicate checks defined based on import data.
 *   **Status Management**: Internal `reimbursements.status` is managed by application logic (state machine). `reimbursements.external_status` stores the source system status. The `OperationHistoryImportService` is responsible for triggering the internal `closed` state based on specific history events (e.g., "审批通过").
 *   **FKs**: Assumes standard integer primary keys (`id`) and foreign keys referencing `id`. Using `invoice_number` as a primary/foreign key target is possible but generally less conventional in Rails.
+
+## 7. 处理意见与状态关系
+
+处理意见（`processing_opinion`）字段与工单状态（`status`）的关系如下：
+
+* 处理意见为空：工单状态保持为 `pending`
+* 处理意见为"审核通过"：工单状态变为 `approved`
+* 处理意见为"否决"：工单状态变为 `rejected`
+* 其他处理意见：工单状态变为 `processing`
+
+这种关系通过状态机在模型层实现，而不是通过数据库约束。
+
+## 8. 工单与费用明细状态联动
+
+工单状态会影响关联的费用明细状态：
+
+* 工单状态为 `approved`：费用明细状态变为 `verified`
+* 其他任何工单状态：费用明细状态变为 `problematic`
+
+当报销单下所有费用明细状态都为 `verified` 时，报销单状态自动变为 `waiting_completion`。
+
+## 9. 沟通工单的需要沟通标志
+
+`needs_communication` 实现为布尔字段（boolean），而不是状态值。这样设计允许沟通工单在任何状态下都可以标记为"需要沟通"，更灵活地满足业务需求。
+
+* 沟通工单可以在 `pending`、`processing`、`approved` 或 `rejected` 任何状态下设置 `needs_communication = true`
+* 此标志不影响工单的主状态流转
+* 在界面上可以通过复选框或开关控制此标志

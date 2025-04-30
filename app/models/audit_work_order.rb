@@ -14,11 +14,11 @@ class AuditWorkOrder < WorkOrder
     end
 
     event :approve do
-      transition :processing => :approved
+      transition [:pending, :processing] => :approved
     end
 
     event :reject do
-      transition :processing => :rejected
+      transition [:pending, :processing] => :rejected
     end
 
     # 开始处理时将费用明细标记为有问题

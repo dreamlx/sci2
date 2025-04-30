@@ -1,4 +1,4 @@
-# SCI2 工单系统重构概述 (STI 版本 - v2)
+# SCI2 工单系统重构概述 (STI 版本 - v2.1)
 
 ## 1. 背景与目标
 
@@ -6,7 +6,7 @@ SCI2工单系统是一个财务报销管理系统，主要用于处理报销单�
 
 本次重构将采用 **"Drop and Rebuild"** 策略，数据库结构基于 `docs/3.数据导入格式参考.md` 中定义的四种 CSV 文件进行设计。
 
-### 1.1 重构目标 (基于STI方案 - v2)
+### 1.1 重构目标 (基于STI方案 - v2.1)
 
 1.  **统一工单模型**: 使用 `WorkOrder` 作为基类，通过 `type` 字段区分不同工单类型 (快递收单、审核、沟通)。
 2.  **精确的数据映射**: 数据库结构精确反映导入文件的字段，并包含应用所需状态字段 (`Reimbursement.status`, `FeeDetail.verification_status`) 和外部系统状态 (`Reimbursement.external_status`)。
@@ -20,7 +20,7 @@ SCI2工单系统是一个财务报销管理系统，主要用于处理报销单�
 7.  **ActiveAdmin优化**: 针对STI结构优化ActiveAdmin配置。
 8.  **实现最新业务逻辑**: 确保系统行为符合最新的需求讨论记录。
 
-## 2. 重构方案概述 (STI 版本 - v2)
+## 2. 重构方案概述 (STI 版本 - v2.1)
 
 ### 2.1 数据模型设计 (STI)
 
@@ -56,6 +56,7 @@ erDiagram
         string communication_method # Communication
         string initiator_role # Communication
         text resolution_summary # Communication
+        boolean needs_communication # Communication (布尔标志)
         # --- Timestamps ---
         datetime created_at
         datetime updated_at
@@ -133,17 +134,57 @@ erDiagram
 
 ### 2.2 工单类型与状态 (基于最新需求)
 
-*(状态机图表和描述保持不变，参考 `docs/refactoring/01_overview.md` 的 v1 版本)*
-
 #### 工单基类 (WorkOrder)
+
+基类定义共享字段和方法，包括与报销单的关联、状态变更记录等。
+
 #### 快递收单工单 (ExpressReceiptWorkOrder < WorkOrder)
+
+快递收单工单在导入时自动创建，状态固定为 `completed`，无需状态流转。
+
 #### 审核工单 (AuditWorkOrder < WorkOrder)
+
+审核工单状态流转图：
+
+```
+[创建] --> pending --> processing --> rejected/approved
+```
+
+- **初始状态**：`pending`（处理意见为空）
+- **处理中状态**：`processing`（问题类型/说明有内容或备注不为空）
+- **结束状态**：
+  - `approved`（处理意见为"审核通过"）
+  - `rejected`（处理意见为"否决"）
+- **直接通过路径**：支持从 `pending` 直接到 `approved` 的状态转换
+
 #### 沟通工单 (CommunicationWorkOrder < WorkOrder)
+
+沟通工单状态流转图：
+
+```
+[创建] --> pending --> processing/needs_communication --> rejected/approved
+```
+
+- **初始状态**：`pending`（处理意见为空）
+- **处理中状态**：
+  - `processing`（问题类型/说明有内容或备注不为空）
+  - 同时可设置 `needs_communication` 布尔标志为 true，表示需要沟通
+- **结束状态**：
+  - `approved`（处理意见为"审核通过"）
+  - `rejected`（处理意见为"否决"）
+- **直接通过路径**：支持从 `pending` 直接到 `approved` 的状态转换
+
+**特别说明**：`needs_communication` 实现为布尔字段（boolean），而不是状态值。这样设计允许沟通工单在任何状态下都可以标记为"需要沟通"，更灵活地满足业务需求。
 
 ### 2.3 费用明细验证流程 (基于最新需求)
 
-*(描述保持不变，参考 `docs/refactoring/01_overview.md` 的 v1 版本)*
-状态：`pending` (待处理), `problematic` (有问题), `verified` (已核实)。
+费用明细验证状态：`pending` (待处理), `problematic` (有问题), `verified` (已核实)。
+
+- **初始状态**：导入后默认为 `pending`
+- **状态变化规则**：
+  - 工单状态为 `approved` 时，费用明细状态变为 `verified`
+  - 其他任何工单状态，费用明细状态变为 `problematic`
+- **多工单关联**：费用明细可关联到多个工单，状态跟随最新处理的工单状态变化
 
 ### 2.4 报销单状态流程 (基于最新需求)
 
@@ -166,8 +207,100 @@ erDiagram
 
 ### 2.6 实施路线图 (调整后)
 
-*(保持不变，参考 `docs/refactoring/01_overview.md` 的 v1 版本)*
+1. **数据结构调整阶段**（5月1日 - 5月4日）
+   - 设计并实现数据库迁移脚本
+   - 创建基础模型结构
+   - 实现STI基类和子类
 
-## 3. 文档结构
+2. **模型实现阶段**（5月5日 - 5月12日）
+   - 实现状态机
+   - 实现模型关联
+   - 实现模型验证和回调
+   - 编写单元测试
 
-*(保持不变，参考 `docs/refactoring/01_overview.md` 的 v1 版本)*
+3. **控制器与视图阶段**（5月13日 - 5月23日）
+   - 实现ActiveAdmin资源
+   - 实现自定义表单和视图
+   - 实现工单处理流程
+   - 实现费用明细验证流程
+
+4. **测试与部署阶段**（5月24日 - 6月1日）
+   - 执行集成测试
+   - 执行系统测试
+   - 执行用户验收测试
+   - 部署到生产环境
+
+## 3. 数据库设计更新
+
+在 `work_orders` 表中添加 `needs_communication` 布尔字段：
+
+```ruby
+# Migration: Create WorkOrders (STI)
+class CreateWorkOrders < ActiveRecord::Migration[7.0]
+  def change
+    create_table :work_orders do |t|
+      # 现有字段...
+      
+      # 沟通工单特有字段
+      t.string :communication_method
+      t.string :initiator_role
+      t.text :resolution_summary
+      t.boolean :needs_communication, default: false # 添加布尔标志字段
+      
+      t.timestamps
+    end
+  end
+end
+```
+
+## 4. 模型实现更新
+
+在 `CommunicationWorkOrder` 模型中，确保 `needs_communication` 字段可以被正确访问和修改：
+
+```ruby
+# app/models/communication_work_order.rb
+class CommunicationWorkOrder < WorkOrder
+  # 现有代码...
+  
+  # 确保 needs_communication 字段包含在 ransackable_attributes 中
+  def self.subclass_ransackable_attributes
+    %w[communication_method initiator_role resolution_summary problem_type problem_description remark processing_opinion needs_communication]
+  end
+  
+  # 添加便捷方法
+  def mark_needs_communication!
+    update(needs_communication: true)
+  end
+  
+  def unmark_needs_communication!
+    update(needs_communication: false)
+  end
+end
+```
+
+## 5. 服务层实现更新
+
+在 `CommunicationWorkOrderService` 中，添加处理 `needs_communication` 布尔标志的方法：
+
+```ruby
+# app/services/communication_work_order_service.rb
+class CommunicationWorkOrderService
+  # 现有代码...
+  
+  def toggle_needs_communication(value = nil)
+    value = !@communication_work_order.needs_communication if value.nil?
+    @communication_work_order.update(needs_communication: value)
+  end
+end
+```
+
+## 6. 业务逻辑对齐
+
+更新后的设计完全对齐了业务逻辑需求，特别是：
+
+1. 报销单分为电子发票和纸质发票两种类型，通过 `is_electronic` 布尔字段区分
+2. 沟通工单的"需要沟通"标记实现为布尔字段，而非状态值
+3. 审核工单和沟通工单都支持直接通过路径，从 `pending` 直接到 `approved`
+4. 工单之间无关联关系，只与报销单和费用明细建立关联
+5. 处理意见决定工单状态，工单状态影响费用明细状态
+6. 所有费用明细 `verified` 时，报销单状态自动变为 `waiting_completion`

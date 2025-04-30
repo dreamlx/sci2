@@ -37,4 +37,11 @@ FactoryBot.define do
       approver_name { "测试审批人" }
     end
   end
+
+  # Add a simple validation test for the factory
+  RSpec.describe "Reimbursement factory" do
+    it "is valid" do
+      expect(build(:reimbursement)).to be_valid
+    end
+  end
 end

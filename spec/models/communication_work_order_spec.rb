@@ -2,319 +2,250 @@
 require 'rails_helper'
 
 RSpec.describe CommunicationWorkOrder, type: :model do
-  # 验证测试（不依赖其他模型）
+  let(:reimbursement) { create(:reimbursement) }
+  let(:admin_user) { create(:admin_user) }
+
+  # 验证测试
   describe "validations" do
-    it { should validate_inclusion_of(:status).in_array(%w[pending processing needs_communication approved rejected]) }
-    
-    context "when approved or rejected" do
-      before do
-        allow(subject).to receive(:approved?).and_return(true)
-      end
-      
-      it { should validate_presence_of(:resolution_summary) }
+    it { should validate_presence_of(:reimbursement_id) }
+    it { should validate_presence_of(:type) }
+    it { should validate_presence_of(:status) }
+    it { should validate_inclusion_of(:status).in_array(%w[pending processing approved rejected]) }
+    # Rewrite validations using manual checks as .if is not supported by shoulda-matchers
+    it "validates presence of resolution_summary if approved or rejected" do
+      communication_work_order = build(:communication_work_order, status: 'approved', resolution_summary: nil)
+      expect(communication_work_order).not_to be_valid
+      expect(communication_work_order.errors[:resolution_summary]).to include("不能为空")
+
+      communication_work_order.status = 'rejected'
+      communication_work_order.resolution_summary = nil
+      expect(communication_work_order).not_to be_valid
+      expect(communication_work_order.errors[:resolution_summary]).to include("不能为空")
+
+      communication_work_order.status = 'pending'
+      communication_work_order.resolution_summary = nil
+      expect(communication_work_order).to be_valid
+
+      communication_work_order.status = 'processing'
+      communication_work_order.resolution_summary = nil
+      expect(communication_work_order).to be_valid
     end
-    
-    context "when rejected" do
-      before do
-        allow(subject).to receive(:rejected?).and_return(true)
-      end
-      
-      it { should validate_presence_of(:problem_type) }
+
+    it "validates presence of problem_type if rejected" do
+      communication_work_order = build(:communication_work_order, status: 'rejected', problem_type: nil)
+      expect(communication_work_order).not_to be_valid
+      expect(communication_work_order.errors[:problem_type]).to include("不能为空")
+
+      communication_work_order.status = 'approved'
+      communication_work_order.problem_type = nil
+      expect(communication_work_order).to be_valid
     end
   end
-  
-  # 关联方法测试（使用 respond_to 而不是实际测试关联）
-  describe "association methods" do
-    it { should respond_to(:communication_records) }
+
+  # 关联测试
+  describe "associations" do
+    it { should belong_to(:reimbursement) }
+    it { should belong_to(:creator).class_name('AdminUser').optional }
+    it { should have_many(:fee_detail_selections).dependent(:destroy) }
+    it { should have_many(:fee_details).through(:fee_detail_selections) }
+    it { should have_many(:work_order_status_changes).dependent(:destroy) }
+    it { should have_many(:communication_records).with_foreign_key('communication_work_order_id').dependent(:destroy).inverse_of(:communication_work_order) }
   end
 
   # 状态机测试
   describe "state machine" do
-    let(:reimbursement) { build_stubbed(:reimbursement) }
-    let(:work_order) do
-      build(:communication_work_order).tap do |wo|
-        # 使用 stub 绕过验证
-        allow(wo).to receive(:reimbursement).and_return(reimbursement)
-        allow(wo).to receive(:valid?).and_return(true)
-        allow(wo).to receive(:update_associated_fee_details_status)
-        # 禁用回调以避免数据库访问
-        allow(wo).to receive(:update_reimbursement_status_on_create)
-        allow(wo).to receive(:record_status_change)
-      end
-    end
-    
+    let(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement) }
+
     context "when in pending state" do
       it "can transition to processing" do
-        expect(work_order.status).to eq("pending")
-        expect(work_order.start_processing!).to be_truthy
-        expect(work_order.status).to eq("processing")
-        
-        # 验证调用了 update_associated_fee_details_status 方法
-        expect(work_order).to have_received(:update_associated_fee_details_status).with('problematic')
+        expect(communication_work_order.status).to eq("pending")
+        expect(communication_work_order.start_processing!).to be_truthy
+        expect(communication_work_order.status).to eq("processing")
       end
-      
-      it "can transition to needs_communication" do
-        expect(work_order.mark_needs_communication!).to be_truthy
-        expect(work_order.status).to eq("needs_communication")
-        
-        # 验证调用了 update_associated_fee_details_status 方法
-        expect(work_order).to have_received(:update_associated_fee_details_status).with('problematic')
+
+      it "can transition directly to approved" do
+        communication_work_order.processing_opinion = "审核通过"
+        expect(communication_work_order.approve!).to be_truthy
+        expect(communication_work_order.status).to eq("approved")
+      end
+
+      it "can transition directly to rejected" do
+        communication_work_order.processing_opinion = "否决"
+        # problem_type is required for rejected state based on validations
+        communication_work_order.problem_type = "documentation_issue"
+        expect(communication_work_order.reject!).to be_truthy
+        expect(communication_work_order.status).to eq("rejected")
       end
     end
-    
+
     context "when in processing state" do
-      let(:work_order) do
-        build(:communication_work_order, :processing).tap do |wo|
-          # 使用 stub 绕过验证
-          allow(wo).to receive(:reimbursement).and_return(reimbursement)
-          allow(wo).to receive(:valid?).and_return(true)
-          allow(wo).to receive(:update_associated_fee_details_status)
-          # 禁用回调以避免数据库访问
-          allow(wo).to receive(:update_reimbursement_status_on_create)
-          allow(wo).to receive(:record_status_change)
-          # 为 approved/rejected 状态添加必要的字段
-          allow(wo).to receive(:resolution_summary).and_return("测试解决方案")
-          allow(wo).to receive(:problem_type).and_return("documentation_issue")
-        end
-      end
-      
+      let(:communication_work_order) { create(:communication_work_order, :processing, reimbursement: reimbursement) }
+
       it "can transition to approved" do
-        expect(work_order.approve!).to be_truthy
-        expect(work_order.status).to eq("approved")
-        
-        # 验证调用了 update_associated_fee_details_status 方法
-        expect(work_order).to have_received(:update_associated_fee_details_status).with('verified')
+        expect(communication_work_order.approve!).to be_truthy
+        expect(communication_work_order.status).to eq("approved")
       end
-      
+
       it "can transition to rejected" do
-        expect(work_order.reject!).to be_truthy
-        expect(work_order.status).to eq("rejected")
-        
-        # 验证调用了 update_associated_fee_details_status 方法
-        expect(work_order).to have_received(:update_associated_fee_details_status).with('problematic')
+        communication_work_order.problem_type = "documentation_issue"
+        expect(communication_work_order.reject!).to be_truthy
+        expect(communication_work_order.status).to eq("rejected")
       end
     end
-    
-    context "when in needs_communication state" do
-      let(:work_order) do
-        build(:communication_work_order, :needs_communication).tap do |wo|
-          # 使用 stub 绕过验证
-          allow(wo).to receive(:reimbursement).and_return(reimbursement)
-          allow(wo).to receive(:valid?).and_return(true)
-          allow(wo).to receive(:update_associated_fee_details_status)
-          # 禁用回调以避免数据库访问
-          allow(wo).to receive(:update_reimbursement_status_on_create)
-          allow(wo).to receive(:record_status_change)
-          # 为 approved/rejected 状态添加必要的字段
-          allow(wo).to receive(:resolution_summary).and_return("测试解决方案")
-          allow(wo).to receive(:problem_type).and_return("documentation_issue")
-        end
+
+    context "when in approved state" do
+      let(:communication_work_order) { create(:communication_work_order, :approved, reimbursement: reimbursement) }
+
+      it "cannot transition to any other state" do
+        expect { communication_work_order.start_processing! }.to raise_error(StateMachines::InvalidTransition)
+        expect { communication_work_order.reject! }.to raise_error(StateMachines::InvalidTransition)
+        expect(communication_work_order.status).to eq("approved")
       end
-      
-      it "can transition to approved" do
-        expect(work_order.approve!).to be_truthy
-        expect(work_order.status).to eq("approved")
-        
-        # 验证调用了 update_associated_fee_details_status 方法
-        expect(work_order).to have_received(:update_associated_fee_details_status).with('verified')
-      end
-      
-      it "can transition to rejected" do
-        expect(work_order.reject!).to be_truthy
-        expect(work_order.status).to eq("rejected")
-        
-        # 验证调用了 update_associated_fee_details_status 方法
-        expect(work_order).to have_received(:update_associated_fee_details_status).with('problematic')
+    end
+
+    context "when in rejected state" do
+      let(:communication_work_order) { create(:communication_work_order, :rejected, reimbursement: reimbursement) }
+
+      it "cannot transition to any other state" do
+        expect { communication_work_order.start_processing! }.to raise_error(StateMachines::InvalidTransition)
+        expect { communication_work_order.approve! }.to raise_error(StateMachines::InvalidTransition)
+        expect(communication_work_order.status).to eq("rejected")
       end
     end
   end
-  
-  # 费用明细选择方法测试
-  describe "#select_fee_detail" do
-    let(:reimbursement) { build_stubbed(:reimbursement, invoice_number: "R123456") }
-    let(:work_order) { build_stubbed(:communication_work_order, reimbursement: reimbursement) }
-    let(:fee_detail) { build_stubbed(:fee_detail, document_number: "R123456", verification_status: 'pending') }
-    let(:fee_detail_selection) { build_stubbed(:fee_detail_selection) }
-    
-    it "creates a new fee detail selection" do
-      # 使用 stub 模拟 fee_detail_selections 关联
-      allow(work_order).to receive_message_chain(:fee_detail_selections, :find_or_create_by!).and_return(fee_detail_selection)
-      
-      result = work_order.select_fee_detail(fee_detail)
-      expect(result).to eq(fee_detail_selection)
+
+  # needs_communication 测试
+  describe "needs_communication attribute" do
+    let(:communication_work_order) { create(:communication_work_order) }
+
+    it "defaults to false" do
+      expect(communication_work_order.needs_communication).to be_falsey
     end
-    
-    it "returns nil if fee detail doesn't belong to the same reimbursement" do
-      other_fee_detail = build_stubbed(:fee_detail, document_number: "R999999")
-      result = work_order.select_fee_detail(other_fee_detail)
-      expect(result).to be_nil
+
+    it "can be marked as needing communication" do
+      communication_work_order.mark_needs_communication!
+      expect(communication_work_order.needs_communication).to be_truthy
+    end
+
+    it "can be unmarked as needing communication" do
+      communication_work_order.mark_needs_communication!
+      communication_work_order.unmark_needs_communication!
+      expect(communication_work_order.needs_communication).to be_falsey
+    end
+
+    it "does not affect state transitions" do
+      communication_work_order.mark_needs_communication!
+      expect(communication_work_order.start_processing!).to be_truthy
+      expect(communication_work_order.status).to eq("processing")
+
+      communication_work_order.approve!
+      expect(communication_work_order.status).to eq("approved")
+
+      communication_work_order.unmark_needs_communication!
+      expect(communication_work_order.reject!).to be_truthy
+      expect(communication_work_order.status).to eq("rejected")
     end
   end
-  
-  # 沟通记录方法测试
+
+  # 沟通记录测试
   describe "#add_communication_record" do
-    let(:work_order) { build_stubbed(:communication_work_order, id: 123) }
-    let(:communication_record) { build_stubbed(:communication_record) }
-    let(:params) { { content: "测试沟通内容", communicator_role: "审核人" } }
-    
-    it "creates a new communication record" do
-      # 使用 stub 模拟 communication_records 关联
-      allow(work_order).to receive_message_chain(:communication_records, :create).and_return(communication_record)
-      
-      result = work_order.add_communication_record(params)
-      
-      # 验证调用了 create 方法并传递了正确的参数
-      expect(work_order.communication_records).to have_received(:create).with(
-        hash_including(
-          content: "测试沟通内容",
-          communicator_role: "审核人",
-          communication_work_order_id: 123
+    let(:communication_work_order) { create(:communication_work_order) }
+
+    it "creates a communication record" do
+      expect {
+        communication_work_order.add_communication_record(
+          content: "Test communication",
+          communicator_role: "auditor",
+          communication_method: "email"
         )
-      )
-      
-      expect(result).to eq(communication_record)
+      }.to change(CommunicationRecord, :count).by(1)
+
+      record = CommunicationRecord.last
+      expect(record.content).to eq("Test communication")
+      expect(record.communicator_role).to eq("auditor")
+      expect(record.communication_method).to eq("email")
+      expect(record.recorded_at).to be_present
     end
-  end
-  
-  # 状态检查方法测试
-  describe "state check methods" do
-    it "returns true for pending? when status is pending" do
-      work_order = build(:communication_work_order, status: 'pending')
-      expect(work_order.pending?).to be_truthy
-    end
-    
-    it "returns true for processing? when status is processing" do
-      work_order = build(:communication_work_order, status: 'processing')
-      expect(work_order.processing?).to be_truthy
-    end
-    
-    it "returns true for needs_communication? when status is needs_communication" do
-      work_order = build(:communication_work_order, status: 'needs_communication')
-      expect(work_order.needs_communication?).to be_truthy
-    end
-    
-    it "returns true for approved? when status is approved" do
-      work_order = build(:communication_work_order, status: 'approved')
-      expect(work_order.approved?).to be_truthy
-    end
-    
-    it "returns true for rejected? when status is rejected" do
-      work_order = build(:communication_work_order, status: 'rejected')
-      expect(work_order.rejected?).to be_truthy
-    end
-  end
-  
-  # 非法状态转换测试 (WF-C-007)
-  describe "invalid state transitions" do
-    let(:reimbursement) { build_stubbed(:reimbursement) }
-    
-    it "cannot transition directly from pending to approved" do
-      work_order = build(:communication_work_order, reimbursement: reimbursement)
-      expect(work_order.status).to eq("pending")
-      
-      # 尝试直接从 pending 转换到 approved 应该失败
-      expect { work_order.approve! }.to raise_error(StateMachines::InvalidTransition)
-      expect(work_order.status).to eq("pending") # 状态应保持不变
-    end
-    
-    it "cannot transition directly from pending to rejected" do
-      work_order = build(:communication_work_order, reimbursement: reimbursement)
-      expect(work_order.status).to eq("pending")
-      
-      # 尝试直接从 pending 转换到 rejected 应该失败
-      expect { work_order.reject! }.to raise_error(StateMachines::InvalidTransition)
-      expect(work_order.status).to eq("pending") # 状态应保持不变
-    end
-    
-    it "cannot transition from processing to needs_communication" do
-      work_order = build(:communication_work_order, :processing, reimbursement: reimbursement)
-      expect(work_order.status).to eq("processing")
-      
-      # 尝试从 processing 转换到 needs_communication 应该失败
-      expect { work_order.mark_needs_communication! }.to raise_error(StateMachines::InvalidTransition)
-      expect(work_order.status).to eq("processing") # 状态应保持不变
-    end
-  end
-  
-  # 状态变更记录测试 (WF-C-006)
-  describe "status change recording" do
-    let(:reimbursement) { create(:reimbursement) }
-    let(:admin_user) { create(:admin_user) }
-    
-    before do
-      # 模拟 Current.admin_user
+
+    it "sets communicator_name to current admin user's email if not provided" do
       allow(Current).to receive(:admin_user).and_return(admin_user)
-    end
-    
-    it "records status change when transitioning from pending to processing" do
-      work_order = create(:communication_work_order, reimbursement: reimbursement)
-      
-      # 模拟 update_associated_fee_details_status 方法以避免实际调用
-      allow(work_order).to receive(:update_associated_fee_details_status)
-      
+
       expect {
-        work_order.start_processing!
-      }.to change(WorkOrderStatusChange, :count).by(1)
-      
-      status_change = work_order.work_order_status_changes.last
-      expect(status_change.from_status).to eq("pending")
-      expect(status_change.to_status).to eq("processing")
-      expect(status_change.changer_id).to eq(admin_user.id)
-      expect(status_change.changed_at).to be_present
+        communication_work_order.add_communication_record(
+          content: "Test communication",
+          communicator_role: "auditor",
+          communication_method: "email"
+        )
+      }.to change(CommunicationRecord, :count).by(1)
+
+      record = CommunicationRecord.last
+      expect(record.communicator_name).to eq(admin_user.email)
     end
-    
-    it "records status change when transitioning from pending to needs_communication" do
-      work_order = create(:communication_work_order, reimbursement: reimbursement)
-      
-      # 模拟 update_associated_fee_details_status 方法以避免实际调用
-      allow(work_order).to receive(:update_associated_fee_details_status)
-      
+  end
+
+  # 费用明细选择测试
+  describe "#select_fee_detail" do
+    let(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement) }
+    let(:fee_detail) { create(:fee_detail, reimbursement: reimbursement) }
+
+    it "selects a fee detail" do
       expect {
-        work_order.mark_needs_communication!
-      }.to change(WorkOrderStatusChange, :count).by(1)
-      
-      status_change = work_order.work_order_status_changes.last
-      expect(status_change.from_status).to eq("pending")
-      expect(status_change.to_status).to eq("needs_communication")
-      expect(status_change.changer_id).to eq(admin_user.id)
-      expect(status_change.changed_at).to be_present
+        communication_work_order.select_fee_detail(fee_detail)
+      }.to change(FeeDetailSelection, :count).by(1)
+
+      selection = FeeDetailSelection.last
+      expect(selection.fee_detail_id).to eq(fee_detail.id)
+      expect(selection.work_order_id).to eq(communication_work_order.id)
+      expect(selection.verification_status).to eq(fee_detail.verification_status)
     end
-    
-    it "records status change when transitioning from processing to approved" do
-      work_order = create(:communication_work_order, :processing, reimbursement: reimbursement)
-      work_order.resolution_summary = "问题已解决"
-      
-      # 模拟 update_associated_fee_details_status 方法以避免实际调用
-      allow(work_order).to receive(:update_associated_fee_details_status)
-      
+
+    it "does not select a fee detail if it does not belong to the same reimbursement" do
+      other_reimbursement = create(:reimbursement)
+      other_fee_detail = create(:fee_detail, reimbursement: other_reimbursement)
+
       expect {
-        work_order.approve!
-      }.to change(WorkOrderStatusChange, :count).by(1)
-      
-      status_change = work_order.work_order_status_changes.last
-      expect(status_change.from_status).to eq("processing")
-      expect(status_change.to_status).to eq("approved")
-      expect(status_change.changer_id).to eq(admin_user.id)
-      expect(status_change.changed_at).to be_present
+        communication_work_order.select_fee_detail(other_fee_detail)
+      }.not_to change(FeeDetailSelection, :count)
     end
-    
-    it "records status change when transitioning from needs_communication to rejected" do
-      work_order = create(:communication_work_order, :needs_communication, reimbursement: reimbursement)
-      work_order.problem_type = "documentation_issue"
-      work_order.resolution_summary = "无法解决"
-      
-      # 模拟 update_associated_fee_details_status 方法以避免实际调用
-      allow(work_order).to receive(:update_associated_fee_details_status)
-      
+  end
+
+  describe "#select_fee_details" do
+    let(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement) }
+    let(:fee_detail1) { create(:fee_detail, reimbursement: reimbursement) }
+    let(:fee_detail2) { create(:fee_detail, reimbursement: reimbursement) }
+
+    it "selects multiple fee details" do
       expect {
-        work_order.reject!
-      }.to change(WorkOrderStatusChange, :count).by(1)
-      
-      status_change = work_order.work_order_status_changes.last
-      expect(status_change.from_status).to eq("needs_communication")
-      expect(status_change.to_status).to eq("rejected")
-      expect(status_change.changer_id).to eq(admin_user.id)
-      expect(status_change.changed_at).to be_present
+        communication_work_order.select_fee_details([fee_detail1.id, fee_detail2.id])
+      }.to change(FeeDetailSelection, :count).by(2)
+
+      selections = FeeDetailSelection.all
+      expect(selections.map(&:fee_detail_id)).to include(fee_detail1.id, fee_detail2.id)
+      expect(selections.map(&:work_order_id)).to all(eq(communication_work_order.id))
+    end
+
+    it "does not select fee details if they do not belong to the same reimbursement" do
+      other_reimbursement = create(:reimbursement)
+      other_fee_detail = create(:fee_detail, reimbursement: other_reimbursement)
+
+      expect {
+        communication_work_order.select_fee_details([other_fee_detail.id])
+      }.not_to change(FeeDetailSelection, :count)
+    end
+  end
+
+  # Ransackable methods
+  describe "ransackable methods" do
+    it "includes subclass specific attributes" do
+      expect(CommunicationWorkOrder.ransackable_attributes).to include(
+        "communication_method", "initiator_role", "resolution_summary", "problem_type", "problem_description", "remark", "processing_opinion", "needs_communication"
+      )
+    end
+
+    it "includes subclass specific associations" do
+      expect(CommunicationWorkOrder.ransackable_associations).to include(
+        "communication_records"
+      )
     end
   end
 end

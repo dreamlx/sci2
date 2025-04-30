@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_04_29_124000) do
+ActiveRecord::Schema[7.1].define(version: 2025_04_30_000541) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -162,6 +162,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_04_29_124000) do
     t.text "resolution_summary"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "needs_communication", default: false
     t.index ["creator_id"], name: "index_work_orders_on_creator_id"
     t.index ["reimbursement_id", "tracking_number"], name: "index_work_orders_on_reimbursement_and_tracking", where: "type = 'ExpressReceiptWorkOrder' AND tracking_number IS NOT NULL"
     t.index ["reimbursement_id"], name: "index_work_orders_on_reimbursement_id"

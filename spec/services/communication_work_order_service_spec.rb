@@ -1,279 +1,196 @@
 # spec/services/communication_work_order_service_spec.rb
 require 'rails_helper'
 
-RSpec.describe CommunicationWorkOrderService do
-  let(:admin_user) { create(:admin_user) }
+RSpec.describe CommunicationWorkOrderService, type: :service do
   let(:reimbursement) { create(:reimbursement) }
   let(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement) }
-  let(:service) { described_class.new(communication_work_order, admin_user) }
-
-  before do
-    Current.admin_user = admin_user
-  end
-
-  after do
-    Current.reset
-  end
-
-  describe '#initialize' do
-    it 'raises error if not given a CommunicationWorkOrder' do
-      expect { described_class.new("not a work order", admin_user) }.to raise_error(ArgumentError)
+  let(:admin_user) { create(:admin_user) }
+  
+  subject { described_class.new(communication_work_order, admin_user) }
+  
+  describe "#start_processing" do
+    it "starts processing the communication work order" do
+      expect(subject.start_processing).to be_truthy
+      expect(communication_work_order.status).to eq("processing")
     end
     
-    it 'sets Current.admin_user' do
-      expect(Current).to receive(:admin_user=).with(admin_user)
-      described_class.new(communication_work_order, admin_user)
+    it "adds errors if processing fails" do
+      allow(communication_work_order).to receive(:start_processing!).and_raise(StandardError, "Test error")
+      expect(subject.start_processing).to be_falsey
+      expect(communication_work_order.errors.full_messages).to include("无法开始处理: Test error")
     end
   end
   
-  describe '#start_processing' do
-    it 'calls start_processing! on the work order' do
-      expect(communication_work_order).to receive(:start_processing!)
-      service.start_processing
+  describe "#mark_needs_communication" do
+    it "marks the communication work order as needing communication" do
+      expect(subject.mark_needs_communication).to be_truthy
+      expect(communication_work_order.needs_communication).to be_truthy
     end
     
-    it 'returns true on success' do
-      allow(communication_work_order).to receive(:start_processing!).and_return(true)
-      expect(service.start_processing).to be true
+    it "adds errors if marking fails" do
+      allow(communication_work_order).to receive(:mark_needs_communication!).and_raise(StandardError, "Test error")
+      expect(subject.mark_needs_communication).to be_falsey
+      expect(communication_work_order.errors.full_messages).to include("无法标记为需要沟通: Test error")
+    end
+  end
+  
+  describe "#approve" do
+    it "approves the communication work order" do
+      params = { resolution_summary: "All issues resolved" }
+      expect(subject.approve(params)).to be_truthy
+      expect(communication_work_order.status).to eq("approved")
+      expect(communication_work_order.resolution_summary).to eq("All issues resolved")
     end
     
-    it 'returns false on failure' do
-      # Create a generic StateMachines::InvalidTransition exception
-      invalid_transition = begin
-        # Create a mock exception that mimics StateMachines::InvalidTransition
-        exception = StandardError.new("Cannot transition from 'pending' to 'processing'")
-        def exception.message
-          "Cannot transition from 'pending' to 'processing'"
-        end
-        exception
-      end
+    it "adds errors if approval fails" do
+      params = { resolution_summary: "All issues resolved" }
+      allow(communication_work_order).to receive(:approve!).and_raise(StandardError, "Test error")
+      expect(subject.approve(params)).to be_falsey
+      expect(communication_work_order.errors.full_messages).to include("无法批准: Test error")
+    end
+    
+    it "requires a resolution summary" do
+      params = {}
+      expect(subject.approve(params)).to be_falsey
+      expect(communication_work_order.errors.full_messages).to include("无法批准: 必须填写拒绝理由/摘要")
+    end
+  end
+  
+  describe "#reject" do
+    it "rejects the communication work order" do
+      params = { resolution_summary: "Issues unresolved" }
+      expect(subject.reject(params)).to be_truthy
+      expect(communication_work_order.status).to eq("rejected")
+      expect(communication_work_order.resolution_summary).to eq("Issues unresolved")
+    end
+    
+    it "adds errors if rejection fails" do
+      params = { resolution_summary: "Issues unresolved" }
+      allow(communication_work_order).to receive(:reject!).and_raise(StandardError, "Test error")
+      expect(subject.reject(params)).to be_falsey
+      expect(communication_work_order.errors.full_messages).to include("无法拒绝: Test error")
+    end
+    
+    it "requires a resolution summary" do
+      params = {}
+      expect(subject.reject(params)).to be_falsey
+      expect(communication_work_order.errors.full_messages).to include("无法拒绝: 必须填写拒绝理由/摘要")
+    end
+  end
+  
+  describe "#add_communication_record" do
+    it "adds a communication record" do
+      params = {
+        content: "Test communication",
+        communicator_role: "auditor",
+        communication_method: "email"
+      }
+      expect {
+        subject.add_communication_record(params)
+      }.to change(CommunicationRecord, :count).by(1)
       
-      allow(communication_work_order).to receive(:start_processing!).and_raise(invalid_transition)
-      expect(service.start_processing).to be false
-      expect(communication_work_order.errors[:base]).to include(a_string_matching(/无法开始处理/))
+      record = CommunicationRecord.last
+      expect(record.content).to eq("Test communication")
+      expect(record.communicator_role).to eq("auditor")
+      expect(record.communication_method).to eq("email")
+      expect(record.recorded_at).to be_within(1.second).of(Time.current)
     end
     
-    it 'assigns shared attributes' do
-      params = { problem_type: '问题类型A', problem_description: '问题描述1', remark: '备注', processing_opinion: '处理意见X' }
-      expect(communication_work_order).to receive(:assign_attributes).with(params)
-      allow(communication_work_order).to receive(:start_processing!)
-      service.start_processing(params)
-    end
-  end
-  
-  describe '#mark_needs_communication' do
-    it 'calls mark_needs_communication! on the work order' do
-      expect(communication_work_order).to receive(:mark_needs_communication!)
-      service.mark_needs_communication
-    end
-    
-    it 'returns true on success' do
-      allow(communication_work_order).to receive(:mark_needs_communication!).and_return(true)
-      expect(service.mark_needs_communication).to be true
-    end
-    
-    it 'returns false on failure' do
-      # Create a generic StateMachines::InvalidTransition exception
-      invalid_transition = begin
-        # Create a mock exception that mimics StateMachines::InvalidTransition
-        exception = StandardError.new("Cannot transition from 'pending' to 'needs_communication'")
-        def exception.message
-          "Cannot transition from 'pending' to 'needs_communication'"
-        end
-        exception
-      end
+    it "sets communicator_name to current admin user's email if not provided" do
+      params = {
+        content: "Test communication",
+        communicator_role: "auditor",
+        communication_method: "email"
+      }
+      expect {
+        subject.add_communication_record(params)
+      }.to change(CommunicationRecord, :count).by(1)
       
-      allow(communication_work_order).to receive(:mark_needs_communication!).and_raise(invalid_transition)
-      expect(service.mark_needs_communication).to be false
-      expect(communication_work_order.errors[:base]).to include(a_string_matching(/无法标记为需要沟通/))
+      record = CommunicationRecord.last
+      expect(record.communicator_name).to eq(admin_user.email)
     end
     
-    it 'assigns shared attributes' do
-      params = { problem_type: '问题类型A', problem_description: '问题描述1' }
-      expect(communication_work_order).to receive(:assign_attributes).with(params)
-      allow(communication_work_order).to receive(:mark_needs_communication!)
-      service.mark_needs_communication(params)
+    it "adds errors if record creation fails" do
+      params = {
+        content: "Test communication",
+        communicator_role: "auditor",
+        communication_method: "email"
+      }
+      allow(communication_work_order).to receive(:add_communication_record).and_return(build(:communication_record, content: nil))
+      expect(subject.add_communication_record(params)).to be_nil
+      expect(communication_work_order.errors.full_messages).to include("添加沟通记录失败: Content can't be blank")
     end
   end
   
-  describe '#approve' do
-    before do
-      allow(communication_work_order).to receive(:status).and_return('processing')
-    end
+  describe "#select_fee_detail" do
+    let(:fee_detail) { create(:fee_detail, reimbursement: reimbursement) }
     
-    it 'calls approve! on the work order' do
-      expect(communication_work_order).to receive(:approve!)
-      service.approve
-    end
-    
-    it 'sets resolution_summary if provided' do
-      expect(communication_work_order).to receive(:resolution_summary=).with('测试解决方案')
-      allow(communication_work_order).to receive(:approve!)
-      service.approve(resolution_summary: '测试解决方案')
-    end
-    
-    it 'returns true on success' do
-      allow(communication_work_order).to receive(:approve!).and_return(true)
-      expect(service.approve).to be true
-    end
-    
-    it 'returns false on failure' do
-      # Create a generic StateMachines::InvalidTransition exception
-      invalid_transition = begin
-        # Create a mock exception that mimics StateMachines::InvalidTransition
-        exception = StandardError.new("Cannot transition from 'processing' to 'approved'")
-        def exception.message
-          "Cannot transition from 'processing' to 'approved'"
-        end
-        exception
-      end
+    it "selects a fee detail" do
+      expect {
+        subject.select_fee_detail(fee_detail)
+      }.to change(FeeDetailSelection, :count).by(1)
       
-      allow(communication_work_order).to receive(:approve!).and_raise(invalid_transition)
-      expect(service.approve).to be false
-      expect(communication_work_order.errors[:base]).to include(a_string_matching(/无法批准/))
+      selection = FeeDetailSelection.last
+      expect(selection.fee_detail_id).to eq(fee_detail.id)
+      expect(selection.work_order_id).to eq(communication_work_order.id)
+      expect(selection.verification_status).to eq(fee_detail.verification_status)
     end
     
-    it 'assigns shared attributes' do
-      params = { problem_type: '问题类型A', resolution_summary: '解决方案' }
-      expect(communication_work_order).to receive(:assign_attributes).with(hash_including(problem_type: '问题类型A'))
-      allow(communication_work_order).to receive(:approve!)
-      service.approve(params)
-    end
-  end
-  
-  describe '#reject' do
-    before do
-      allow(communication_work_order).to receive(:status).and_return('processing')
-    end
-    
-    it 'requires resolution_summary' do
-      expect(service.reject).to be false
-      expect(communication_work_order.errors[:resolution_summary]).to include(a_string_matching(/必须填写拒绝理由\/摘要/))
-    end
-    
-    it 'calls reject! on the work order' do
-      expect(communication_work_order).to receive(:reject!)
-      service.reject(resolution_summary: '测试拒绝理由')
-    end
-    
-    it 'sets resolution_summary' do
-      expect(communication_work_order).to receive(:resolution_summary=).with('测试拒绝理由')
-      allow(communication_work_order).to receive(:reject!)
-      service.reject(resolution_summary: '测试拒绝理由')
-    end
-    
-    it 'returns true on success' do
-      allow(communication_work_order).to receive(:reject!).and_return(true)
-      expect(service.reject(resolution_summary: '测试拒绝理由')).to be true
-    end
-    
-    it 'returns false on failure' do
-      # Create a generic StateMachines::InvalidTransition exception
-      invalid_transition = begin
-        # Create a mock exception that mimics StateMachines::InvalidTransition
-        exception = StandardError.new("Cannot transition from 'processing' to 'rejected'")
-        def exception.message
-          "Cannot transition from 'processing' to 'rejected'"
-        end
-        exception
-      end
+    it "does not select a fee detail if it does not belong to the same reimbursement" do
+      other_reimbursement = create(:reimbursement)
+      other_fee_detail = create(:fee_detail, reimbursement: other_reimbursement)
       
-      allow(communication_work_order).to receive(:reject!).and_raise(invalid_transition)
-      expect(service.reject(resolution_summary: '测试拒绝理由')).to be false
-      expect(communication_work_order.errors[:base]).to include(a_string_matching(/无法拒绝/))
-    end
-    
-    it 'assigns shared attributes' do
-      params = { problem_type: '问题类型A', resolution_summary: '拒绝理由' }
-      expect(communication_work_order).to receive(:assign_attributes).with(hash_including(problem_type: '问题类型A'))
-      allow(communication_work_order).to receive(:reject!)
-      service.reject(params)
+      expect {
+        subject.select_fee_detail(other_fee_detail)
+      }.not_to change(FeeDetailSelection, :count)
     end
   end
   
-  describe '#add_communication_record' do
-    let(:params) { { content: '测试沟通内容', communicator_role: '审核人' } }
-    let(:communication_record) { build_stubbed(:communication_record) }
+  describe "#select_fee_details" do
+    let(:fee_detail1) { create(:fee_detail, reimbursement: reimbursement) }
+    let(:fee_detail2) { create(:fee_detail, reimbursement: reimbursement) }
     
-    it 'delegates to the work order' do
-      expect(communication_work_order).to receive(:add_communication_record).and_return(communication_record)
-      allow(communication_record).to receive(:persisted?).and_return(true)
-      service.add_communication_record(params)
-    end
-    
-    it 'adds current admin user email if communicator_name not provided' do
-      expected_params = hash_including(
-        content: '测试沟通内容',
-        communicator_role: '审核人',
-        communicator_name: admin_user.email
-      )
-      expect(communication_work_order).to receive(:add_communication_record).with(expected_params).and_return(communication_record)
-      allow(communication_record).to receive(:persisted?).and_return(true)
-      service.add_communication_record(params)
-    end
-    
-    it 'adds recorded_at' do
-      recorded_at = Time.current
-      expect(communication_work_order).to receive(:add_communication_record).with(
-        hash_including(
-          content: '测试沟通内容',
-          communicator_role: '审核人',
-          communicator_name: admin_user.email,
-          recorded_at: be_within(1.second).of(recorded_at)
-        )
-      ).and_return(communication_record)
-      allow(communication_record).to receive(:persisted?).and_return(true)
-      service.add_communication_record(params)
-    end
-    
-    it 'adds error if record not persisted' do
-      allow(communication_work_order).to receive(:add_communication_record).and_return(communication_record)
-      allow(communication_record).to receive(:persisted?).and_return(false)
-      allow(communication_record).to receive(:errors).and_return(double(full_messages: ['错误消息']))
+    it "selects multiple fee details" do
+      expect {
+        subject.select_fee_details([fee_detail1.id, fee_detail2.id])
+      }.to change(FeeDetailSelection, :count).by(2)
       
-      service.add_communication_record(params)
-      expect(communication_work_order.errors[:base]).to include(a_string_matching(/添加沟通记录失败/))
+      selections = FeeDetailSelection.all
+      expect(selections.map(&:fee_detail_id)).to include(fee_detail1.id, fee_detail2.id)
+      expect(selections.map(&:work_order_id)).to all(eq(communication_work_order.id))
+    end
+    
+    it "does not select fee details if they do not belong to the same reimbursement" do
+      other_reimbursement = create(:reimbursement)
+      other_fee_detail = create(:fee_detail, reimbursement: other_reimbursement)
+      
+      expect {
+        subject.select_fee_details([other_fee_detail.id])
+      }.not_to change(FeeDetailSelection, :count)
     end
   end
   
-  describe '#select_fee_details' do
-    let(:fee_detail_ids) { [1, 2, 3] }
+  describe "#update_fee_detail_verification" do
+    let(:fee_detail) { create(:fee_detail, reimbursement: reimbursement) }
     
-    it 'delegates to the work order' do
-      expect(communication_work_order).to receive(:select_fee_details).with(fee_detail_ids)
-      service.select_fee_details(fee_detail_ids)
-    end
-  end
-  
-  describe '#update_fee_detail_verification' do
-    let(:fee_detail) { create(:fee_detail) }
-    let(:verification_service) { instance_double(FeeDetailVerificationService) }
-    
-    before do
-      allow(communication_work_order).to receive_message_chain(:fee_details, :find_by).and_return(fee_detail)
-      allow(FeeDetailVerificationService).to receive(:new).and_return(verification_service)
+    it "updates the verification status of a fee detail" do
+      expect {
+        subject.update_fee_detail_verification(fee_detail.id, 'verified', 'Test comment')
+      }.not_to change(FeeDetailSelection, :count)
+      
+      fee_detail.reload
+      expect(fee_detail.verification_status).to eq('verified')
     end
     
-    it 'creates a FeeDetailVerificationService with the current admin user' do
-      expect(FeeDetailVerificationService).to receive(:new).with(admin_user)
-      allow(verification_service).to receive(:update_verification_status)
-      service.update_fee_detail_verification(fee_detail.id, 'verified')
+    it "adds errors if the fee detail is not found" do
+      expect(subject.update_fee_detail_verification(9999, 'verified', 'Test comment')).to be_falsey
+      expect(communication_work_order.errors.full_messages).to include("无法更新费用明细验证状态: 未找到关联的费用明细 #9999")
     end
     
-    it 'calls update_verification_status on the verification service' do
-      expect(verification_service).to receive(:update_verification_status).with(fee_detail, 'verified', nil)
-      service.update_fee_detail_verification(fee_detail.id, 'verified')
-    end
-    
-    it 'passes comment to the verification service if provided' do
-      expect(verification_service).to receive(:update_verification_status).with(fee_detail, 'verified', '测试验证意见')
-      service.update_fee_detail_verification(fee_detail.id, 'verified', '测试验证意见')
-    end
-    
-    it 'returns false if fee detail not found' do
-      allow(communication_work_order).to receive_message_chain(:fee_details, :find_by).and_return(nil)
-      expect(service.update_fee_detail_verification(999, 'verified')).to be false
-      expect(communication_work_order.errors[:base]).to include(a_string_matching(/未找到关联的费用明细/))
+    it "adds errors if the verification update fails" do
+      allow_any_instance_of(FeeDetailVerificationService).to receive(:update_verification_status).and_raise(StandardError, "Test error")
+      expect(subject.update_fee_detail_verification(fee_detail.id, 'verified', 'Test comment')).to be_falsey
+      expect(communication_work_order.errors.full_messages).to include("无法更新费用明细验证状态: Test error")
     end
   end
 end

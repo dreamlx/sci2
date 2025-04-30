@@ -29,4 +29,17 @@ FactoryBot.define do
       operation_node { "财务审核" }
     end
   end
+
+  # Add simple validation tests for the factory
+  RSpec.describe "OperationHistory factory" do
+    # The default factory sets document_number with a sequence, so it should be valid
+    it "is valid" do
+      expect(build(:operation_history)).to be_valid
+    end
+
+    # Test the trait with reimbursement
+    it "is valid with reimbursement trait" do
+      expect(build(:operation_history, :with_reimbursement)).to be_valid
+    end
+  end
 end
