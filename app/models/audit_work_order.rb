@@ -122,7 +122,12 @@ class AuditWorkOrder < WorkOrder
     
     # 创建费用明细选择
     fee_details.each do |fee_detail|
-      selection = fee_detail_selections.find_or_create_by(fee_detail: fee_detail)
+      # 显式指定work_order_type为'AuditWorkOrder'
+      selection = FeeDetailSelection.find_or_create_by(
+        fee_detail: fee_detail,
+        work_order_id: self.id,
+        work_order_type: 'AuditWorkOrder'
+      )
       selection.update(verification_status: fee_detail.verification_status)
       Rails.logger.info "Created/updated fee detail selection for fee detail ##{fee_detail.id} with status #{selection.verification_status}"
     end

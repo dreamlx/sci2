@@ -27,12 +27,57 @@ ActiveAdmin.register CommunicationWorkOrder do
     # 重写创建方法，确保设置creator_id
     def create
       params[:communication_work_order][:creator_id] = current_admin_user.id
-      super do |success, failure|
-        success.html { redirect_to admin_communication_work_order_path(resource), notice: "沟通工单已成功创建" }
-        failure.html do
-          flash.now[:error] = "创建沟通工单失败: #{resource.errors.full_messages.join(', ')}"
-          render :new
+      
+      # 添加调试日志
+      Rails.logger.info "CommunicationWorkOrder create: params[:communication_work_order][:fee_detail_ids] = #{params[:communication_work_order][:fee_detail_ids].inspect}"
+      
+      # 保存费用明细IDs，确保在重定向后仍然可用
+      fee_detail_ids = params[:communication_work_order][:fee_detail_ids]
+      
+      # 使用ActiveAdmin的permit_params定义的参数
+      communication_work_order_params = params.require(:communication_work_order).permit(
+        :reimbursement_id, :communication_method, :initiator_role, :resolution_summary,
+        :problem_type, :problem_description, :remark, :processing_opinion, :needs_communication
+      )
+      
+      @communication_work_order = CommunicationWorkOrder.new(communication_work_order_params)
+      @communication_work_order.creator_id = current_admin_user.id
+      @communication_work_order.status = 'pending' # 设置初始状态
+      
+      # 设置@fee_detail_ids_to_select以通过验证
+      if fee_detail_ids.present?
+        @communication_work_order.instance_variable_set(:@fee_detail_ids_to_select, fee_detail_ids)
+      end
+      
+      if @communication_work_order.save
+        Rails.logger.info "CommunicationWorkOrder create: 保存成功，ID=#{@communication_work_order.id}"
+        
+        # 手动处理费用明细选择
+        if fee_detail_ids.present?
+          Rails.logger.info "CommunicationWorkOrder create: 开始处理费用明细选择，IDs=#{fee_detail_ids.inspect}"
+          
+          fee_details = FeeDetail.where(id: fee_detail_ids, document_number: @communication_work_order.reimbursement.invoice_number)
+          Rails.logger.info "找到 #{fee_details.count} 个匹配的费用明细"
+          
+          fee_details.each do |fee_detail|
+            # 显式指定work_order_type为'CommunicationWorkOrder'
+            selection = FeeDetailSelection.find_or_create_by(
+              fee_detail: fee_detail,
+              work_order_id: @communication_work_order.id,
+              work_order_type: 'CommunicationWorkOrder'
+            )
+            selection.update(verification_status: fee_detail.verification_status)
+            Rails.logger.info "创建/更新费用明细选择 ##{selection.id} 关联费用明细 ##{fee_detail.id}"
+          end
+        else
+          Rails.logger.info "CommunicationWorkOrder create: 没有费用明细IDs需要处理"
         end
+        
+        redirect_to admin_communication_work_order_path(@communication_work_order), notice: "沟通工单已成功创建"
+      else
+        Rails.logger.info "CommunicationWorkOrder create: 保存失败，错误: #{@communication_work_order.errors.full_messages.join(', ')}"
+        flash.now[:error] = "创建沟通工单失败: #{@communication_work_order.errors.full_messages.join(', ')}"
+        render :new
       end
     end
   end

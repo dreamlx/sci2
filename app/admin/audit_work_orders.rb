@@ -20,18 +20,76 @@ ActiveAdmin.register AuditWorkOrder do
       if params[:reimbursement_id] && resource.reimbursement_id.nil?
         resource.reimbursement_id = params[:reimbursement_id]
       end
+      # 如果是从表单提交的，设置fee_detail_ids
+      if params[:audit_work_order] && params[:audit_work_order][:fee_detail_ids]
+        # 添加调试日志
+        Rails.logger.debug "AuditWorkOrder build_new_resource: 设置fee_detail_ids为 #{params[:audit_work_order][:fee_detail_ids].inspect}"
+        resource.fee_detail_ids = params[:audit_work_order][:fee_detail_ids]
+        # 检查设置后的值
+        Rails.logger.debug "AuditWorkOrder build_new_resource: 设置后fee_detail_ids为 #{resource.fee_detail_ids.inspect}"
+        Rails.logger.debug "AuditWorkOrder build_new_resource: 设置后@fee_detail_ids_to_select为 #{resource.instance_variable_get(:@fee_detail_ids_to_select).inspect}"
+      else
+        Rails.logger.debug "AuditWorkOrder build_new_resource: 没有fee_detail_ids参数"
+      end
       resource
     end
     
     # 重写创建方法，确保设置creator_id
     def create
       params[:audit_work_order][:creator_id] = current_admin_user.id
-      super do |success, failure|
-        success.html { redirect_to admin_audit_work_order_path(resource), notice: "审核工单已成功创建" }
-        failure.html do
-          flash.now[:error] = "创建审核工单失败: #{resource.errors.full_messages.join(', ')}"
-          render :new
+      # 添加调试日志
+      Rails.logger.info "AuditWorkOrder create: params[:audit_work_order][:fee_detail_ids] = #{params[:audit_work_order][:fee_detail_ids].inspect}"
+      
+      # 保存费用明细IDs，确保在重定向后仍然可用
+      fee_detail_ids = params[:audit_work_order][:fee_detail_ids]
+      
+      # 直接创建AuditWorkOrder并手动处理费用明细选择
+      # 使用ActiveAdmin的permit_params定义的参数
+      audit_work_order_params = params.require(:audit_work_order).permit(
+        :reimbursement_id, :audit_result, :audit_comment, :audit_date,
+        :vat_verified, :problem_type, :problem_description, :remark, :processing_opinion
+      )
+      
+      @audit_work_order = AuditWorkOrder.new(audit_work_order_params)
+      @audit_work_order.creator_id = current_admin_user.id
+      @audit_work_order.status = 'pending' # 设置初始状态
+      
+      # 设置@fee_detail_ids_to_select以通过验证
+      if fee_detail_ids.present?
+        @audit_work_order.instance_variable_set(:@fee_detail_ids_to_select, fee_detail_ids)
+      end
+      
+      Rails.logger.info "AuditWorkOrder create: 创建新的AuditWorkOrder实例"
+      
+      if @audit_work_order.save
+        Rails.logger.info "AuditWorkOrder create: 保存成功，ID=#{@audit_work_order.id}"
+        
+        # 手动处理费用明细选择
+        if fee_detail_ids.present?
+          Rails.logger.info "AuditWorkOrder create: 开始处理费用明细选择，IDs=#{fee_detail_ids.inspect}"
+          
+          fee_details = FeeDetail.where(id: fee_detail_ids, document_number: @audit_work_order.reimbursement.invoice_number)
+          Rails.logger.info "找到 #{fee_details.count} 个匹配的费用明细"
+          
+          fee_details.each do |fee_detail|
+            # 显式指定work_order_type为'AuditWorkOrder'
+            selection = FeeDetailSelection.find_or_create_by(
+              fee_detail: fee_detail,
+              work_order_id: @audit_work_order.id,
+              work_order_type: 'AuditWorkOrder'
+            )
+            selection.update(verification_status: fee_detail.verification_status)
+            Rails.logger.info "创建/更新费用明细选择 ##{selection.id} 关联费用明细 ##{fee_detail.id}"
+          end
+        else
+          Rails.logger.info "AuditWorkOrder create: 没有费用明细IDs需要处理"
         end
+        
+        redirect_to admin_audit_work_order_path(@audit_work_order), notice: "审核工单已成功创建"
+      else
+        Rails.logger.info "AuditWorkOrder create: 保存失败，错误: #{@audit_work_order.errors.full_messages.join(', ')}"
+        flash.now[:error] = "创建审核工单失败: #{@audit_work_order.errors.full_messages.join(', ')}"
+        render :new
       end
     end
   end
