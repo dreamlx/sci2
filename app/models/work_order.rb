@@ -103,6 +103,11 @@ class WorkOrder < ApplicationRecord
   
   # 根据处理意见设置状态
   def set_status_based_on_processing_opinion
+    Rails.logger.info "WorkOrder ##{id}: 进入 set_status_based_on_processing_opinion 方法"
+    Rails.logger.info "WorkOrder ##{id}: processing_opinion_changed? = #{processing_opinion_changed?}"
+    Rails.logger.info "WorkOrder ##{id}: processing_opinion = #{processing_opinion.inspect}"
+    Rails.logger.info "WorkOrder ##{id}: processing_opinion_was = #{processing_opinion_was.inspect}" if respond_to?(:processing_opinion_was)
+    
     return unless self.is_a?(AuditWorkOrder) || self.is_a?(CommunicationWorkOrder)
     
     Rails.logger.info "WorkOrder ##{id}: 开始处理处理意见 '#{processing_opinion}'"
@@ -171,6 +176,8 @@ class WorkOrder < ApplicationRecord
 
   # 状态机回调的辅助方法
   def update_associated_fee_details_status(new_status)
+    Rails.logger.info "WorkOrder ##{id}: 进入 update_associated_fee_details_status 方法，new_status = #{new_status}"
+    Rails.logger.info "WorkOrder ##{id}: 调用栈: #{caller[0..5].join("\n")}"
     Rails.logger.info "WorkOrder ##{id}: 开始更新关联的费用明细状态为 #{new_status}"
     
     # 确保状态是有效的
@@ -185,33 +192,16 @@ class WorkOrder < ApplicationRecord
       return
     end
     
-    # 使用 FeeDetailVerificationService
-    # 确保在调用状态机事件前适当设置 Current.admin_user
-    # 在测试环境中，如果 Current.admin_user 和 creator 都为 nil，则直接更新 FeeDetail 的状态
-    if Rails.env.test? && Current.admin_user.nil? && creator.nil?
-      Rails.logger.info "WorkOrder ##{id}: 测试环境中直接更新费用明细状态"
-      
-      # 获取关联的费用明细
-      associated_fee_details = fee_details
-      Rails.logger.info "WorkOrder ##{id}: 找到 #{associated_fee_details.count} 个关联的费用明细"
-      
-      # 直接更新费用明细状态
-      associated_fee_details.find_each do |fee_detail|
-        Rails.logger.info "WorkOrder ##{id}: 直接更新费用明细 ##{fee_detail.id} 状态为 #{new_status}"
-        fee_detail.update(verification_status: new_status)
-      end
-      
-      return
-    end
-    
-    verification_service = FeeDetailVerificationService.new(Current.admin_user || creator)
-    Rails.logger.info "WorkOrder ##{id}: 使用验证服务，验证者: #{(Current.admin_user || creator)&.email}"
+    # 直接查询关联的费用明细选择记录，而不是通过has_many :through关联
+    selections = FeeDetailSelection.where(work_order_id: self.id, work_order_type: self.class.name)
+    Rails.logger.info "WorkOrder ##{id}: 找到 #{selections.count} 个关联的费用明细选择记录"
     
     # 获取关联的费用明细
-    associated_fee_details = fee_details
+    associated_fee_details = FeeDetail.where(id: selections.pluck(:fee_detail_id))
     Rails.logger.info "WorkOrder ##{id}: 找到 #{associated_fee_details.count} 个关联的费用明细"
     
-    # 如果性能成为问题，使用预加载
+    # 直接更新费用明细状态，不再使用 FeeDetailVerificationService
+    # 也不再区分测试环境和生产环境
     associated_fee_details.find_each do |fee_detail|
       Rails.logger.info "WorkOrder ##{id}: 处理费用明细 ##{fee_detail.id}，当前状态: #{fee_detail.verification_status}"
       
@@ -220,9 +210,12 @@ class WorkOrder < ApplicationRecord
       if fee_detail.pending? ||
          fee_detail.problematic? ||
          (fee_detail.verified? && new_status == 'problematic')
-        Rails.logger.info "WorkOrder ##{id}: 更新费用明细 ##{fee_detail.id} 状态为 #{new_status}"
-        result = verification_service.update_verification_status(fee_detail, new_status)
+        Rails.logger.info "WorkOrder ##{id}: 直接更新费用明细 ##{fee_detail.id} 状态为 #{new_status}"
+        result = fee_detail.update(verification_status: new_status)
         Rails.logger.info "WorkOrder ##{id}: 更新费用明细 ##{fee_detail.id} 结果: #{result ? '成功' : '失败'}"
+        if !result
+          Rails.logger.error "WorkOrder ##{id}: 更新费用明细 ##{fee_detail.id} 失败: #{fee_detail.errors.full_messages.join(', ')}"
+        end
       else
         Rails.logger.info "WorkOrder ##{id}: 跳过费用明细 ##{fee_detail.id}，不符合更新条件"
       end

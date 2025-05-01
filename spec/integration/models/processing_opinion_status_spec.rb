@@ -9,22 +9,43 @@ RSpec.describe "Processing Opinion and Status Relationship", type: :model do
     let(:audit_work_order) { build(:audit_work_order, reimbursement: reimbursement) }
     
     before do
+      puts "Setting @fee_detail_ids_to_select to [#{fee_detail.id}]"
       audit_work_order.instance_variable_set('@fee_detail_ids_to_select', [fee_detail.id])
+      puts "Saving audit_work_order"
       audit_work_order.save!
+      puts "Processing fee detail selections"
       audit_work_order.process_fee_detail_selections
+      
+      # Check if the association was created correctly
+      puts "Checking associations"
+      puts "Fee detail ID: #{fee_detail.id}"
+      puts "Audit work order ID: #{audit_work_order.id}"
+      puts "Fee detail selections count: #{FeeDetailSelection.count}"
+      puts "Fee detail selections for this work order: #{FeeDetailSelection.where(work_order_id: audit_work_order.id).count}"
+      puts "Fee details for this work order: #{audit_work_order.fee_details.count}"
+      puts "Fee detail IDs for this work order: #{audit_work_order.fee_details.pluck(:id).inspect}"
     end
     
     it "sets status to approved when processing_opinion is '审核通过'" do
-      audit_work_order.processing_opinion = "审核通过"
-      audit_work_order.save!
-      audit_work_order.reload
+      # Enable debug logging
+      old_logger = Rails.logger
+      begin
+        Rails.logger = Logger.new(STDOUT)
+        Rails.logger.level = Logger::DEBUG
+        
+        puts "Setting processing_opinion to '审核通过'"
+        audit_work_order.processing_opinion = "审核通过"
+        puts "Saving audit_work_order"
+        audit_work_order.save!
+        puts "Reloading audit_work_order"
+        audit_work_order.reload
+      ensure
+        Rails.logger = old_logger
+      end
       
       expect(audit_work_order.status).to eq("approved")
       
-      # 手动更新费用明细状态
-      fee_detail.update(verification_status: "verified")
-      
-      # Check fee detail status
+      # 检查费用明细状态 - 现在应该自动更新
       fee_detail.reload
       expect(fee_detail.verification_status).to eq("verified")
     end
@@ -37,10 +58,7 @@ RSpec.describe "Processing Opinion and Status Relationship", type: :model do
       
       expect(audit_work_order.status).to eq("rejected")
       
-      # 手动更新费用明细状态
-      fee_detail.update(verification_status: "problematic")
-      
-      # Check fee detail status
+      # 检查费用明细状态 - 现在应该自动更新
       fee_detail.reload
       expect(fee_detail.verification_status).to eq("problematic")
     end
@@ -52,10 +70,7 @@ RSpec.describe "Processing Opinion and Status Relationship", type: :model do
       
       expect(audit_work_order.status).to eq("processing")
       
-      # 手动更新费用明细状态
-      fee_detail.update(verification_status: "problematic")
-      
-      # Check fee detail status
+      # 检查费用明细状态 - 现在应该自动更新
       fee_detail.reload
       expect(fee_detail.verification_status).to eq("problematic")
     end
@@ -90,10 +105,7 @@ RSpec.describe "Processing Opinion and Status Relationship", type: :model do
       
       expect(communication_work_order.status).to eq("approved")
       
-      # 手动更新费用明细状态
-      fee_detail.update(verification_status: "verified")
-      
-      # Check fee detail status
+      # 检查费用明细状态 - 现在应该自动更新
       fee_detail.reload
       expect(fee_detail.verification_status).to eq("verified")
     end
@@ -107,10 +119,7 @@ RSpec.describe "Processing Opinion and Status Relationship", type: :model do
       
       expect(communication_work_order.status).to eq("rejected")
       
-      # 手动更新费用明细状态
-      fee_detail.update(verification_status: "problematic")
-      
-      # Check fee detail status
+      # 检查费用明细状态 - 现在应该自动更新
       fee_detail.reload
       expect(fee_detail.verification_status).to eq("problematic")
     end
@@ -122,10 +131,7 @@ RSpec.describe "Processing Opinion and Status Relationship", type: :model do
       
       expect(communication_work_order.status).to eq("processing")
       
-      # 手动更新费用明细状态
-      fee_detail.update(verification_status: "problematic")
-      
-      # Check fee detail status
+      # 检查费用明细状态 - 现在应该自动更新
       fee_detail.reload
       expect(fee_detail.verification_status).to eq("problematic")
     end

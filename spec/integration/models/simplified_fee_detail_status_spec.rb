@@ -88,10 +88,7 @@ RSpec.describe "Simplified Fee Detail Status", type: :model do
       audit_work_order.processing_opinion = "审核通过"
       audit_work_order.save!
       
-      # 手动更新费用明细状态
-      fee_detail.update(verification_status: 'verified')
-      
-      # Check fee detail status
+      # 检查费用明细状态 - 现在应该自动更新
       fee_detail.reload
       expect(fee_detail.verification_status).to eq('verified')
     end
@@ -102,10 +99,7 @@ RSpec.describe "Simplified Fee Detail Status", type: :model do
       audit_work_order.problem_type = "documentation_issue" # Required for rejected state
       audit_work_order.save!
       
-      # 手动更新费用明细状态
-      fee_detail.update(verification_status: 'problematic')
-      
-      # Check fee detail status
+      # 检查费用明细状态 - 现在应该自动更新
       fee_detail.reload
       expect(fee_detail.verification_status).to eq('problematic')
     end
@@ -115,10 +109,7 @@ RSpec.describe "Simplified Fee Detail Status", type: :model do
       audit_work_order.processing_opinion = "需要补充材料"
       audit_work_order.save!
       
-      # 手动更新费用明细状态
-      fee_detail.update(verification_status: 'problematic')
-      
-      # Check fee detail status
+      # 检查费用明细状态 - 现在应该自动更新
       fee_detail.reload
       expect(fee_detail.verification_status).to eq('problematic')
     end
@@ -145,10 +136,7 @@ RSpec.describe "Simplified Fee Detail Status", type: :model do
       audit_work_order.problem_type = "documentation_issue"
       audit_work_order.save!
       
-      # 手动更新费用明细状态
-      fee_detail.update(verification_status: 'problematic')
-      
-      # Check fee detail status
+      # 检查费用明细状态 - 现在应该自动更新
       fee_detail.reload
       expect(fee_detail.verification_status).to eq('problematic')
       
@@ -157,10 +145,7 @@ RSpec.describe "Simplified Fee Detail Status", type: :model do
       communication_work_order.resolution_summary = "测试通过原因"
       communication_work_order.save!
       
-      # 手动更新费用明细状态
-      fee_detail.update(verification_status: 'verified')
-      
-      # Check fee detail status - should now be verified
+      # 检查费用明细状态 - 现在应该自动更新 - 应该是verified
       fee_detail.reload
       expect(fee_detail.verification_status).to eq('verified')
       
@@ -168,10 +153,7 @@ RSpec.describe "Simplified Fee Detail Status", type: :model do
       audit_work_order.processing_opinion = "需要补充材料"
       audit_work_order.save!
       
-      # 手动更新费用明细状态
-      fee_detail.update(verification_status: 'problematic')
-      
-      # Check fee detail status - should now be problematic again
+      # 检查费用明细状态 - 现在应该自动更新 - 应该再次变为problematic
       fee_detail.reload
       expect(fee_detail.verification_status).to eq('problematic')
     end
