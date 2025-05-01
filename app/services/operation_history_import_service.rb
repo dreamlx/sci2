@@ -16,7 +16,7 @@ class OperationHistoryImportService
     return { success: false, errors: ["文件不存在"] } unless @file.present?
     
     begin
-      spreadsheet = test_spreadsheet || Roo::Spreadsheet.open(@file.path)
+      spreadsheet = test_spreadsheet || Roo::Spreadsheet.open(@file.tempfile.to_path.to_s, extension: :csv)
       # Handle both Excel and CSV files
       sheet = if spreadsheet.respond_to?(:sheet)
                 spreadsheet.sheet(0)
@@ -56,32 +56,49 @@ class OperationHistoryImportService
     operation_time_str = row['操作日期']
     operator = row['操作人']&.strip
     notes = row['操作意见']&.strip
-    
+
+    Rails.logger.info "Importing history for row #{row_number}: Doc: #{document_number}, Type: #{operation_type}, Time Str: #{operation_time_str}, Operator: #{operator}, Notes: #{notes}"
+
     unless document_number.present? && operation_type.present? && operation_time_str.present? && operator.present?
       @error_count += 1
       @errors << "行 #{row_number}: 缺少必要字段 (单据编号, 操作类型, 操作日期, 操作人)"
+      Rails.logger.warn "Skipping row #{row_number} due to missing required fields."
       return
     end
-    
+
     # 查找报销单
     reimbursement = Reimbursement.find_by(invoice_number: document_number)
-    
+
     unless reimbursement
       @unmatched_histories << { row: row_number, document_number: document_number, error: "报销单不存在" }
+      Rails.logger.warn "Skipping row #{row_number}: Reimbursement #{document_number} not found."
       return
     end
-    
+
     operation_time = parse_datetime(operation_time_str)
-    
+    Rails.logger.info "Parsed operation_time: #{operation_time}"
+
     # 重复检查 (Req 14)
-    if operation_time && OperationHistory.exists?(
+    if operation_time
+      Rails.logger.info "Checking for duplicates for Doc: #{document_number}, Type: #{operation_type}, Operator: #{operator}"
+      # Query for potential duplicates based on other attributes
+      potential_duplicates = OperationHistory.where(
         document_number: document_number,
         operation_type: operation_type,
-        operation_time: operation_time,
         operator: operator
       )
-      @skipped_count += 1
-      return # 跳过重复记录
+      Rails.logger.info "Found #{potential_duplicates.count} potential duplicates."
+
+      # Check if any potential duplicate has an operation_time within a small time window
+      is_duplicate = potential_duplicates.any? do |existing_history|
+        existing_history.operation_time.present? &&
+        (existing_history.operation_time - operation_time).abs <= 5.seconds # 5秒容差
+      end
+
+      if is_duplicate
+        @skipped_count += 1
+        return # 跳过重复记录
+      end
     end
     
     # 创建操作历史
@@ -107,27 +124,31 @@ class OperationHistoryImportService
             previous_status = reimbursement.status
             
             # 尝试关闭报销单
+            Rails.logger.info "Attempting to close reimbursement #{reimbursement.invoice_number} (ID: #{reimbursement.id}). Current status: #{reimbursement.status}"
             reimbursement.close!
+            Rails.logger.info "Reimbursement #{reimbursement.invoice_number} status after close!: #{reimbursement.status}"
             
             # 只有当状态实际发生变化时才增加计数
             if reimbursement.status != previous_status
               @updated_reimbursement_count += 1
+              Rails.logger.info "Reimbursement #{reimbursement.invoice_number} status updated count incremented."
             end
           rescue StateMachines::InvalidTransition => e
-            Rails.logger.warn "Could not close Reimbursement #{reimbursement.id} based on history ID #{operation_history.id}: #{e.message}"
+            Rails.logger.warn "Could not close Reimbursement #{reimbursement.invoice_number} (ID: #{reimbursement.id}) based on history ID #{operation_history.id}: #{e.message}"
           end
         end
       end
     else
       @error_count += 1
       @errors << "行 #{row_number} (单号: #{document_number}): #{operation_history.errors.full_messages.join(', ')}"
+      Rails.logger.error "Failed to save operation history for row #{row_number}: #{operation_history.errors.full_messages.join(', ')}"
     end
   end
   
   def parse_datetime(datetime_string)
     return nil unless datetime_string.present?
     begin
-      datetime_string.is_a?(Date) || datetime_string.is_a?(DateTime) ? datetime_string : DateTime.parse(datetime_string.to_s)
+      datetime_string.is_a?(Date) || datetime_string.is_a?(DateTime) ? datetime_string : DateTime.parse(datetime_string.to_s).in_time_zone
     rescue ArgumentError
       nil
     end

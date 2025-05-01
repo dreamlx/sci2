@@ -1,5 +1,5 @@
 ActiveAdmin.register ExpressReceiptWorkOrder do
-  permit_params :reimbursement_id, :tracking_number, :received_at, :courier_name, :created_by
+  permit_params :reimbursement_id, :tracking_number, :received_at, :courier_name, :created_by, fee_detail_ids: []
 
   menu priority: 3, label: "快递收单工单", parent: "工单管理"
   config.sort_order = 'created_at_desc'

@@ -1,5 +1,8 @@
 # SCI2 工单系统 ActiveAdmin 用户界面设计更新 (v3.0)
 
+关于UI实现的测试策略，请参阅[测试策略](06_testing_strategy.md)。
+关于费用明细状态简化的设计，请参阅[费用明细状态简化](10_simplify_fee_detail_status.md)。
+
 ## 1. 用户界面设计概述
 
 SCI2工单系统的用户界面采用ActiveAdmin框架实现，基于单表继承(STI)模型设计。本文档更新反映了最新需求变更，特别是工单模型的单表继承设计和共享表单字段的实现。
@@ -124,8 +127,32 @@ stateDiagram-v2
     approved --> [*]
     rejected --> [*]
     
-    note right of pending: needs_communication是一个布尔标志，\n可以在任何状态下设置或取消
+    note right of pending: needs_communication是一个布尔标志，\n可以在任何状态下设置或取消\n而不是一个状态值
 ```
+
+state pending {
+    [*] --> needs_communication_false
+    needs_communication_false --> needs_communication_true : 切换"需要沟通"标志
+    needs_communication_true --> needs_communication_false : 切换"需要沟通"标志
+}
+
+state processing {
+    [*] --> needs_communication_false
+    needs_communication_false --> needs_communication_true : 切换"需要沟通"标志
+    needs_communication_true --> needs_communication_false : 切换"需要沟通"标志
+}
+
+state approved {
+    [*] --> needs_communication_false
+    needs_communication_false --> needs_communication_true : 切换"需要沟通"标志
+    needs_communication_true --> needs_communication_false : 切换"需要沟通"标志
+}
+
+state rejected {
+    [*] --> needs_communication_false
+    needs_communication_false --> needs_communication_true : 切换"需要沟通"标志
+    needs_communication_true --> needs_communication_false : 切换"需要沟通"标志
+}
 
 #### 报销单状态流转
 
@@ -178,7 +205,7 @@ graph TD
     B --> B2[状态操作按钮]
     
     C --> C1[关联费用明细列表]
-    C --> C2[费用明细验证状态]
+    C --> C2[费用明细验证状态] # 注意：根据费用明细状态简化设计，状态由FeeDetail模型管理
     C --> C3[更新验证状态按钮]
     
     D --> D1[状态变更历史列表]
@@ -214,7 +241,7 @@ graph TD
     C --> C2[添加沟通记录按钮]
     
     D --> D1[关联费用明细列表]
-    D --> D2[费用明细验证状态]
+    D --> D2[费用明细验证状态] # 注意：根据费用明细状态简化设计，状态由FeeDetail模型管理
     D --> D3[更新验证状态按钮]
     
     E --> E1[状态变更历史列表]
@@ -388,3 +415,12 @@ graph TD
    - 提供清晰的状态流转操作按钮
    - 为needs_communication布尔标志提供明确的UI控件
    - 确保操作历史只能通过导入功能添加，不能在UI中直接编辑
+   
+## 9. 相关文档引用
+
+- 有关详细的数据库结构设计，请参阅[数据库结构设计](02_database_structure.md)
+- 有关详细的模型实现，请参阅[模型实现](03_model_implementation_updated.md)
+- 有关详细的服务实现，请参阅[服务实现](04_service_implementation_updated.md)
+- 有关详细的ActiveAdmin集成，请参阅[ActiveAdmin集成](05_activeadmin_integration_updated_v3.md)
+- 有关详细的测试策略，请参阅[测试策略](06_testing_strategy.md)
+- 有关费用明细状态简化的设计，请参阅[费用明细状态简化](10_simplify_fee_detail_status.md)

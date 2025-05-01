@@ -18,7 +18,7 @@ class ExpressReceiptImportService
     return { success: false, errors: ["导入用户不存在"] } unless @current_admin_user
     
     begin
-      spreadsheet = test_spreadsheet || Roo::Spreadsheet.open(@file.path)
+      spreadsheet = test_spreadsheet || Roo::Spreadsheet.open(@file.tempfile.to_path.to_s, extension: :csv)
       # Handle both Excel and CSV files
       sheet = if spreadsheet.respond_to?(:sheet)
                 spreadsheet.sheet(0)
@@ -52,7 +52,7 @@ class ExpressReceiptImportService
   private
   
   def import_express_receipt(row, row_number)
-    document_number = row['单号']&.strip
+    document_number = row['单据编号']&.strip
     operation_notes = row['操作意见']&.strip
     received_at_str = row['操作时间'] # 使用 '操作时间'
     

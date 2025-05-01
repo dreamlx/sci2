@@ -1,5 +1,6 @@
 require 'rails_helper'
 require 'csv'
+require 'rack/test'
 
 RSpec.describe "Full Workflow Integration Test", type: :model do
   include ActiveJob::TestHelper
@@ -23,10 +24,9 @@ RSpec.describe "Full Workflow Integration Test", type: :model do
 
   describe "第一阶段：数据导入" do
     it "导入报销单数据" do
-      # Create a mock file
-      mock_file = double('file')
-      allow(mock_file).to receive(:path).and_return('test_reimbursements.csv')
-      allow(mock_file).to receive(:present?).and_return(true)
+      # Use real file upload with Rack::Test::UploadedFile
+      file_path = Rails.root.join('spec', 'fixtures', 'files', 'test_reimbursements.csv')
+      file = Rack::Test::UploadedFile.new(file_path, 'text/csv')
       
       # Create a mock spreadsheet
       spreadsheet = double('spreadsheet')
@@ -37,16 +37,11 @@ RSpec.describe "Full Workflow Integration Test", type: :model do
       
       # Mock the data rows
       rows = [
-        ['R2025001', '差旅费报销', '李明', 'E001', '科技有限公司', '研发部', 'pending', nil, '2025-04-01', '1200.50', '待审批'],
-        ['R2025002', '办公用品报销', '王芳', 'E002', '科技有限公司', '行政部', 'pending', nil, '2025-04-02', '458.75', '待审批'],
-        ['R2025003', '会议费用报销', '张伟', 'E003', '科技有限公司', '市场部', 'pending', nil, '2025-04-03', '3500.00', '待审批'],
-        ['R2025004', '培训费用报销', '刘洋', 'E004', '科技有限公司', '人力资源部', 'pending', nil, '2025-04-04', '2800.00', '待审批'],
-        ['R2025005', '交通费报销', '赵静', 'E005', '科技有限公司', '财务部', 'pending', nil, '2025-04-05', '320.50', '待审批'],
-        ['R2025006', '餐费报销', '陈明', 'E006', '科技有限公司', '销售部', 'pending', nil, '2025-04-06', '680.00', '待审批'],
-        ['R2025007', '设备采购报销', '林华', 'E007', '科技有限公司', 'IT部', 'pending', nil, '2025-04-07', '12500.00', '待审批'],
-        ['R2025008', '广告费用报销', '黄强', 'E008', '科技有限公司', '市场部', 'pending', nil, '2025-04-08', '8600.00', '待审批'],
-        ['R2025009', '维修费用报销', '周丽', 'E009', '科技有限公司', '行政部', 'pending', nil, '2025-04-09', '1450.00', '待审批'],
-        ['R2025010', '通讯费报销', '吴刚', 'E010', '科技有限公司', '研发部', 'pending', nil, '2025-04-10', '350.00', '待审批']
+        ['ER14228251', '报销单1', '申请人1', 'E001', '科技有限公司', '部门1', 'pending', nil, '2025-04-01', '150', '待审批'],
+        ['ER14228252', '报销单2', '申请人2', 'E002', '科技有限公司', '部门2', 'pending', nil, '2025-04-02', '200', '待审批'],
+        ['ER14228253', '报销单3', '申请人3', 'E003', '科技有限公司', '部门3', 'pending', nil, '2025-04-03', '250', '待审批'],
+        ['ER14228254', '报销单4', '申请人4', 'E004', '科技有限公司', '部门4', 'pending', nil, '2025-04-04', '300', '待审批'],
+        ['ER14228255', '报销单5', '申请人5', 'E005', '科技有限公司', '部门5', 'pending', nil, '2025-04-05', '350', '待审批']
       ]
       
       # Setup each_with_index to yield each row with its index
@@ -57,8 +52,8 @@ RSpec.describe "Full Workflow Integration Test", type: :model do
       end
 
       expect {
-        ReimbursementImportService.new(mock_file, admin_user).import(spreadsheet)
-      }.to change(Reimbursement, :count).by(10)
+        ReimbursementImportService.new(file, admin_user).import(spreadsheet)
+      }.to change(Reimbursement, :count).by(5)
 
       Reimbursement.all.each do |reimbursement|
         expect(reimbursement.status).to eq('pending')
@@ -78,16 +73,11 @@ RSpec.describe "Full Workflow Integration Test", type: :model do
       
       # Mock the data rows for reimbursements
       reimbursement_rows = [
-        ['R2025001', '差旅费报销', '李明', 'E001', '科技有限公司', '研发部', 'pending', nil, '2025-04-01', '1200.50', '待审批'],
-        ['R2025002', '办公用品报销', '王芳', 'E002', '科技有限公司', '行政部', 'pending', nil, '2025-04-02', '458.75', '待审批'],
-        ['R2025003', '会议费用报销', '张伟', 'E003', '科技有限公司', '市场部', 'pending', nil, '2025-04-03', '3500.00', '待审批'],
-        ['R2025004', '培训费用报销', '刘洋', 'E004', '科技有限公司', '人力资源部', 'pending', nil, '2025-04-04', '2800.00', '待审批'],
-        ['R2025005', '交通费报销', '赵静', 'E005', '科技有限公司', '财务部', 'pending', nil, '2025-04-05', '320.50', '待审批'],
-        ['R2025006', '餐费报销', '陈明', 'E006', '科技有限公司', '销售部', 'pending', nil, '2025-04-06', '680.00', '待审批'],
-        ['R2025007', '设备采购报销', '林华', 'E007', '科技有限公司', 'IT部', 'pending', nil, '2025-04-07', '12500.00', '待审批'],
-        ['R2025008', '广告费用报销', '黄强', 'E008', '科技有限公司', '市场部', 'pending', nil, '2025-04-08', '8600.00', '待审批'],
-        ['R2025009', '维修费用报销', '周丽', 'E009', '科技有限公司', '行政部', 'pending', nil, '2025-04-09', '1450.00', '待审批'],
-        ['R2025010', '通讯费报销', '吴刚', 'E010', '科技有限公司', '研发部', 'pending', nil, '2025-04-10', '350.00', '待审批']
+        ['ER14228251', '报销单1', '申请人1', 'E001', '科技有限公司', '部门1', 'pending', nil, '2025-04-01', '150', '待审批'],
+        ['ER14228252', '报销单2', '申请人2', 'E002', '科技有限公司', '部门2', 'pending', nil, '2025-04-02', '200', '待审批'],
+        ['ER14228253', '报销单3', '申请人3', 'E003', '科技有限公司', '部门3', 'pending', nil, '2025-04-03', '250', '待审批'],
+        ['ER14228254', '报销单4', '申请人4', 'E004', '科技有限公司', '部门4', 'pending', nil, '2025-04-04', '300', '待审批'],
+        ['ER14228255', '报销单5', '申请人5', 'E005', '科技有限公司', '部门5', 'pending', nil, '2025-04-05', '350', '待审批']
       ]
       
       allow(reimbursement_spreadsheet).to receive(:each_with_index) do |&block|
@@ -108,20 +98,15 @@ RSpec.describe "Full Workflow Integration Test", type: :model do
       
       # Mock the spreadsheet behavior
       allow(express_receipt_spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
-      allow(express_receipt_spreadsheet).to receive(:row).with(1).and_return(['单号', '操作类型', '操作日期', '操作人', '操作意见'])
+      allow(express_receipt_spreadsheet).to receive(:row).with(1).and_return(['单据编号', '操作类型', '操作日期', '操作人', '操作意见'])
       
       # Mock the data rows for express receipts
       express_receipt_rows = [
-        ['R2025001', '收单', '2025-04-11', '张经理', '快递单号: SF1234567890'],
-        ['R2025002', '收单', '2025-04-11', '张经理', '快递单号: YT9876543210'],
-        ['R2025003', '收单', '2025-04-12', '张经理', '快递单号: ZT1122334455'],
-        ['R2025004', '收单', '2025-04-12', '张经理', '快递单号: JD5566778899'],
-        ['R2025005', '收单', '2025-04-13', '张经理', '快递单号: SF2468135790'],
-        ['R2025006', '收单', '2025-04-13', '张经理', '快递单号: YT1357924680'],
-        ['R2025007', '收单', '2025-04-14', '张经理', '快递单号: ZT2468013579'],
-        ['R2025008', '收单', '2025-04-14', '张经理', '快递单号: JD1324354657'],
-        ['R2025009', '收单', '2025-04-15', '张经理', '快递单号: SF9876543210'],
-        ['R2025010', '收单', '2025-04-15', '张经理', '快递单号: YT1234567890']
+        ['ER14228251', '收单', '2025-04-11', '张经理', '快递单号：SF1001'],
+        ['ER14228252', '收单', '2025-04-11', '张经理', '快递单号：SF1002'],
+        ['ER14228253', '收单', '2025-04-12', '张经理', '快递单号：SF1003'],
+        ['ER14228254', '收单', '2025-04-12', '张经理', '快递单号：SF1004'],
+        ['ER14228255', '收单', '2025-04-13', '张经理', '快递单号：SF1005']
       ]
       
       allow(express_receipt_spreadsheet).to receive(:each_with_index) do |&block|
@@ -134,10 +119,10 @@ RSpec.describe "Full Workflow Integration Test", type: :model do
       expect {
         result = ExpressReceiptImportService.new(express_receipt_file, admin_user).import(express_receipt_spreadsheet)
         puts "Express Receipt Import Result: #{result.inspect}"
-      }.to change(ExpressReceiptWorkOrder, :count).by(10) # Express receipts create work orders
+      }.to change(ExpressReceiptWorkOrder, :count).by(5) # Express receipts create work orders
 
       # Verify ExpressReceiptWorkOrders are created and completed
-      expect(ExpressReceiptWorkOrder.count).to eq(10)
+      expect(ExpressReceiptWorkOrder.count).to eq(5)
       ExpressReceiptWorkOrder.all.each do |work_order|
         expect(work_order.status).to eq('completed')
         expect(work_order.creator).to eq(admin_user)
@@ -162,16 +147,11 @@ RSpec.describe "Full Workflow Integration Test", type: :model do
       
       # Mock the data rows for reimbursements
       reimbursement_rows = [
-        ['R2025001', '差旅费报销', '李明', 'E001', '科技有限公司', '研发部', 'pending', nil, '2025-04-01', '1200.50', '待审批'],
-        ['R2025002', '办公用品报销', '王芳', 'E002', '科技有限公司', '行政部', 'pending', nil, '2025-04-02', '458.75', '待审批'],
-        ['R2025003', '会议费用报销', '张伟', 'E003', '科技有限公司', '市场部', 'pending', nil, '2025-04-03', '3500.00', '待审批'],
-        ['R2025004', '培训费用报销', '刘洋', 'E004', '科技有限公司', '人力资源部', 'pending', nil, '2025-04-04', '2800.00', '待审批'],
-        ['R2025005', '交通费报销', '赵静', 'E005', '科技有限公司', '财务部', 'pending', nil, '2025-04-05', '320.50', '待审批'],
-        ['R2025006', '餐费报销', '陈明', 'E006', '科技有限公司', '销售部', 'pending', nil, '2025-04-06', '680.00', '待审批'],
-        ['R2025007', '设备采购报销', '林华', 'E007', '科技有限公司', 'IT部', 'pending', nil, '2025-04-07', '12500.00', '待审批'],
-        ['R2025008', '广告费用报销', '黄强', 'E008', '科技有限公司', '市场部', 'pending', nil, '2025-04-08', '8600.00', '待审批'],
-        ['R2025009', '维修费用报销', '周丽', 'E009', '科技有限公司', '行政部', 'pending', nil, '2025-04-09', '1450.00', '待审批'],
-        ['R2025010', '通讯费报销', '吴刚', 'E010', '科技有限公司', '研发部', 'pending', nil, '2025-04-10', '350.00', '待审批']
+        ['ER14228251', '报销单1', '申请人1', 'E001', '科技有限公司', '部门1', 'pending', nil, '2025-04-01', '150', '待审批'],
+        ['ER14228252', '报销单2', '申请人2', 'E002', '科技有限公司', '部门2', 'pending', nil, '2025-04-02', '200', '待审批'],
+        ['ER14228253', '报销单3', '申请人3', 'E003', '科技有限公司', '部门3', 'pending', nil, '2025-04-03', '250', '待审批'],
+        ['ER14228254', '报销单4', '申请人4', 'E004', '科技有限公司', '部门4', 'pending', nil, '2025-04-04', '300', '待审批'],
+        ['ER14228255', '报销单5', '申请人5', 'E005', '科技有限公司', '部门5', 'pending', nil, '2025-04-05', '350', '待审批']
       ]
       
       allow(reimbursement_spreadsheet).to receive(:each_with_index) do |&block|
@@ -196,25 +176,12 @@ RSpec.describe "Full Workflow Integration Test", type: :model do
       
       # Mock the data rows for fee details
       fee_detail_rows = [
-        ['R2025001', '机票', '800.00', 'CNY', '2025-03-25', '信用卡'],
-        ['R2025001', '住宿', '300.50', 'CNY', '2025-03-26', '信用卡'],
-        ['R2025001', '餐费', '100.00', 'CNY', '2025-03-26', '现金'],
-        ['R2025002', '打印纸', '158.75', 'CNY', '2025-03-30', '公司账户'],
-        ['R2025002', '文具', '300.00', 'CNY', '2025-03-30', '公司账户'],
-        ['R2025003', '场地租赁', '2500.00', 'CNY', '2025-03-15', '公司账户'],
-        ['R2025003', '茶点', '1000.00', 'CNY', '2025-03-15', '现金'],
-        ['R2025004', '培训费', '2800.00', 'CNY', '2025-03-20', '公司账户'],
-        ['R2025005', '出租车', '120.50', 'CNY', '2025-04-01', '现金'],
-        ['R2025005', '地铁', '200.00', 'CNY', '2025-04-02', '交通卡'],
-        ['R2025006', '团队午餐', '680.00', 'CNY', '2025-04-03', '信用卡'],
-        ['R2025007', '电脑', '8500.00', 'CNY', '2025-03-28', '公司账户'],
-        ['R2025007', '显示器', '4000.00', 'CNY', '2025-03-28', '公司账户'],
-        ['R2025008', '线上广告', '5600.00', 'CNY', '2025-03-25', '公司账户'],
-        ['R2025008', '平面广告', '3000.00', 'CNY', '2025-03-26', '公司账户'],
-        ['R2025009', '空调维修', '950.00', 'CNY', '2025-04-05', '现金'],
-        ['R2025009', '门锁更换', '500.00', 'CNY', '2025-04-06', '现金'],
-        ['R2025010', '手机费', '200.00', 'CNY', '2025-04-01', '信用卡'],
-        ['R2025010', '宽带费', '150.00', 'CNY', '2025-04-01', '信用卡']
+        ['ER14228251', '费用类型1', '110', 'CNY', '2025-04-01', '支付方式A'],
+        ['ER14228252', '费用类型2', '120', 'CNY', '2025-04-02', '支付方式A'],
+        ['ER14228253', '费用类型3', '130', 'CNY', '2025-04-03', '支付方式A'],
+        ['ER14228254', '费用类型4', '140', 'CNY', '2025-04-04', '支付方式A'],
+        ['ER14228255', '费用类型5A', '150.0', 'CNY', '2025-04-05', '支付方式A'],
+        ['ER14228255', '费用类型5B', '200.0', 'CNY', '2025-04-05', '支付方式B']
       ]
       
       allow(fee_detail_spreadsheet).to receive(:each_with_index) do |&block|
@@ -225,7 +192,7 @@ RSpec.describe "Full Workflow Integration Test", type: :model do
 
       expect {
         FeeDetailImportService.new(fee_detail_file, admin_user).import(fee_detail_spreadsheet)
-      }.to change(FeeDetail, :count).by(19)
+      }.to change(FeeDetail, :count).by(6)
 
       FeeDetail.all.each do |fee_detail|
         expect(fee_detail.verification_status).to eq('pending')
@@ -245,16 +212,11 @@ RSpec.describe "Full Workflow Integration Test", type: :model do
       
       # Mock the data rows for reimbursements
       reimbursement_rows = [
-        ['R2025001', '差旅费报销', '李明', 'E001', '科技有限公司', '研发部', 'pending', nil, '2025-04-01', '1200.50', '待审批'],
-        ['R2025002', '办公用品报销', '王芳', 'E002', '科技有限公司', '行政部', 'pending', nil, '2025-04-02', '458.75', '待审批'],
-        ['R2025003', '会议费用报销', '张伟', 'E003', '科技有限公司', '市场部', 'pending', nil, '2025-04-03', '3500.00', '待审批'],
-        ['R2025004', '培训费用报销', '刘洋', 'E004', '科技有限公司', '人力资源部', 'pending', nil, '2025-04-04', '2800.00', '待审批'],
-        ['R2025005', '交通费报销', '赵静', 'E005', '科技有限公司', '财务部', 'pending', nil, '2025-04-05', '320.50', '待审批'],
-        ['R2025006', '餐费报销', '陈明', 'E006', '科技有限公司', '销售部', 'pending', nil, '2025-04-06', '680.00', '待审批'],
-        ['R2025007', '设备采购报销', '林华', 'E007', '科技有限公司', 'IT部', 'pending', nil, '2025-04-07', '12500.00', '待审批'],
-        ['R2025008', '广告费用报销', '黄强', 'E008', '科技有限公司', '市场部', 'pending', nil, '2025-04-08', '8600.00', '待审批'],
-        ['R2025009', '维修费用报销', '周丽', 'E009', '科技有限公司', '行政部', 'pending', nil, '2025-04-09', '1450.00', '待审批'],
-        ['R2025010', '通讯费报销', '吴刚', 'E010', '科技有限公司', '研发部', 'pending', nil, '2025-04-10', '350.00', '待审批']
+        ['ER14228251', '报销单1', '申请人1', 'E001', '科技有限公司', '部门1', 'pending', nil, '2025-04-01', '150', '待审批'],
+        ['ER14228252', '报销单2', '申请人2', 'E002', '科技有限公司', '部门2', 'pending', nil, '2025-04-02', '200', '待审批'],
+        ['ER14228253', '报销单3', '申请人3', 'E003', '科技有限公司', '部门3', 'pending', nil, '2025-04-03', '250', '待审批'],
+        ['ER14228254', '报销单4', '申请人4', 'E004', '科技有限公司', '部门4', 'pending', nil, '2025-04-04', '300', '待审批'],
+        ['ER14228255', '报销单5', '申请人5', 'E005', '科技有限公司', '部门5', 'pending', nil, '2025-04-05', '350', '待审批']
       ]
       
       allow(reimbursement_spreadsheet).to receive(:each_with_index) do |&block|
@@ -279,16 +241,11 @@ RSpec.describe "Full Workflow Integration Test", type: :model do
       
       # Mock the data rows for operation histories
       operation_history_rows = [
-        ['R2025001', '提交', '2025-04-01', '李明', '请审批'],
-        ['R2025002', '提交', '2025-04-02', '王芳', '请审批'],
-        ['R2025003', '提交', '2025-04-03', '张伟', '请审批'],
-        ['R2025004', '提交', '2025-04-04', '刘洋', '请审批'],
-        ['R2025005', '提交', '2025-04-05', '赵静', '请审批'],
-        ['R2025006', '提交', '2025-04-06', '陈明', '请审批'],
-        ['R2025007', '提交', '2025-04-07', '林华', '请审批'],
-        ['R2025008', '提交', '2025-04-08', '黄强', '请审批'],
-        ['R2025009', '提交', '2025-04-09', '周丽', '请审批'],
-        ['R2025010', '提交', '2025-04-10', '吴刚', '请审批']
+        ['ER14228251', '提交', '2025-04-01', '申请人1', '请审批'],
+        ['ER14228252', '提交', '2025-04-02', '申请人2', '请审批'],
+        ['ER14228253', '提交', '2025-04-03', '申请人3', '请审批'],
+        ['ER14228254', '提交', '2025-04-04', '申请人4', '请审批'],
+        ['ER14228255', '提交', '2025-04-05', '申请人5', '请审批']
       ]
       
       allow(operation_history_spreadsheet).to receive(:each_with_index) do |&block|
@@ -299,7 +256,7 @@ RSpec.describe "Full Workflow Integration Test", type: :model do
 
       expect {
         OperationHistoryImportService.new(operation_history_file, admin_user).import(operation_history_spreadsheet)
-      }.to change(OperationHistory, :count).by(10)
+      }.to change(OperationHistory, :count).by(5)
     end
   end
 end

@@ -42,7 +42,18 @@ RSpec.describe "Admin::CommunicationWorkOrders", type: :request do
       expect do
         post admin_communication_work_orders_path, params: valid_params
       end.to change(CommunicationWorkOrder, :count).by(1)
-      expect(response).to redirect_to(admin_communication_work_order_path(CommunicationWorkOrder.last))
+        .and change(FeeDetailSelection, :count).by(1)
+      
+      created_work_order = CommunicationWorkOrder.last
+      expect(response).to redirect_to(admin_communication_work_order_path(created_work_order))
+      
+      # 验证FeeDetailSelection记录
+      expect(FeeDetailSelection.where(
+        work_order_id: created_work_order.id,
+        work_order_type: 'CommunicationWorkOrder',
+        fee_detail_id: fee_detail.id
+      ).exists?).to be true
+      
       follow_redirect!
       expect(response.body).to include("沟通工单创建成功")
     end

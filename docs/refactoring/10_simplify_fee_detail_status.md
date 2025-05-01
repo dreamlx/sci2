@@ -1,5 +1,7 @@
 # 简化费用明细状态设计和实现
 
+本文档描述了费用明细状态管理的简化设计方案，与[模型实现](03_model_implementation_updated.md)、[服务实现](04_service_implementation_updated.md)、[UI设计](05_activeadmin_ui_design_updated_v3.md)和[测试策略](06_testing_strategy.md)文档密切相关。
+
 ## 问题描述
 
 当前费用明细存在“全局状态”（`FeeDetail.verification_status`）和“工单内状态”（`FeeDetailSelection.verification_status`）两个状态，设计和实现上存在混淆，导致在更新工单处理意见时，费用明细状态未能正确更新。
@@ -30,3 +32,16 @@
 4.  检查并更新 `FeeDetail` 模型中的 `mark_as_verified` 和 `mark_as_problematic` 方法，确保它们与新的服务逻辑兼容。
 5.  检查 ActiveAdmin 中与 `FeeDetailSelection.verification_status` 相关的表单和显示逻辑，进行相应的移除或修改。
 6.  修改测试用例，进行全面的测试，确保费用明细状态根据工单状态正确更新，并且多工单关联功能正常。
+
+## 相关文档引用
+
+- 有关详细的数据库结构设计，请参阅[数据库结构设计](02_database_structure.md)
+- 有关详细的模型实现，请参阅[模型实现](03_model_implementation_updated.md)
+- 有关详细的服务实现，请参阅[服务实现](04_service_implementation_updated.md)
+- 有关详细的UI设计，请参阅[UI设计](05_activeadmin_ui_design_updated_v3.md)
+- 有关详细的ActiveAdmin集成，请参阅[ActiveAdmin集成](05_activeadmin_integration_updated_v3.md)
+- 有关详细的测试策略，请参阅[测试策略](06_testing_strategy.md)
+
+## 实施状态
+
+此简化设计已在数据库迁移中实现（见`db/migrate/20250501051827_remove_verification_status_from_fee_detail_selections.rb`），并在相关模型和服务中进行了相应的代码调整。所有相关文档已更新以反映这一变更。

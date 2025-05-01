@@ -65,11 +65,7 @@ RSpec.describe CommunicationWorkOrderService, type: :service do
       expect(communication_work_order.errors.full_messages).to include("无法批准: Test error")
     end
     
-    it "requires a resolution summary" do
-      params = {}
-      expect(subject.approve(params)).to be_falsey
-      expect(communication_work_order.errors.full_messages).to include("无法批准: 必须填写拒绝理由/摘要")
-    end
+    # 移除批准时要求填写摘要的测试，因为设计文档中只要求拒绝时需要填写摘要
   end
   
   describe "#reject" do

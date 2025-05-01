@@ -1,5 +1,8 @@
 # SCI2 工单系统服务实现 (STI 版本 - v2.1)
 
+这些服务在ActiveAdmin中的集成，请参阅[ActiveAdmin集成](05_activeadmin_integration_updated_v3.md)。
+关于费用明细状态的简化设计，请参阅[费用明细状态简化](10_simplify_fee_detail_status.md)。
+
 ## 1. 数据导入服务
 
 ### 1.1 报销单导入服务 (ReimbursementImportService)
@@ -682,6 +685,8 @@ end
 
 ### 3.1 费用明细验证服务 (FeeDetailVerificationService)
 
+*   **注意**: 根据[费用明细状态简化](10_simplify_fee_detail_status.md)文档，已简化验证服务，直接更新`FeeDetail.verification_status`，不再处理`FeeDetailSelection.verification_status`。
+
 ```ruby
 # app/services/fee_detail_verification_service.rb
 class FeeDetailVerificationService
@@ -839,7 +844,7 @@ end
    - 服务层依赖模型层的状态机定义，不需要特别处理
 
 4. **费用明细验证服务简化**:
-   - 简化了`FeeDetailVerificationService`，移除了对`FeeDetailSelection.verification_status`的处理
+   - 简化了`FeeDetailVerificationService`，移除了对`FeeDetailSelection.verification_status`的处理（参见[费用明细状态简化](10_simplify_fee_detail_status.md)）
    - 直接更新`FeeDetail.verification_status`
 
 这些更新确保了服务实现与模型实现完全对齐，特别是关于沟通工单的needs_communication实现和处理意见与状态关系的处理。

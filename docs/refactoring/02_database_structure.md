@@ -10,7 +10,10 @@
 t.boolean :needs_communication, default: false # 用于沟通工单
 
 
-## 1. 设计策略
+## 1. 设计策略与相关文档
+
+这些数据库结构的模型实现详情，请参阅[模型实现](03_model_implementation_updated.md)。
+关于费用明细状态的简化设计，请参阅[费用明细状态简化](10_simplify_fee_detail_status.md)。
 
 本数据库结构设计基于 **"Drop and Rebuild"** 策略。系统将从干净的数据库开始，并通过导入 `docs/3.数据导入格式参考.md` 中定义的四种 CSV 文件 (`2.HLY报销单报表.csv`, `1.HLY快递收单导出数据.csv`, `4.HLY单据费用明细报表.csv`, `3.HLY每单操作历史数据.csv`) 来填充初始数据。
 
@@ -147,7 +150,6 @@ id: integer (PK)
 fee_detail_id: integer (FK, references fee_details.id, null: false)
 work_order_id: integer (FK, references work_orders.id, null: false)
 work_order_type: string (多态关联类型, null: false)
-verification_status: string [pending, problematic, verified] (冗余或同步 FeeDetail 状态)
 verification_comment: text (工单内对此明细的备注)
 verified_by: integer (FK, references admin_users.id, nullable)
 verified_at: datetime (nullable)
@@ -294,7 +296,6 @@ class CreateFeeDetailSelections < ActiveRecord::Migration[7.0]
     create_table :fee_detail_selections do |t|
       t.references :fee_detail, foreign_key: true, null: false
       t.references :work_order, polymorphic: true, null: false, index: true
-      t.string :verification_status, null: false
       t.text :verification_comment
       t.references :admin_user, foreign_key: true, null: true, column: :verified_by
       t.datetime :verified_at
@@ -385,3 +386,14 @@ end
 * 沟通工单可以在 `pending`、`processing`、`approved` 或 `rejected` 任何状态下设置 `needs_communication = true`
 * 此标志不影响工单的主状态流转
 * 在界面上可以通过复选框或开关控制此标志
+
+## 10. 费用明细状态简化
+
+根据[费用明细状态简化](10_simplify_fee_detail_status.md)文档的建议，我们已经简化了费用明细状态的设计：
+
+* 移除了`fee_detail_selections`表中的`verification_status`字段
+* 只保留`fee_details`表中的`verification_status`字段作为费用明细的唯一状态
+* 工单状态变更时，直接更新关联费用明细的`verification_status`
+* 这种简化使系统更加清晰和易于维护
+
+相关的数据库迁移已经实现：`db/migrate/20250501051827_remove_verification_status_from_fee_detail_selections.rb`

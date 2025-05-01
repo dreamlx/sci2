@@ -24,7 +24,7 @@ RSpec.describe ExpressReceiptImportService do
         
         # Mock the spreadsheet behavior
         allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
-        allow(spreadsheet).to receive(:row).with(1).and_return(['单号', '操作意见', '操作时间'])
+        allow(spreadsheet).to receive(:row).with(1).and_return(['单据编号', '操作意见', '操作时间'])
         allow(spreadsheet).to receive(:each_with_index).and_yield(['R202501001', '快递单号: SF1001', '2025-01-01 10:00:00'], 1)
                                                       .and_yield(['R202501002', '快递单号：SF1002', '2025-01-02 10:00:00'], 2)
                                                       .and_yield(['R999999', '快递单号: SF9999', '2025-01-03 10:00:00'], 3) # 不存在的报销单
@@ -48,7 +48,7 @@ RSpec.describe ExpressReceiptImportService do
         
         # Mock the spreadsheet behavior
         allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
-        allow(spreadsheet).to receive(:row).with(1).and_return(['单号', '操作意见', '操作时间'])
+        allow(spreadsheet).to receive(:row).with(1).and_return(['单据编号', '操作意见', '操作时间'])
         allow(spreadsheet).to receive(:each_with_index).and_yield(['R202501001', '快递单号: SF1001', '2025-01-01 10:00:00'], 1)
                                                       .and_yield(['R202501002', '快递单号：SF1002', '2025-01-02 10:00:00'], 2)
         
@@ -67,7 +67,7 @@ RSpec.describe ExpressReceiptImportService do
         
         # Mock the spreadsheet behavior
         allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
-        allow(spreadsheet).to receive(:row).with(1).and_return(['单号', '操作意见', '操作时间'])
+        allow(spreadsheet).to receive(:row).with(1).and_return(['单据编号', '操作意见', '操作时间'])
         allow(spreadsheet).to receive(:each_with_index).and_yield(['R202501001', '快递单号: SF1001', '2025-01-01 10:00:00'], 1)
                                                       .and_yield(['R202501002', '快递单号：SF1002', '2025-01-02 10:00:00'], 2)
         
@@ -83,7 +83,7 @@ RSpec.describe ExpressReceiptImportService do
         
         # Mock the spreadsheet behavior
         allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
-        allow(spreadsheet).to receive(:row).with(1).and_return(['单号', '操作意见', '操作时间'])
+        allow(spreadsheet).to receive(:row).with(1).and_return(['单据编号', '操作意见', '操作时间'])
         allow(spreadsheet).to receive(:each_with_index).and_yield(['R202501001', '快递单号: SF1001', '2025-01-01 10:00:00'], 1)
                                                       .and_yield(['R202501002', '快递单号：SF1002', '2025-01-02 10:00:00'], 2)
         
@@ -104,7 +104,7 @@ RSpec.describe ExpressReceiptImportService do
         
         # Mock the spreadsheet behavior
         allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
-        allow(spreadsheet).to receive(:row).with(1).and_return(['单号', '操作意见', '操作时间'])
+        allow(spreadsheet).to receive(:row).with(1).and_return(['单据编号', '操作意见', '操作时间'])
         allow(spreadsheet).to receive(:each_with_index).and_yield(['R999999', '快递单号: SF9999', '2025-01-03 10:00:00'], 1) # 不存在的报销单
         
         result = service.import(spreadsheet)
@@ -125,7 +125,7 @@ RSpec.describe ExpressReceiptImportService do
         
         # Mock the spreadsheet behavior
         allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
-        allow(spreadsheet).to receive(:row).with(1).and_return(['单号', '操作意见', '操作时间'])
+        allow(spreadsheet).to receive(:row).with(1).and_return(['单据编号', '操作意见', '操作时间'])
         allow(spreadsheet).to receive(:each_with_index).and_yield(['R202501001', '快递单号: SF1001', '2025-01-01 10:00:00'], 1)
         
         result = nil
@@ -177,6 +177,9 @@ RSpec.describe ExpressReceiptImportService do
       end
       
       it 'handles file processing errors' do
+        tempfile = double('tempfile', path: '/tmp/test.csv', to_path: '/tmp/test.csv')
+        file = double('file', tempfile: tempfile)
+        service = described_class.new(file, admin_user)
         allow(Roo::Spreadsheet).to receive(:open).and_raise(StandardError.new('测试错误'))
         
         result = service.import

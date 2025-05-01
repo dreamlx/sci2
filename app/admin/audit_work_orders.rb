@@ -215,9 +215,18 @@ ActiveAdmin.register AuditWorkOrder do
      render 'admin/shared/verify_fee_detail' # 渲染 app/views/admin/shared/verify_fee_detail.html.erb
   end
 
-  member_action :do_verify_fee_detail, method: :post do
+  member_action :do_verify_fee_detail, method: :get do
+    @work_order = resource
+    @fee_detail = FeeDetail.find(params[:fee_detail_id])
+    if resource.verify_fee_detail(@fee_detail)
+      render 'admin/shared/verify_fee_detail'
+    else
+      redirect_to admin_audit_work_order_path(resource), alert: "费用明细验证失败"
+    end
+  end
+
+  member_action :update_fee_detail_verification, method: :post do
     service = AuditWorkOrderService.new(resource, current_admin_user)
-    # 直接使用参数，不需要嵌套在audit_work_order下
     if service.update_fee_detail_verification(params[:fee_detail_id], params[:verification_status], params[:comment])
        redirect_to admin_audit_work_order_path(resource), notice: "费用明细 ##{params[:fee_detail_id]} 状态已更新"
     else

@@ -1,5 +1,8 @@
 # SCI2 工单系统模型实现 (STI 版本 - v2.1)
 
+这些模型的服务层实现，请参阅[服务实现](04_service_implementation_updated.md)。
+关于费用明细状态的简化设计，请参阅[费用明细状态简化](10_simplify_fee_detail_status.md)。
+
 ## 1. 基础模型
 
 ### 1.1 报销单模型 (Reimbursement)
@@ -506,6 +509,7 @@ end
 ### 3.1 费用明细选择模型 (FeeDetailSelection)
 
 *   Polymorphic `work_order`.
+*   **注意**: 根据[费用明细状态简化](10_simplify_fee_detail_status.md)文档，已移除`verification_status`字段，状态管理完全由`FeeDetail`模型负责。
 
 ```ruby
 # app/models/fee_detail_selection.rb
@@ -520,6 +524,7 @@ class FeeDetailSelection < ApplicationRecord
   # ActiveAdmin配置
   def self.ransackable_attributes(auth_object = nil)
     %w[id fee_detail_id work_order_id work_order_type verification_comment verified_by verified_at created_at updated_at]
+    # 注意: verification_status字段已移除
   end
 
   def self.ransackable_associations(auth_object = nil)
@@ -748,7 +753,7 @@ classDiagram
    - 审核工单和沟通工单都支持从`pending`直接到`approved`的状态转换
 
 4. **费用明细选择简化**:
-   - 移除了`FeeDetailSelection`中的`verification_status`字段
+   - 移除了`FeeDetailSelection`中的`verification_status`字段（参见[费用明细状态简化](10_simplify_fee_detail_status.md)）
    - 简化了`select_fee_detail`方法，不再同步状态
    - 状态管理完全由`FeeDetail`模型负责
 

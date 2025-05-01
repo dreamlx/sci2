@@ -1,5 +1,12 @@
 # SCI2 工单系统测试策略 (STI 版本 - v3)
 
+有关详细的数据库结构设计，请参阅[数据库结构设计](02_database_structure.md)。
+有关详细的模型实现，请参阅[模型实现](03_model_implementation_updated.md)。
+有关详细的服务实现，请参阅[服务实现](04_service_implementation_updated.md)。
+有关详细的UI设计，请参阅[UI设计](05_activeadmin_ui_design_updated_v3.md)。
+有关详细的ActiveAdmin集成，请参阅[ActiveAdmin集成](05_activeadmin_integration_updated_v3.md)。
+有关费用明细状态简化的设计，请参阅[费用明细状态简化](10_simplify_fee_detail_status.md)。
+
 ## 1. 测试概述
 
 本测试策略旨在确保基于单表继承 (STI) 模型重构的 SCI2 工单系统符合最新的业务需求 (`需求讨论记录`) 和测试计划 (`docs/1-2SCI2工单系统测试计划_v3.md`)。数据库结构基于 "Drop and Rebuild" 策略和导入文件 (`docs/3.数据导入格式参考.md`) 设计。我们将采用单元测试、集成测试和系统测试相结合的方式。
@@ -72,8 +79,8 @@
 
 *   **FeeDetailSelection**:
     *   测试与 `FeeDetail` 和 polymorphic `WorkOrder` 的关联。
-    *   测试 `verification_status` 的验证。
     *   测试唯一性约束 (scope: `[:fee_detail_id, :work_order_id, :work_order_type]`)。
+    *   **注意**: 根据[费用明细状态简化](10_simplify_fee_detail_status.md)文档，已移除`verification_status`字段，状态管理完全由`FeeDetail`模型负责。
 *   **WorkOrderStatusChange**:
     *   测试与 polymorphic `WorkOrder` 和 `changer` (AdminUser) 的关联。
     *   测试必要字段的验证。
@@ -123,6 +130,7 @@
     *   测试 `update_verification_status` 是否正确更新 `FeeDetail` 状态。
     *   测试是否阻止在 `Reimbursement` `closed?` 时更新。
     *   测试是否正确触发 `Reimbursement` 的状态检查 (通过 `FeeDetail` 回调)。
+    *   **注意**: 根据[费用明细状态简化](10_simplify_fee_detail_status.md)文档，服务已简化，直接更新`FeeDetail.verification_status`，不再处理`FeeDetailSelection.verification_status`。
 
 ## 3. 集成测试 (STI - v3)
 
@@ -226,6 +234,7 @@
 *   **FEE-005**: [P1] 测试 `FeeDetail` view 显示所有关联工单信息。
 *   **FEE-006**: [P0] 测试所有 `FeeDetail` 变为 `verified` 后 `Reimbursement.status` 变为 `waiting_completion`。
 *   **FEE-007/008**: [P1] 测试工单备注/问题标记如何影响 `FeeDetailSelection.verification_comment` 和 `FeeDetail.verification_status`。
+    *   **注意**: 根据[费用明细状态简化](10_simplify_fee_detail_status.md)文档，状态管理完全由`FeeDetail`模型负责。
 
 ## 4. 系统测试 (STI - v3)
 
@@ -384,7 +393,7 @@ FactoryBot.define do
   factory :fee_detail_selection do
      association :fee_detail
      association :work_order, factory: :audit_work_order # Default association
-     verification_status { fee_detail&.verification_status || 'pending' }
+     # 注意：根据费用明细状态简化设计，已移除verification_status字段
   end
 
   factory :work_order_status_change do
@@ -468,3 +477,12 @@ end
 ## 10. 总结
 
 本测试策略已根据详细的 CSV 分析和 v3 数据库结构进行细化，确保覆盖 STI 模型、导入逻辑 (含重复检查和状态联动)、状态管理和最新业务需求的关键方面。通过实施本测试策略，我们可以确保系统符合最新的业务需求，特别是单表继承模型下的工单处理流程和状态联动逻辑。
+
+## 11. 相关文档引用
+
+- 有关详细的数据库结构设计，请参阅[数据库结构设计](02_database_structure.md)
+- 有关详细的模型实现，请参阅[模型实现](03_model_implementation_updated.md)
+- 有关详细的服务实现，请参阅[服务实现](04_service_implementation_updated.md)
+- 有关详细的UI设计，请参阅[UI设计](05_activeadmin_ui_design_updated_v3.md)
+- 有关详细的ActiveAdmin集成，请参阅[ActiveAdmin集成](05_activeadmin_integration_updated_v3.md)
+- 有关费用明细状态简化的设计，请参阅[费用明细状态简化](10_simplify_fee_detail_status.md)

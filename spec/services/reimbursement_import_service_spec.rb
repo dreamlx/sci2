@@ -147,6 +147,9 @@ RSpec.describe ReimbursementImportService do
       end
 
       it 'handles file processing errors' do
+        tempfile = double('tempfile', path: '/tmp/test.csv', to_path: '/tmp/test.csv')
+        file = double('file', tempfile: tempfile)
+        service = described_class.new(file, admin_user)
         allow(Roo::Spreadsheet).to receive(:open).and_raise(StandardError.new('测试错误'))
 
         result = service.import

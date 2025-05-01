@@ -45,13 +45,21 @@ class WorkOrder < ApplicationRecord
     end
   end
   
-  # 在保存前处理表单提交的fee_detail_ids
-  after_initialize :process_fee_detail_ids
+  # 在保存后处理表单提交的fee_detail_ids
+  after_create :process_fee_detail_ids
   
   def process_fee_detail_ids
-    # 如果fee_detail_ids存在且不为空，则设置@fee_detail_ids_to_select
-    if fee_detail_ids.present?
-      @fee_detail_ids_to_select = fee_detail_ids
+    return unless fee_detail_ids.present?
+    
+    fee_detail_ids.each do |fee_detail_id|
+      fee_detail = FeeDetail.find_by(id: fee_detail_id)
+      next unless fee_detail
+      
+      FeeDetailSelection.create!(
+        fee_detail_id: fee_detail.id,
+        work_order_id: self.id,
+        work_order_type: self.class.name
+      )
     end
   end
 

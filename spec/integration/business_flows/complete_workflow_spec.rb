@@ -17,10 +17,10 @@ RSpec.describe "Complete Business Flows", type: :integration do
     
     it "completes the full workflow from express receipt to audit approval" do
       # 1. 导入快递收单，创建ExpressReceiptWorkOrder
+      # 创建快递收单工单应该自动触发报销单状态更新为processing
       express_work_order = create(:express_receipt_work_order, reimbursement: reimbursement)
       
-      # 手动更新报销单状态，因为回调可能未正确触发
-      reimbursement.update(status: 'processing')
+      # 验证报销单状态已更新
       reimbursement.reload
       expect(reimbursement.status).to eq('processing')
       
@@ -47,9 +47,8 @@ RSpec.describe "Complete Business Flows", type: :integration do
       audit_service.start_processing
       
       # 验证费用明细状态变为problematic
+      # 工单状态变更应该自动触发费用明细状态更新
       fee_details.each do |fd|
-        # 手动更新费用明细状态，因为回调可能未正确触发
-        fd.update(verification_status: 'problematic')
         fd.reload
         expect(fd.verification_status).to eq('problematic')
       end
@@ -61,9 +60,8 @@ RSpec.describe "Complete Business Flows", type: :integration do
       })
       
       # 验证费用明细状态变为verified
+      # 工单状态变更应该自动触发费用明细状态更新
       fee_details.each do |fd|
-        # 手动更新费用明细状态，因为回调可能未正确触发
-        fd.update(verification_status: 'verified')
         fd.reload
         expect(fd.verification_status).to eq('verified')
       end
@@ -85,10 +83,10 @@ RSpec.describe "Complete Business Flows", type: :integration do
     
     it "completes the full workflow including communication" do
       # 1. 导入快递收单，创建ExpressReceiptWorkOrder
+      # 创建快递收单工单应该自动触发报销单状态更新为processing
       express_work_order = create(:express_receipt_work_order, reimbursement: reimbursement)
       
-      # 手动更新报销单状态，因为回调可能未正确触发
-      reimbursement.update(status: 'processing')
+      # 验证报销单状态已更新
       reimbursement.reload
       expect(reimbursement.status).to eq('processing')
       
@@ -115,9 +113,8 @@ RSpec.describe "Complete Business Flows", type: :integration do
       audit_service.start_processing
       
       # 验证费用明细状态变为problematic
+      # 工单状态变更应该自动触发费用明细状态更新
       fee_details.each do |fd|
-        # 手动更新费用明细状态，因为回调可能未正确触发
-        fd.update(verification_status: 'problematic')
         fd.reload
         expect(fd.verification_status).to eq('problematic')
       end
@@ -154,11 +151,13 @@ RSpec.describe "Complete Business Flows", type: :integration do
       
       # 6. 标记需要沟通
       comm_service = CommunicationWorkOrderService.new(communication_work_order, admin_user)
-      comm_service.mark_needs_communication
+      comm_service.toggle_needs_communication(true)
       
-      # 验证沟通工单状态变为needs_communication
+      # 验证沟通工单needs_communication标志设置为true
       communication_work_order.reload
-      expect(communication_work_order.status).to eq('needs_communication')
+      expect(communication_work_order.needs_communication).to be true
+      # 状态应该保持不变，因为needs_communication是布尔标志而非状态
+      expect(communication_work_order.status).to eq('pending')
       
       # 7. 添加沟通记录
       comm_record = communication_work_order.add_communication_record({
@@ -181,9 +180,8 @@ RSpec.describe "Complete Business Flows", type: :integration do
       expect(communication_work_order.status).to eq('approved')
       
       # 验证费用明细状态变为verified
+      # 工单状态变更应该自动触发费用明细状态更新
       fee_details.each do |fd|
-        # 手动更新费用明细状态，因为回调可能未正确触发
-        fd.update(verification_status: 'verified')
         fd.reload
         expect(fd.verification_status).to eq('verified')
       end
@@ -231,8 +229,7 @@ RSpec.describe "Complete Business Flows", type: :integration do
       audit_service.reject({audit_comment: "需要沟通"})
       
       # 验证费用明细状态为problematic
-      # 手动更新费用明细状态，因为回调可能未正确触发
-      fee_detail.update(verification_status: 'problematic')
+      # 工单状态变更应该自动触发费用明细状态更新
       fee_detail.reload
       expect(fee_detail.verification_status).to eq('problematic')
       
@@ -242,8 +239,7 @@ RSpec.describe "Complete Business Flows", type: :integration do
       comm_service.approve({resolution_summary: "已沟通解决"})
       
       # 验证费用明细状态变为verified（最新处理的工单状态）
-      # 手动更新费用明细状态，因为回调可能未正确触发
-      fee_detail.update(verification_status: 'verified')
+      # 工单状态变更应该自动触发费用明细状态更新
       fee_detail.reload
       expect(fee_detail.verification_status).to eq('verified')
       
@@ -258,29 +254,8 @@ RSpec.describe "Complete Business Flows", type: :integration do
     let!(:reimbursement) { create(:reimbursement, status: 'waiting_completion') }
     
     it "updates reimbursement status based on operation history" do
-      # 创建操作历史导入服务
-      # 使用mock文件对象，因为服务需要两个参数
-      mock_file = Tempfile.new(['test_operations', '.csv'])
-      mock_file.close
-      service = OperationHistoryImportService.new(mock_file, admin_user)
-      
-      # 准备测试数据
-      data = [
-        {
-          document_number: reimbursement.invoice_number,
-          operation_type: "审批",
-          operation_time: Time.current.strftime("%Y-%m-%d %H:%M:%S"),
-          operator: "审批人",
-          notes: "审批通过"
-        }
-      ]
-      
-      # 导入操作历史
-      # 模拟导入方法，因为实际方法可能不同
-      allow(service).to receive(:import).and_return({success: true, created: 1})
-      
-      # 手动创建操作历史记录
-      OperationHistory.create!(
+      # 创建操作历史记录，应该自动触发报销单状态更新
+      operation_history = OperationHistory.create!(
         document_number: reimbursement.invoice_number,
         operation_type: "审批",
         operation_time: Time.current,
@@ -288,13 +263,14 @@ RSpec.describe "Complete Business Flows", type: :integration do
         notes: "审批通过"
       )
       
-      # 手动更新报销单状态
-      reimbursement.update(status: 'closed', external_status: "审批通过")
-      
       # 验证报销单状态变为closed
       reimbursement.reload
       expect(reimbursement.status).to eq('closed')
-      expect(reimbursement.external_status).to eq("审批通过")
+      
+      # 验证操作历史记录已创建
+      expect(operation_history).to be_persisted
+      expect(operation_history.operation_type).to eq("审批")
+      expect(operation_history.notes).to eq("审批通过")
     end
   end
 

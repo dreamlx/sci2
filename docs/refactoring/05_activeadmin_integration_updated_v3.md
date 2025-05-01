@@ -1,5 +1,8 @@
 # SCI2 工单系统ActiveAdmin集成更新 (STI 版本 - v3.0)
 
+关于UI设计的详细信息，请参阅[UI设计](05_activeadmin_ui_design_updated_v3.md)。
+关于费用明细状态简化的设计，请参阅[费用明细状态简化](10_simplify_fee_detail_status.md)。
+
 ## 1. 主要变更概述
 
 根据新需求，需要对ActiveAdmin集成进行以下主要更新：
@@ -384,6 +387,7 @@ end
   
   <!-- 费用明细选择 -->
   <%= f.inputs "选择费用明细" do %>
+    <!-- 注意：根据费用明细状态简化设计，状态由FeeDetail模型管理，不再需要在FeeDetailSelection中存储 -->
     <%= f.input :fee_detail_ids, as: :check_boxes, collection: f.object.reimbursement&.fee_details&.map { |fd| ["##{fd.id} #{fd.fee_type} (#{number_to_currency(fd.amount)}) - #{fd.verification_status}", fd.id] } || [], label: false %>
   <% end %>
   
@@ -432,6 +436,7 @@ end
   
   <!-- 费用明细选择 -->
   <%= f.inputs "选择费用明细" do %>
+    <!-- 注意：根据费用明细状态简化设计，状态由FeeDetail模型管理，不再需要在FeeDetailSelection中存储 -->
     <%= f.input :fee_detail_ids, as: :check_boxes, collection: f.object.reimbursement&.fee_details&.map { |fd| ["##{fd.id} #{fd.fee_type} (#{number_to_currency(fd.amount)}) - #{fd.verification_status}", fd.id] } || [], label: false %>
   <% end %>
   
@@ -584,3 +589,12 @@ end
    - 设置操作历史资源为只读，只允许查看和导入
    - 移除创建、编辑和删除操作
    - 添加专门的导入页面和功能
+   
+## 7. 相关文档引用
+
+- 有关详细的数据库结构设计，请参阅[数据库结构设计](02_database_structure.md)
+- 有关详细的模型实现，请参阅[模型实现](03_model_implementation_updated.md)
+- 有关详细的服务实现，请参阅[服务实现](04_service_implementation_updated.md)
+- 有关详细的UI设计，请参阅[UI设计](05_activeadmin_ui_design_updated_v3.md)
+- 有关详细的测试策略，请参阅[测试策略](06_testing_strategy.md)
+- 有关费用明细状态简化的设计，请参阅[费用明细状态简化](10_simplify_fee_detail_status.md)

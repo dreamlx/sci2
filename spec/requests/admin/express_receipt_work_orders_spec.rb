@@ -31,12 +31,28 @@ RSpec.describe "Admin::ExpressReceiptWorkOrders", type: :request do
   end
 
   describe "POST /admin/express_receipt_work_orders" do
+    let!(:fee_detail) { create(:fee_detail, document_number: reimbursement.invoice_number) }
+
     it "创建新的快递收单工单" do
-      express_receipt_work_order_params = attributes_for(:express_receipt_work_order, reimbursement_id: reimbursement.id)
+      express_receipt_work_order_params = attributes_for(:express_receipt_work_order,
+        reimbursement_id: reimbursement.id,
+        fee_detail_ids: [fee_detail.id]
+      )
+      
       expect {
         post admin_express_receipt_work_orders_path, params: { express_receipt_work_order: express_receipt_work_order_params }
       }.to change(ExpressReceiptWorkOrder, :count).by(1)
-      expect(response).to redirect_to(admin_express_receipt_work_order_path(ExpressReceiptWorkOrder.last))
+        .and change(FeeDetailSelection, :count).by(1)
+      
+      created_work_order = ExpressReceiptWorkOrder.last
+      expect(response).to redirect_to(admin_express_receipt_work_order_path(created_work_order))
+      
+      # 验证FeeDetailSelection记录
+      expect(FeeDetailSelection.where(
+        work_order_id: created_work_order.id,
+        work_order_type: 'ExpressReceiptWorkOrder',
+        fee_detail_id: fee_detail.id
+      ).exists?).to be true
     end
   end
 
@@ -68,7 +84,7 @@ RSpec.describe "Admin::ExpressReceiptWorkOrders", type: :request do
 
       # 模拟导入服务成功
       service_double = instance_double(ExpressReceiptImportService, import: { success: true, created: 1, skipped: 0, unmatched: 0, errors: 0 })
-      expect(ExpressReceiptImportService).to receive(:new).with(file, admin_user).and_return(service_double)
+      expect(ExpressReceiptImportService).to receive(:new).with(instance_of(ActionDispatch::Http::UploadedFile), admin_user).and_return(service_double)
 
       post import_admin_express_receipt_work_orders_path, params: { file: file }
 
@@ -93,7 +109,7 @@ RSpec.describe "Admin::ExpressReceiptWorkOrders", type: :request do
 
       # 模拟导入服务失败
       service_double = instance_double(ExpressReceiptImportService, import: { success: false, errors: ["导入错误"] })
-      allow(ExpressReceiptImportService).to receive(:new).with(file, admin_user).and_return(service_double)
+      allow(ExpressReceiptImportService).to receive(:new).with(instance_of(ActionDispatch::Http::UploadedFile), admin_user).and_return(service_double)
 
       post import_admin_express_receipt_work_orders_path, params: { file: file }
       expect(response).to redirect_to(new_import_admin_express_receipt_work_orders_path)

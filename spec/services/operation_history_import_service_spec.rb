@@ -1,15 +1,13 @@
 # spec/services/operation_history_import_service_spec.rb
 require 'rails_helper'
 require 'tempfile'
+require 'rack/test'
 
 RSpec.describe OperationHistoryImportService do
   let(:admin_user) { create(:admin_user) }
   let(:file) do
-    # Create a mock file object that responds to path and present?
-    file = double('file')
-    allow(file).to receive(:path).and_return('test_operation_histories.csv')
-    allow(file).to receive(:present?).and_return(true)
-    file
+    file_path = Rails.root.join('spec', 'test_data', 'test_operation_histories.csv')
+    Rack::Test::UploadedFile.new(file_path, 'text/csv')
   end
   let(:service) { described_class.new(file, admin_user) }
 

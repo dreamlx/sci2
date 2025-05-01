@@ -31,9 +31,17 @@ RSpec.describe "Admin::AuditWorkOrders", type: :request do
       expect {
         post admin_audit_work_orders_path, params: { audit_work_order: audit_work_order_params }
       }.to change(AuditWorkOrder, :count).by(1)
+        .and change(FeeDetailSelection, :count).by(2)
+      
       expect(response).to redirect_to(admin_audit_work_order_path(AuditWorkOrder.last))
       expect(AuditWorkOrder.last.problem_type).to eq('发票问题')
-      expect(AuditWorkOrder.last.fee_details.count).to eq(2)
+      
+      # 验证FeeDetailSelection记录
+      created_work_order = AuditWorkOrder.last
+      expect(FeeDetailSelection.where(
+        work_order_id: created_work_order.id,
+        work_order_type: 'AuditWorkOrder'
+      ).count).to eq(2)
     end
   end
 
@@ -44,7 +52,7 @@ RSpec.describe "Admin::AuditWorkOrders", type: :request do
       }
       audit_work_order.reload
       expect(audit_work_order.remark).to eq("Updated Remark")
-      expect(audit_work_order.processing_opinion).to eq("可以可以通过") # Note: This should likely be "可以通过" based on the options
+      expect(audit_work_order.processing_opinion).to eq("可以通过")
       expect(response).to redirect_to(admin_audit_work_order_path(audit_work_order))
     end
   end
@@ -61,7 +69,7 @@ RSpec.describe "Admin::AuditWorkOrders", type: :request do
       # 模拟服务调用成功
       service_double = instance_double(AuditWorkOrderService, start_processing: true)
       expect(AuditWorkOrderService).to receive(:new).with(audit_work_order, admin_user).and_return(service_double)
-      expect(service_double).to receive(:start_processing).with({}) # 检查是否调用了服务方法
+      expect(service_double).to receive(:start_processing).with(hash_including(processing_opinion: nil)) # 检查是否调用了服务方法
 
       put start_processing_admin_audit_work_order_path(audit_work_order)
       expect(response).to redirect_to(admin_audit_work_order_path(audit_work_order))
@@ -104,21 +112,40 @@ RSpec.describe "Admin::AuditWorkOrders", type: :request do
   end
 
   describe "POST /admin/audit_work_orders/:id/do_approve" do
-    it "审核通过工单" do
-      # 先将工单状态设为processing
-      audit_work_order.update(status: 'processing')
+    context "从processing状态审核" do
+      before do
+        audit_work_order.update(status: 'processing')
+      end
 
-      # 模拟服务调用成功
-      service_double = instance_double(AuditWorkOrderService, approve: true)
-      expect(AuditWorkOrderService).to receive(:new).with(audit_work_order, admin_user).and_return(service_double)
-      expect(service_double).to receive(:approve).with(hash_including(audit_comment: "审核通过测试")) # 检查是否调用了服务方法并传递参数
+      it "审核通过工单" do
+        # 模拟服务调用成功
+        service_double = instance_double(AuditWorkOrderService, approve: true)
+        expect(AuditWorkOrderService).to receive(:new).with(audit_work_order, admin_user).and_return(service_double)
+        expect(service_double).to receive(:approve).with(hash_including(audit_comment: "审核通过测试"))
 
-      post do_approve_admin_audit_work_order_path(audit_work_order), params: {
-        audit_work_order: { audit_comment: "审核通过测试" }
-      }
-      expect(response).to redirect_to(admin_audit_work_order_path(audit_work_order))
-      follow_redirect!
-      expect(response.body).to include("审核已通过")
+        post do_approve_admin_audit_work_order_path(audit_work_order), params: {
+          audit_work_order: { audit_comment: "审核通过测试" }
+        }
+        expect(response).to redirect_to(admin_audit_work_order_path(audit_work_order))
+        follow_redirect!
+        expect(response.body).to include("审核已通过")
+      end
+    end
+
+    context "从pending状态直接审核" do
+      it "审核通过工单" do
+        # 模拟服务调用成功
+        service_double = instance_double(AuditWorkOrderService, approve: true)
+        expect(AuditWorkOrderService).to receive(:new).with(audit_work_order, admin_user).and_return(service_double)
+        expect(service_double).to receive(:approve).with(hash_including(audit_comment: "直接审核通过测试"))
+
+        post do_approve_admin_audit_work_order_path(audit_work_order), params: {
+          audit_work_order: { audit_comment: "直接审核通过测试" }
+        }
+        expect(response).to redirect_to(admin_audit_work_order_path(audit_work_order))
+        follow_redirect!
+        expect(response.body).to include("审核已通过")
+      end
     end
 
     it "处理服务调用失败" do

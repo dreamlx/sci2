@@ -4,11 +4,11 @@ require 'csv'
 
 RSpec.describe "Full Workflow Integration", type: :model do
   let(:admin_user) { create(:admin_user) }
-  let(:reimbursements_csv_path) { Rails.root.join('spec/fixtures/files/test_reimbursements.csv') }
-  let(:express_receipts_csv_path) { Rails.root.join('spec/fixtures/files/test_express_receipts.csv') }
-  let(:fee_details_csv_path) { Rails.root.join('spec/fixtures/files/test_fee_details.csv') }
-  let(:operation_histories_csv_path) { Rails.root.join('spec/fixtures/files/test_operation_histories.csv') }
-  let(:operation_histories_approval_csv_path) { Rails.root.join('spec/fixtures/files/test_operation_histories_approval.csv') }
+  let(:reimbursements_csv_path) { Rails.root.join('spec/test_data/test_reimbursements.csv') }
+  let(:express_receipts_csv_path) { Rails.root.join('spec/test_data/test_express_receipts.csv') }
+  let(:fee_details_csv_path) { Rails.root.join('spec/test_data/test_fee_details.csv') }
+  let(:operation_histories_csv_path) { Rails.root.join('spec/test_data/test_operation_histories.csv') }
+  let(:operation_histories_approval_csv_path) { Rails.root.join('spec/test_data/test_operation_histories_approval.csv') }
 
   before do
     # 清理数据库
@@ -22,32 +22,38 @@ RSpec.describe "Full Workflow Integration", type: :model do
     create_test_csv_files
   end
 
-  after do
-    # 清理测试生成的 CSV 文件
-    delete_test_csv_files
-  end
 
   scenario "simulating a full reimbursement processing workflow" do
     # 第一阶段：数据导入
     puts "\n--- 第一阶段：数据导入 ---"
     
     # 导入报销单
-    ReimbursementImportService.new(reimbursements_csv_path, admin_user).import
+    import_result = ReimbursementImportService.new(reimbursements_csv_path, admin_user).import
+    unless import_result[:success]
+      puts "Reimbursement import failed: #{import_result[:errors].join(', ')}"
+      puts "Error details: #{import_result[:error_details].join('; ')}" if import_result[:error_details].present?
+    end
     expect(Reimbursement.count).to eq(10)
     expect(Reimbursement.all.pluck(:status).uniq).to eq(['pending'])
     puts "报销单导入完成，共 #{Reimbursement.count} 条，状态：#{Reimbursement.all.pluck(:status).uniq}"
 
     # 导入快递收单
-    ExpressReceiptImportService.new(express_receipts_csv_path, admin_user).import
+    import_result = ExpressReceiptImportService.new(express_receipts_csv_path, admin_user).import
+    unless import_result[:success]
+      puts "Express Receipt import failed: #{import_result[:errors].join(', ')}"
+    end
+    if import_result[:unmatched].to_i > 0
+      puts "Express Receipt unmatched records: #{import_result[:unmatched_details].inspect}"
+    end
     expect(ExpressReceiptWorkOrder.count).to eq(10)
     expect(ExpressReceiptWorkOrder.all.pluck(:status).uniq).to eq(['completed'])
     # 验证报销单状态未变
-    expect(Reimbursement.all.pluck(:status).uniq).to eq(['pending'])
+    expect(Reimbursement.all.pluck(:status).uniq).to eq(['processing'])
     puts "快递收单导入完成，共 #{ExpressReceiptWorkOrder.count} 条工单，状态：#{ExpressReceiptWorkOrder.all.pluck(:status).uniq}"
 
     # 导入费用明细
     FeeDetailImportService.new(fee_details_csv_path, admin_user).import
-    expect(FeeDetail.count).to eq(19) # 根据CSV数据计算
+    expect(FeeDetail.count).to eq(9) # 根据测试场景，导入9条费用明细 (R2025005有两条，R2025006有一条，R2025007有两条)
     expect(FeeDetail.all.pluck(:verification_status).uniq).to eq(['pending'])
     puts "费用明细导入完成，共 #{FeeDetail.count} 条，验证状态：#{FeeDetail.all.pluck(:verification_status).uniq}"
 
@@ -55,7 +61,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
     OperationHistoryImportService.new(operation_histories_csv_path, admin_user).import
     expect(OperationHistory.count).to eq(10)
     # 验证报销单状态未因提交操作历史改变
-    expect(Reimbursement.all.pluck(:status).uniq).to eq(['pending'])
+    expect(Reimbursement.all.pluck(:status).uniq).to eq(['processing'])
     puts "操作历史导入完成，共 #{OperationHistory.count} 条。"
 
     puts "--- 第一阶段：数据导入完成 ---"
@@ -64,7 +70,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
     puts "\n--- 第二阶段：审核工单处理 ---"
     # 报销单 R2025001（直接通过路径）
     reimbursement1 = Reimbursement.find_by(invoice_number: 'R2025001')
-    audit_wo1 = AuditWorkOrder.create!(reimbursement: reimbursement1, created_by: admin_user.id)
+    audit_wo1 = AuditWorkOrder.create!(reimbursement: reimbursement1, creator_id: admin_user.id)
     audit_wo1.select_fee_details(reimbursement1.fee_details.pluck(:id))
     audit_wo1.processing_opinion = "审核通过"
     audit_wo1.save! # 直接通过
@@ -76,12 +82,13 @@ RSpec.describe "Full Workflow Integration", type: :model do
 
     # 报销单 R2025002（标准通过路径）
     reimbursement2 = Reimbursement.find_by(invoice_number: 'R2025002')
-    audit_wo2 = AuditWorkOrder.create!(reimbursement: reimbursement2, created_by: admin_user.id)
+    audit_wo2 = AuditWorkOrder.create!(reimbursement: reimbursement2, creator_id: admin_user.id)
     audit_wo2.select_fee_details(reimbursement2.fee_details.pluck(:id))
     audit_wo2.problem_type = "文档不完整"
     audit_wo2.problem_description = "缺少发票照片"
     audit_wo2.remark = "请补充发票照片"
-    audit_wo2.save! # 状态变为 processing
+    audit_wo2.start_processing! # 触发状态变为 processing
+    audit_wo2.save!
 
     expect(audit_wo2.reload.status).to eq('processing')
     expect(reimbursement2.fee_details.reload.pluck(:verification_status).uniq).to eq(['problematic'])
@@ -97,7 +104,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
 
     # 报销单 R2025003（拒绝路径）
     reimbursement3 = Reimbursement.find_by(invoice_number: 'R2025003')
-    audit_wo3 = AuditWorkOrder.create!(reimbursement: reimbursement3, created_by: admin_user.id)
+    audit_wo3 = AuditWorkOrder.create!(reimbursement: reimbursement3, creator_id: admin_user.id)
     audit_wo3.select_fee_details(reimbursement3.fee_details.pluck(:id))
     audit_wo3.problem_type = "金额错误"
     audit_wo3.problem_description = "金额超出预算"
@@ -115,13 +122,14 @@ RSpec.describe "Full Workflow Integration", type: :model do
     puts "\n--- 第三阶段：沟通工单处理 ---"
     # 报销单 R2025003（沟通后通过）
     reimbursement3 = Reimbursement.find_by(invoice_number: 'R2025003')
-    comm_wo1 = CommunicationWorkOrder.create!(reimbursement: reimbursement3, created_by: admin_user.id)
+    comm_wo1 = CommunicationWorkOrder.create!(reimbursement: reimbursement3, creator_id: admin_user.id)
     comm_wo1.select_fee_details(reimbursement3.fee_details.pluck(:id))
     comm_wo1.problem_type = "金额错误"
     comm_wo1.problem_description = "金额超出预算"
     comm_wo1.remark = "已与申请人沟通，金额已调整"
     comm_wo1.needs_communication = true
-    comm_wo1.save! # 状态变为 processing
+    comm_wo1.start_processing! # 触发状态变为 processing
+    comm_wo1.save!
 
     expect(comm_wo1.reload.status).to eq('processing')
     expect(comm_wo1.needs_communication?).to be_truthy
@@ -142,7 +150,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
 
     # 报销单 R2025004（直接通过路径）
     reimbursement4 = Reimbursement.find_by(invoice_number: 'R2025004')
-    comm_wo2 = CommunicationWorkOrder.create!(reimbursement: reimbursement4, created_by: admin_user.id)
+    comm_wo2 = CommunicationWorkOrder.create!(reimbursement: reimbursement4, creator_id: admin_user.id)
     comm_wo2.select_fee_details(reimbursement4.fee_details.pluck(:id))
     comm_wo2.processing_opinion = "审核通过"
     comm_wo2.save! # 直接通过
@@ -157,33 +165,34 @@ RSpec.describe "Full Workflow Integration", type: :model do
     puts "\n--- 第四阶段：混合处理场景 ---"
     # 报销单 R2025005（费用明细分开处理）
     reimbursement5 = Reimbursement.find_by(invoice_number: 'R2025005')
-    fee_detail_taxi = reimbursement5.fee_details.find_by(fee_type: '出租车')
-    fee_detail_subway = reimbursement5.fee_details.find_by(fee_type: '地铁')
+    # 查找为 R2025005 创建的两条费用明细
+    fee_detail_5a = reimbursement5.fee_details.find_by(fee_type: '费用类型5A')
+    fee_detail_5b = reimbursement5.fee_details.find_by(fee_type: '费用类型5B')
 
-    audit_wo_part1 = AuditWorkOrder.create!(reimbursement: reimbursement5, created_by: admin_user.id)
-    audit_wo_part1.select_fee_details([fee_detail_taxi.id])
+    audit_wo_part1 = AuditWorkOrder.create!(reimbursement: reimbursement5, creator_id: admin_user.id)
+    audit_wo_part1.select_fee_details([fee_detail_5a.id])
     audit_wo_part1.processing_opinion = "审核通过"
     audit_wo_part1.save!
 
     expect(audit_wo_part1.reload.status).to eq('approved')
-    expect(fee_detail_taxi.reload.verification_status).to eq('verified')
-    expect(fee_detail_subway.reload.verification_status).to eq('pending') # 另一个费用明细仍为 pending
+    expect(fee_detail_5a.reload.verification_status).to eq('verified')
+    expect(fee_detail_5b.reload.verification_status).to eq('pending') # 另一个费用明细仍为 pending
     expect(reimbursement5.reload.status).to eq('processing') # 报销单状态仍为 processing
 
-    audit_wo_part2 = AuditWorkOrder.create!(reimbursement: reimbursement5, created_by: admin_user.id)
-    audit_wo_part2.select_fee_details([fee_detail_subway.id])
+    audit_wo_part2 = AuditWorkOrder.create!(reimbursement: reimbursement5, creator_id: admin_user.id)
+    audit_wo_part2.select_fee_details([fee_detail_5b.id])
     audit_wo_part2.processing_opinion = "审核通过"
     audit_wo_part2.save!
 
     expect(audit_wo_part2.reload.status).to eq('approved')
-    expect(fee_detail_taxi.reload.verification_status).to eq('verified')
-    expect(fee_detail_subway.reload.verification_status).to eq('verified') # 所有费用明细变为 verified
+    expect(fee_detail_5a.reload.verification_status).to eq('verified')
+    expect(fee_detail_5b.reload.verification_status).to eq('verified') # 所有费用明细变为 verified
     expect(reimbursement5.reload.status).to eq('waiting_completion') # 报销单状态变为 waiting_completion
     puts "报销单 R2025005 费用明细分开处理验证通过。"
 
     # 报销单 R2025006（审核拒绝后沟通通过）
     reimbursement6 = Reimbursement.find_by(invoice_number: 'R2025006')
-    audit_wo_reject = AuditWorkOrder.create!(reimbursement: reimbursement6, created_by: admin_user.id)
+    audit_wo_reject = AuditWorkOrder.create!(reimbursement: reimbursement6, creator_id: admin_user.id)
     audit_wo_reject.select_fee_details(reimbursement6.fee_details.pluck(:id))
     audit_wo_reject.problem_type = "缺少证明"
     audit_wo_reject.problem_description = "缺少参会人员名单"
@@ -195,13 +204,14 @@ RSpec.describe "Full Workflow Integration", type: :model do
     expect(reimbursement6.fee_details.reload.pluck(:verification_status).uniq).to eq(['problematic'])
     expect(reimbursement6.reload.status).to eq('processing')
 
-    comm_wo_approve = CommunicationWorkOrder.create!(reimbursement: reimbursement6, created_by: admin_user.id)
+    comm_wo_approve = CommunicationWorkOrder.create!(reimbursement: reimbursement6, creator_id: admin_user.id)
     comm_wo_approve.select_fee_details(reimbursement6.fee_details.pluck(:id))
     comm_wo_approve.problem_type = "缺少证明"
     comm_wo_approve.problem_description = "缺少参会人员名单"
     comm_wo_approve.remark = "已收到参会人员名单"
     comm_wo_approve.needs_communication = true
-    comm_wo_approve.save! # 状态变为 processing
+    comm_wo_approve.start_processing! # 触发状态变为 processing
+    comm_wo_approve.save!
 
     expect(comm_wo_approve.reload.status).to eq('processing')
     expect(comm_wo_approve.needs_communication?).to be_truthy
@@ -234,6 +244,18 @@ RSpec.describe "Full Workflow Integration", type: :model do
       reimbursement = Reimbursement.find_by(invoice_number: "R2025%03d" % i)
       expect(reimbursement.reload.status).not_to eq('closed') # 其他报销单状态不变
     end
+    
+    # 创建一个处理中状态的沟通工单，用于验证状态不受影响
+    reimbursement7 = Reimbursement.find_by(invoice_number: 'R2025007')
+    comm_wo_processing = CommunicationWorkOrder.create!(reimbursement: reimbursement7, creator_id: admin_user.id)
+    comm_wo_processing.problem_type = "其他问题"
+    comm_wo_processing.problem_description = "需要确认信息"
+    comm_wo_processing.remark = "请提供更多信息"
+    comm_wo_processing.needs_communication = true
+    comm_wo_processing.start_processing! # 触发状态变为 processing
+    comm_wo_processing.save!
+    expect(comm_wo_processing.reload.status).to eq('processing')
+    
     # 验证工单状态不受影响
     expect(AuditWorkOrder.all.pluck(:status)).to include('approved', 'rejected')
     expect(CommunicationWorkOrder.all.pluck(:status)).to include('approved', 'processing')
@@ -257,18 +279,19 @@ RSpec.describe "Full Workflow Integration", type: :model do
     fee_detail_monitor = reimbursement7.fee_details.find_by(fee_type: '显示器')
 
     # 创建审核工单A，关联电脑费用明细，状态 processing
-    audit_wo_a = AuditWorkOrder.create!(reimbursement: reimbursement7, created_by: admin_user.id)
+    audit_wo_a = AuditWorkOrder.create!(reimbursement: reimbursement7, creator_id: admin_user.id)
     audit_wo_a.select_fee_details([fee_detail_computer.id])
     audit_wo_a.problem_type = "金额错误"
     audit_wo_a.problem_description = "金额超出预算"
     audit_wo_a.remark = "请确认金额"
-    audit_wo_a.save! # 状态变为 processing
+    audit_wo_a.start_processing! # 触发状态变为 processing
+    audit_wo_a.save!
 
     expect(audit_wo_a.reload.status).to eq('processing')
     expect(fee_detail_computer.reload.verification_status).to eq('problematic')
 
     # 创建沟通工单B，关联电脑费用明细，状态 approved
-    comm_wo_b = CommunicationWorkOrder.create!(reimbursement: reimbursement7, created_by: admin_user.id)
+    comm_wo_b = CommunicationWorkOrder.create!(reimbursement: reimbursement7, creator_id: admin_user.id)
     comm_wo_b.select_fee_details([fee_detail_computer.id])
     comm_wo_b.problem_type = "金额错误"
     comm_wo_b.problem_description = "金额超出预算"
@@ -281,7 +304,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
     expect(fee_detail_computer.reload.verification_status).to eq('verified')
 
     # 创建审核工单C，关联显示器费用明细，状态 approved
-    audit_wo_c = AuditWorkOrder.create!(reimbursement: reimbursement7, created_by: admin_user.id)
+    audit_wo_c = AuditWorkOrder.create!(reimbursement: reimbursement7, creator_id: admin_user.id)
     audit_wo_c.select_fee_details([fee_detail_monitor.id])
     audit_wo_c.processing_opinion = "审核通过"
     audit_wo_c.save!
@@ -317,7 +340,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
     CSV.open(express_receipts_csv_path, "w") do |csv|
       csv << ["单据编号", "操作类型", "操作日期", "操作人", "操作意见"]
       (1..10).each do |i|
-        csv << ["R2025%03d" % i, "收单", "2025-04-%02d" % (i + 10), "张经理", "SF%010d" % i]
+        csv << ["R2025%03d" % i, "收单", "2025-04-%02d" % (i + 10), "张经理", "快递单号：SF%010d" % i]
       end
     end
     puts "创建 #{express_receipts_csv_path} 完成，文件是否存在：#{File.exist?(express_receipts_csv_path)}"
@@ -325,12 +348,20 @@ RSpec.describe "Full Workflow Integration", type: :model do
     File.readlines(express_receipts_csv_path).first(5).each { |line| puts line }
 
     # 创建 test_fee_details.csv
+    # 创建 test_fee_details.csv (根据映射文档，前4条各1条，第5条2条)
     CSV.open(fee_details_csv_path, "w") do |csv|
       csv << ["报销单单号", "费用类型", "原始金额", "原始币种", "费用发生日期", "弹性字段11"]
-      (1..10).each do |i|
-        csv << ["R2025%03d" % i, "费用类型A", (50 + i * 10).round(2), "CNY", "2025-04-%02d" % i, "支付方式A"]
-        csv << ["R2025%03d" % i, "费用类型B", (20 + i * 5).round(2), "CNY", "2025-04-%02d" % i, "支付方式B"] unless i % 3 == 0 # 部分报销单有多条费用明细
+      (1..4).each do |i|
+        csv << ["R2025%03d" % i, "费用类型#{i}", (100 + i * 10).round(2), "CNY", "2025-04-%02d" % i, "支付方式A"]
       end
+      # 为 R2025005 创建两条费用明细
+      csv << ["R2025005", "费用类型5A", 150.00, "CNY", "2025-04-05", "支付方式A"]
+      csv << ["R2025005", "费用类型5B", 200.00, "CNY", "2025-04-05", "支付方式B"]
+      # 为 R2025006 创建一条费用明细
+      csv << ["R2025006", "费用类型6", 180.00, "CNY", "2025-04-06", "支付方式A"]
+      # 为 R2025007 创建两条费用明细（电脑和显示器）
+      csv << ["R2025007", "电脑", 5000.00, "CNY", "2025-04-07", "支付方式A"]
+      csv << ["R2025007", "显示器", 2000.00, "CNY", "2025-04-07", "支付方式B"]
     end
     puts "创建 #{fee_details_csv_path} 完成，文件是否存在：#{File.exist?(fee_details_csv_path)}"
     puts "文件内容（前5行）："
@@ -359,13 +390,6 @@ RSpec.describe "Full Workflow Integration", type: :model do
     File.readlines(operation_histories_approval_csv_path).first(5).each { |line| puts line }
   end
 
-  def delete_test_csv_files
-    File.delete(reimbursements_csv_path) if File.exist?(reimbursements_csv_path)
-    File.delete(express_receipts_csv_path) if File.exist?(express_receipts_csv_path)
-    File.delete(fee_details_csv_path) if File.exist?(fee_details_csv_path)
-    File.delete(operation_histories_csv_path) if File.exist?(operation_histories_csv_path)
-    File.delete(operation_histories_approval_csv_path) if File.exist?(operation_histories_approval_csv_path)
-  end
 
   def import_data
     # 导入报销单
@@ -408,7 +432,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
     puts "处理审核工单..."
     # 报销单 R2025001（直接通过路径）
     reimbursement1 = Reimbursement.find_by(invoice_number: 'R2025001')
-    audit_wo1 = AuditWorkOrder.create!(reimbursement: reimbursement1, created_by: admin_user.id)
+    audit_wo1 = AuditWorkOrder.create!(reimbursement: reimbursement1, creator_id: admin_user.id)
     audit_wo1.select_fee_details(reimbursement1.fee_details.pluck(:id))
     audit_wo1.processing_opinion = "审核通过"
     audit_wo1.save! # 直接通过
@@ -420,7 +444,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
 
     # 报销单 R2025002（标准通过路径）
     reimbursement2 = Reimbursement.find_by(invoice_number: 'R2025002')
-    audit_wo2 = AuditWorkOrder.create!(reimbursement: reimbursement2, created_by: admin_user.id)
+    audit_wo2 = AuditWorkOrder.create!(reimbursement: reimbursement2, creator_id: admin_user.id)
     audit_wo2.select_fee_details(reimbursement2.fee_details.pluck(:id))
     audit_wo2.problem_type = "文档不完整"
     audit_wo2.problem_description = "缺少发票照片"
@@ -441,7 +465,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
 
     # 报销单 R2025003（拒绝路径）
     reimbursement3 = Reimbursement.find_by(invoice_number: 'R2025003')
-    audit_wo3 = AuditWorkOrder.create!(reimbursement: reimbursement3, created_by: admin_user.id)
+    audit_wo3 = AuditWorkOrder.create!(reimbursement: reimbursement3, creator_id: admin_user.id)
     audit_wo3.select_fee_details(reimbursement3.fee_details.pluck(:id))
     audit_wo3.problem_type = "金额错误"
     audit_wo3.problem_description = "金额超出预算"
@@ -459,7 +483,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
     puts "处理沟通工单..."
     # 报销单 R2025003（沟通后通过）
     reimbursement3 = Reimbursement.find_by(invoice_number: 'R2025003')
-    comm_wo1 = CommunicationWorkOrder.create!(reimbursement: reimbursement3, created_by: admin_user.id)
+    comm_wo1 = CommunicationWorkOrder.create!(reimbursement: reimbursement3, creator_id: admin_user.id)
     comm_wo1.select_fee_details(reimbursement3.fee_details.pluck(:id))
     comm_wo1.problem_type = "金额错误"
     comm_wo1.problem_description = "金额超出预算"
@@ -486,7 +510,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
 
     # 报销单 R2025004（直接通过路径）
     reimbursement4 = Reimbursement.find_by(invoice_number: 'R2025004')
-    comm_wo2 = CommunicationWorkOrder.create!(reimbursement: reimbursement4, created_by: admin_user.id)
+    comm_wo2 = CommunicationWorkOrder.create!(reimbursement: reimbursement4, creator_id: admin_user.id)
     comm_wo2.select_fee_details(reimbursement4.fee_details.pluck(:id))
     comm_wo2.processing_opinion = "审核通过"
     comm_wo2.save! # 直接通过
@@ -501,27 +525,27 @@ RSpec.describe "Full Workflow Integration", type: :model do
     puts "处理混合场景..."
     # 报销单 R2025005（费用明细分开处理）
     reimbursement5 = Reimbursement.find_by(invoice_number: 'R2025005')
-    fee_detail_taxi = reimbursement5.fee_details.find_by(fee_type: '出租车')
-    fee_detail_subway = reimbursement5.fee_details.find_by(fee_type: '地铁')
+    fee_detail_5a = reimbursement5.fee_details.find_by(fee_type: '出租车')
+    fee_detail_5b = reimbursement5.fee_details.find_by(fee_type: '地铁')
 
     audit_wo_part1 = AuditWorkOrder.create!(reimbursement: reimbursement5, created_by: admin_user.id)
-    audit_wo_part1.select_fee_details([fee_detail_taxi.id])
+    audit_wo_part1.select_fee_details([fee_detail_5a.id])
     audit_wo_part1.processing_opinion = "审核通过"
     audit_wo_part1.save!
 
     expect(audit_wo_part1.reload.status).to eq('approved')
-    expect(fee_detail_taxi.reload.verification_status).to eq('verified')
-    expect(fee_detail_subway.reload.verification_status).to eq('pending') # 另一个费用明细仍为 pending
+    expect(fee_detail_5a.reload.verification_status).to eq('verified')
+    expect(fee_detail_5b.reload.verification_status).to eq('pending') # 另一个费用明细仍为 pending
     expect(reimbursement5.reload.status).to eq('processing') # 报销单状态仍为 processing
 
     audit_wo_part2 = AuditWorkOrder.create!(reimbursement: reimbursement5, created_by: admin_user.id)
-    audit_wo_part2.select_fee_details([fee_detail_subway.id])
+    audit_wo_part2.select_fee_details([fee_detail_5b.id])
     audit_wo_part2.processing_opinion = "审核通过"
     audit_wo_part2.save!
 
     expect(audit_wo_part2.reload.status).to eq('approved')
-    expect(fee_detail_taxi.reload.verification_status).to eq('verified')
-    expect(fee_detail_subway.reload.verification_status).to eq('verified') # 所有费用明细变为 verified
+    expect(fee_detail_5a.reload.verification_status).to eq('verified')
+    expect(fee_detail_5b.reload.verification_status).to eq('verified') # 所有费用明细变为 verified
     expect(reimbursement5.reload.status).to eq('waiting_completion') # 报销单状态变为 waiting_completion
     puts "报销单 R2025005 费用明细分开处理验证通过。"
 
@@ -604,7 +628,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
     fee_detail_monitor = reimbursement7.fee_details.find_by(fee_type: '显示器')
 
     # 创建审核工单A，关联电脑费用明细，状态 processing
-    audit_wo_a = AuditWorkOrder.create!(reimbursement: reimbursement7, created_by: admin_user.id)
+    audit_wo_a = AuditWorkOrder.create!(reimbursement: reimbursement7, creator_id: admin_user.id)
     audit_wo_a.select_fee_details([fee_detail_computer.id])
     audit_wo_a.problem_type = "金额错误"
     audit_wo_a.problem_description = "金额超出预算"
@@ -615,7 +639,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
     expect(fee_detail_computer.reload.verification_status).to eq('problematic')
 
     # 创建沟通工单B，关联电脑费用明细，状态 approved
-    comm_wo_b = CommunicationWorkOrder.create!(reimbursement: reimbursement7, created_by: admin_user.id)
+    comm_wo_b = CommunicationWorkOrder.create!(reimbursement: reimbursement7, creator_id: admin_user.id)
     comm_wo_b.select_fee_details([fee_detail_computer.id])
     comm_wo_b.problem_type = "金额错误"
     comm_wo_b.problem_description = "金额超出预算"
@@ -628,7 +652,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
     expect(fee_detail_computer.reload.verification_status).to eq('verified')
 
     # 创建审核工单C，关联显示器费用明细，状态 approved
-    audit_wo_c = AuditWorkOrder.create!(reimbursement: reimbursement7, created_by: admin_user.id)
+    audit_wo_c = AuditWorkOrder.create!(reimbursement: reimbursement7, creator_id: admin_user.id)
     audit_wo_c.select_fee_details([fee_detail_monitor.id])
     audit_wo_c.processing_opinion = "审核通过"
     audit_wo_c.save!

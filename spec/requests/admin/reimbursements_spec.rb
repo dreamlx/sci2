@@ -81,7 +81,7 @@ RSpec.describe "Admin::Reimbursements", type: :request do
   end
 
   describe "POST /admin/reimbursements/import" do
-    let(:file) { fixture_file_upload('test_reimbursements.csv', 'text/csv') }
+    let(:file) { fixture_file_upload('spec/test_data/test_reimbursements.csv', 'text/csv') }
 
     it "处理没有文件的情况" do
       post import_admin_reimbursements_path
@@ -93,7 +93,7 @@ RSpec.describe "Admin::Reimbursements", type: :request do
     it "调用导入服务并重定向" do
       # 模拟导入服务成功
       service_double = instance_double(ReimbursementImportService, import: { success: true, created: 1, updated: 0, errors: 0 })
-      allow(ReimbursementImportService).to receive(:new).with(file, admin_user).and_return(service_double)
+      allow(ReimbursementImportService).to receive(:new).with(instance_of(ActionDispatch::Http::UploadedFile), admin_user).and_return(service_double)
 
       post import_admin_reimbursements_path, params: { file: file }
       expect(response).to redirect_to(admin_reimbursements_path)
@@ -104,7 +104,7 @@ RSpec.describe "Admin::Reimbursements", type: :request do
     it "处理导入服务失败" do
       # 模拟导入服务失败
       service_double = instance_double(ReimbursementImportService, import: { success: false, errors: ["导入错误"] })
-      allow(ReimbursementImportService).to receive(:new).with(file, admin_user).and_return(service_double)
+      allow(ReimbursementImportService).to receive(:new).with(instance_of(ActionDispatch::Http::UploadedFile), admin_user).and_return(service_double)
 
       post import_admin_reimbursements_path, params: { file: file }
       expect(response).to redirect_to(new_import_admin_reimbursements_path)

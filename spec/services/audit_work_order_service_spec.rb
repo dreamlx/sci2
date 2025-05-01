@@ -37,11 +37,7 @@ RSpec.describe AuditWorkOrderService, type: :service do
       expect(audit_work_order.errors.full_messages).to include("无法批准: Test error")
     end
     
-    it "requires an audit comment" do
-      params = {}
-      expect(subject.approve(params)).to be_falsey
-      expect(audit_work_order.errors.full_messages).to include("无法批准: 必须填写拒绝理由")
-    end
+    # 移除批准时要求填写评论的测试，因为设计文档中只要求拒绝时需要填写评论
   end
   
   describe "#reject" do
