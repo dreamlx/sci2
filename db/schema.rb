@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_04_30_000541) do
+ActiveRecord::Schema[7.1].define(version: 2025_05_01_051827) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -53,7 +53,6 @@ ActiveRecord::Schema[7.1].define(version: 2025_04_30_000541) do
     t.integer "fee_detail_id", null: false
     t.string "work_order_type", null: false
     t.integer "work_order_id", null: false
-    t.string "verification_status", null: false
     t.text "verification_comment"
     t.integer "verifier_id"
     t.datetime "verified_at"
@@ -61,7 +60,6 @@ ActiveRecord::Schema[7.1].define(version: 2025_04_30_000541) do
     t.datetime "updated_at", null: false
     t.index ["fee_detail_id", "work_order_id", "work_order_type"], name: "index_fee_detail_selections_on_fee_detail_and_work_order", unique: true
     t.index ["fee_detail_id"], name: "index_fee_detail_selections_on_fee_detail_id"
-    t.index ["verification_status"], name: "index_fee_detail_selections_on_verification_status"
     t.index ["verifier_id"], name: "index_fee_detail_selections_on_verifier_id"
     t.index ["work_order_type", "work_order_id"], name: "index_fee_detail_selections_on_work_order"
   end

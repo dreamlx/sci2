@@ -124,7 +124,8 @@ class ReimbursementImportService
         nil
       end
     end
-end
+```
+
 ### 1.2 快递收单导入服务 (ExpressReceiptImportService)
 
 *   Creates `ExpressReceiptWorkOrder` (status `completed`, `created_by`).
@@ -249,6 +250,7 @@ class ExpressReceiptImportService
     end
 end
 ```
+
 ### 1.3 费用明细导入服务 (FeeDetailImportService)
 
 *   Adds duplicate check (`document_number` + `fee_type` + `amount` + `fee_date`).
@@ -368,6 +370,7 @@ class FeeDetailImportService
   end
 end
 ```
+
 ### 1.4 操作历史导入服务 (OperationHistoryImportService)
 
 *   Adds duplicate check (`document_number` + `operation_type` + `operation_time` + `operator`).
@@ -489,6 +492,7 @@ class OperationHistoryImportService
     end
 end
 ```
+
 ## 2. 工单处理服务 (STI)
 
 *   Add helper `assign_shared_attributes` to handle shared Req 6/7 fields.
@@ -570,6 +574,7 @@ class AuditWorkOrderService
   end
 end
 ```
+
 ### 2.2 沟通工单处理服务 (CommunicationWorkOrderService)
 
 ```ruby
@@ -664,6 +669,11 @@ class CommunicationWorkOrderService
       # Use strong parameters if called directly from controller
       # permitted_params = params.permit(:problem_type, :problem_description, :remark, :processing_opinion)
       shared_attrs = params.slice(:problem_type, :problem_description, :remark, :processing_opinion)
+      @communication_work_order.assign_attributes(shared_attrs) if shared_attrs.present?
+  end
+end
+```
+
 ### 2.3 快递收单工单处理服务 (ExpressReceiptWorkOrderService)
 
 *(No changes needed)*
@@ -672,7 +682,31 @@ class CommunicationWorkOrderService
 
 ### 3.1 费用明细验证服务 (FeeDetailVerificationService)
 
-*(No significant changes needed)*
+```ruby
+# app/services/fee_detail_verification_service.rb
+class FeeDetailVerificationService
+  def initialize(current_admin_user)
+    @current_admin_user = current_admin_user
+    Current.admin_user = current_admin_user
+  end
+
+  # 简化后的验证状态更新方法，直接更新FeeDetail的状态
+  def update_verification_status(fee_detail, status, comment = nil)
+    # Validate status
+    unless FeeDetail::VERIFICATION_STATUSES.include?(status)
+      return false
+    end
+
+    # Check if reimbursement is closed
+    if fee_detail.reimbursement&.closed?
+      return false
+    end
+
+    # Update fee detail status
+    fee_detail.update(verification_status: status)
+  end
+end
+```
 
 ## 4. 工单状态变更服务 (WorkOrderStatusChangeService)
 
@@ -781,7 +815,8 @@ def communication_creation_params
     :problem_type, # Shared field
     :problem_description, # Shared field
     :remark, # Shared field
-    :processing_opinion # Shared field
+    :processing_opinion, # Shared field
+    :needs_communication # Boolean flag
     # resolution_summary likely not set on creation
   )
 end
@@ -803,8 +838,9 @@ end
    - 在`approve`方法中添加了注释，明确说明支持直接通过
    - 服务层依赖模型层的状态机定义，不需要特别处理
 
+4. **费用明细验证服务简化**:
+   - 简化了`FeeDetailVerificationService`，移除了对`FeeDetailSelection.verification_status`的处理
+   - 直接更新`FeeDetail.verification_status`
+
 这些更新确保了服务实现与模型实现完全对齐，特别是关于沟通工单的needs_communication实现和处理意见与状态关系的处理。
-      @communication_work_order.assign_attributes(shared_attrs) if shared_attrs.present?
-  end
 end
-```

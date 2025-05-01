@@ -291,10 +291,11 @@ class WorkOrder < ApplicationRecord
       # 保持当前状态
     when "审核通过"
       self.status = "approved" unless status == "approved"
-    when "否决"
+    when "无法通过"
       self.status = "rejected" unless status == "rejected"
     else
-      self.status = "processing" if status == "pending"
+      # 任何其他非空处理意见都设为 processing
+      self.status = "processing" unless ["approved", "rejected"].include?(status)
     end
   rescue => e
     Rails.logger.error "无法基于处理意见更新状态: #{e.message}"
@@ -393,9 +394,7 @@ class AuditWorkOrder < WorkOrder
   # 方法
   def select_fee_detail(fee_detail)
     return nil unless fee_detail.reimbursement_id == self.reimbursement_id
-    fee_detail_selections.find_or_create_by!(fee_detail: fee_detail) do |selection|
-      selection.verification_status = fee_detail.verification_status # Sync status on creation
-    end
+    fee_detail_selections.find_or_create_by!(fee_detail: fee_detail)
   end
 
   def select_fee_details(fee_detail_ids)
@@ -482,9 +481,7 @@ class CommunicationWorkOrder < WorkOrder
 
   def select_fee_detail(fee_detail)
     return nil unless fee_detail.reimbursement_id == self.reimbursement_id
-    fee_detail_selections.find_or_create_by!(fee_detail: fee_detail) do |selection|
-      selection.verification_status = fee_detail.verification_status
-    end
+    fee_detail_selections.find_or_create_by!(fee_detail: fee_detail)
   end
 
    def select_fee_details(fee_detail_ids)
@@ -519,11 +516,10 @@ class FeeDetailSelection < ApplicationRecord
 
   # 验证
   validates :fee_detail_id, uniqueness: { scope: [:work_order_id, :work_order_type], message: "已被选择" }
-  validates :verification_status, presence: true, inclusion: { in: FeeDetail::VERIFICATION_STATUSES }
 
   # ActiveAdmin配置
   def self.ransackable_attributes(auth_object = nil)
-    %w[id fee_detail_id work_order_id work_order_type verification_status verification_comment verified_by verified_at created_at updated_at]
+    %w[id fee_detail_id work_order_id work_order_type verification_comment verified_by verified_at created_at updated_at]
   end
 
   def self.ransackable_associations(auth_object = nil)
@@ -688,7 +684,6 @@ classDiagram
         +Integer fee_detail_id
         +Integer work_order_id
         +String work_order_type
-        +String verification_status
         +belongs_to fee_detail
         +belongs_to work_order (polymorphic)
     }
@@ -742,19 +737,19 @@ classDiagram
    - 更新了状态检查方法，使用布尔字段检查
 
 2. **处理意见与状态关系**:
-   - 在`WorkOrder`基类中添加了`set_status_based_on_processing_opinion`方法
+   - 在`WorkOrder`基类中更新了`set_status_based_on_processing_opinion`方法
    - 实现了处理意见与状态的自动关联:
      - 处理意见为空: 保持当前状态
      - 处理意见为"审核通过": 状态变为approved
-     - 处理意见为"否决": 状态变为rejected
-     - 其他处理意见: 状态从pending变为processing
+     - 处理意见为"无法通过": 状态变为rejected
+     - 其他任何非空处理意见: 状态变为processing（除非已经是approved或rejected）
 
 3. **直接通过路径**:
    - 审核工单和沟通工单都支持从`pending`直接到`approved`的状态转换
 
-4. **模型图表更新**:
-   - 更新了CommunicationWorkOrder的状态机描述，移除了needs_communication作为状态
-   - 添加了新的方法`mark_needs_communication!`和`unmark_needs_communication!`
-   - 添加了WorkOrder基类的`set_status_based_on_processing_opinion`方法
+4. **费用明细选择简化**:
+   - 移除了`FeeDetailSelection`中的`verification_status`字段
+   - 简化了`select_fee_detail`方法，不再同步状态
+   - 状态管理完全由`FeeDetail`模型负责
 
-这些更新确保了模型实现与测试计划和数据库结构完全对齐，特别是关于沟通工单的needs_communication实现和处理意见与状态关系的处理。
+这些更新确保了模型实现与测试计划和数据库结构完全对齐，特别是关于沟通工单的needs_communication实现、处理意见与状态关系的处理，以及费用明细状态的简化。

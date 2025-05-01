@@ -9,7 +9,6 @@ class FeeDetailSelection < ApplicationRecord
   validates :fee_detail_id, presence: true
   validates :work_order_id, presence: true
   validates :work_order_type, presence: true
-  validates :verification_status, presence: true, inclusion: { in: %w[pending problematic verified] }
   
   # 使用标准Rails唯一性验证
   validates :fee_detail_id, uniqueness: {
@@ -17,22 +16,9 @@ class FeeDetailSelection < ApplicationRecord
     message: "已被选择"
   }
   
-  # 回调
-  after_save :update_fee_detail_status, if: :saved_change_to_verification_status?
-  
-  private
-  
-  def update_fee_detail_status
-    # 仅当状态变更为 verified 或 problematic 时更新费用明细状态
-    return unless %w[verified problematic].include?(verification_status)
-    
-    # 更新费用明细状态
-    fee_detail.update(verification_status: verification_status)
-  end
-  
   # ActiveAdmin配置
   def self.ransackable_attributes(auth_object = nil)
-    %w[id fee_detail_id work_order_id work_order_type verification_status verification_comment verified_by verified_at created_at updated_at]
+    %w[id fee_detail_id work_order_id work_order_type verification_comment verifier_id verified_at created_at updated_at]
   end
   
   def self.ransackable_associations(auth_object = nil)

@@ -3,8 +3,8 @@ FactoryBot.define do
   factory :fee_detail_selection do
     fee_detail
     association :work_order, factory: :audit_work_order
-    verification_status { "pending" }
     verification_comment { "测试验证备注" }
-    # Remove verified_at and verified_by fields as they seem to be undefined
+    # verification_status has been removed from the model
+    # verified_at and verifier_id are still in the model but optional
   end
 end

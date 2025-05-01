@@ -25,7 +25,7 @@
     <% if !f.object.new_record? && f.object.audit_result.present? %>
       <%= f.input :audit_result, input_html: { disabled: true } %>
       <%= f.input :audit_comment %>
-      <%= f.input :audit_date, as: :datepicker %>
+      <%= f.input :audit_date, as: :string %>
       <%= f.input :vat_verified %>
     <% end %>
   <% end %>

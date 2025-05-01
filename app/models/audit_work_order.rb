@@ -80,9 +80,7 @@ class AuditWorkOrder < WorkOrder
       fee_detail: fee_detail,
       work_order_id: self.id,
       work_order_type: 'AuditWorkOrder'
-    ) do |selection|
-      selection.verification_status = fee_detail.verification_status # 创建时同步状态
-    end
+    )
   end
 
   def select_fee_details(fee_detail_ids)
@@ -128,8 +126,7 @@ class AuditWorkOrder < WorkOrder
         work_order_id: self.id,
         work_order_type: 'AuditWorkOrder'
       )
-      selection.update(verification_status: fee_detail.verification_status)
-      Rails.logger.info "Created/updated fee detail selection for fee detail ##{fee_detail.id} with status #{selection.verification_status}"
+      Rails.logger.info "Created fee detail selection for fee detail ##{fee_detail.id}"
     end
   end
 

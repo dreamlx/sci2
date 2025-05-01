@@ -78,7 +78,7 @@ ActiveAdmin.register AuditWorkOrder do
               work_order_id: @audit_work_order.id,
               work_order_type: 'AuditWorkOrder'
             )
-            selection.update(verification_status: fee_detail.verification_status)
+            # No longer need to update verification_status as it's been removed
             Rails.logger.info "创建/更新费用明细选择 ##{selection.id} 关联费用明细 ##{fee_detail.id}"
           end
         else
@@ -90,6 +90,37 @@ ActiveAdmin.register AuditWorkOrder do
         Rails.logger.info "AuditWorkOrder create: 保存失败，错误: #{@audit_work_order.errors.full_messages.join(', ')}"
         flash.now[:error] = "创建审核工单失败: #{@audit_work_order.errors.full_messages.join(', ')}"
         render :new
+      end
+    end
+
+    # 重写更新方法，确保正确处理处理意见
+    def update
+      Rails.logger.info "AuditWorkOrder update: params[:audit_work_order] = #{params[:audit_work_order].inspect}"
+      
+      # 获取当前工单
+      @audit_work_order = AuditWorkOrder.find(params[:id])
+      
+      # 使用ActiveAdmin的permit_params定义的参数
+      audit_work_order_params = params.require(:audit_work_order).permit(
+        :reimbursement_id, :audit_result, :audit_comment, :audit_date,
+        :vat_verified, :problem_type, :problem_description, :remark, :processing_opinion
+      )
+      
+      Rails.logger.info "AuditWorkOrder update: 更新参数 = #{audit_work_order_params.inspect}"
+      
+      # 记录处理意见变更
+      old_processing_opinion = @audit_work_order.processing_opinion
+      new_processing_opinion = audit_work_order_params[:processing_opinion]
+      
+      if @audit_work_order.update(audit_work_order_params)
+        Rails.logger.info "AuditWorkOrder update: 更新成功，ID=#{@audit_work_order.id}"
+        Rails.logger.info "AuditWorkOrder update: 处理意见从 '#{old_processing_opinion}' 变更为 '#{new_processing_opinion}'"
+        
+        redirect_to admin_audit_work_order_path(@audit_work_order), notice: "审核工单已成功更新"
+      else
+        Rails.logger.info "AuditWorkOrder update: 更新失败，错误: #{@audit_work_order.errors.full_messages.join(', ')}"
+        flash.now[:error] = "更新审核工单失败: #{@audit_work_order.errors.full_messages.join(', ')}"
+        render :edit
       end
     end
   end
@@ -242,8 +273,7 @@ ActiveAdmin.register AuditWorkOrder do
             column "费用明细ID", :fee_detail_id do |sel| link_to sel.fee_detail_id, admin_fee_detail_path(sel.fee_detail) end
             column "费用类型", :fee_type do |sel| sel.fee_detail.fee_type end
             column "金额", :amount do |sel| number_to_currency(sel.fee_detail.amount, unit: "¥") end
-            column "全局状态", :global_status do |sel| status_tag sel.fee_detail.verification_status end
-            column "工单内状态", :verification_status do |sel| status_tag sel.verification_status end
+            column "状态", :status do |sel| status_tag sel.fee_detail.verification_status end
             column "验证意见", :verification_comment
             column "操作" do |sel|
               link_to("更新验证状态", verify_fee_detail_admin_audit_work_order_path(resource, fee_detail_id: sel.fee_detail_id))

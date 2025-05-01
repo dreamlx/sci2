@@ -1,131 +1,79 @@
-# SCI2 工单系统 UI 实现变更总结
+# 费用明细状态简化实现变更总结
 
-## 变更背景
+## 1. 背景
 
-根据最新的需求讨论和测试计划，需要对SCI2工单系统的UI实现进行两项重要调整：
+根据 `docs/refactoring/10_simplify_fee_detail_status.md` 文档，当前费用明细存在"全局状态"（`FeeDetail.verification_status`）和"工单内状态"（`FeeDetailSelection.verification_status`）两个状态，设计和实现上存在混淆，导致在更新工单处理意见时，费用明细状态未能正确更新。
 
-1. **操作历史记录只读化**：操作历史记录(OperationHistory)应该只能通过导入从ERP系统获取，不能在UI中直接添加、编辑或删除。
+为了简化逻辑并解决当前 bug，我们采纳了简化的设计方案，移除了 `FeeDetailSelection` 中的 `verification_status` 字段，使 `FeeDetail` 模型完全负责状态管理。
 
-2. **工单状态管理优化**：工单状态不应该由用户直接编辑，而应该通过状态机逻辑和明确的操作按钮（如"开始处理"、"审核通过"等）来管理。
+## 2. 变更内容
 
-## 主要变更内容
+### 2.1 数据库变更
 
-### 1. 操作历史记录只读化
+1. 创建迁移脚本 `20250501051827_remove_verification_status_from_fee_detail_selections.rb`，移除 `fee_detail_selections` 表中的 `verification_status` 字段。
 
-#### 变更前
-- 操作历史可能在UI中被创建、编辑或删除
-- 没有明确限制操作历史的来源
+### 2.2 模型变更
 
-#### 变更后
-- 操作历史设置为只读资源，只允许查看和导入
-- 移除了创建、编辑和删除操作
-- 添加了专门的导入页面和功能
-- 在ActiveAdmin中明确限制了actions为`:index, :show`
+1. 更新 `FeeDetailSelection` 模型，移除与 `verification_status` 相关的验证和方法。
+2. 更新 `WorkOrder` 基类中的 `update_associated_fee_details_status` 方法，直接更新 `FeeDetail` 的状态。
+3. 更新 `AuditWorkOrder` 和 `CommunicationWorkOrder` 中的 `select_fee_detail` 方法，移除状态同步逻辑。
 
-```ruby
-# app/admin/operation_histories.rb
-ActiveAdmin.register OperationHistory do
-  actions :index, :show
-  
-  # 添加导入功能
-  action_item :import, only: :index do
-    link_to '导入操作历史', new_admin_operation_history_import_path
-  end
-  
-  # 列表页操作仅保留"查看"
-  index do
-    # ...
-    actions defaults: false do |operation_history|
-      item "查看", admin_operation_history_path(operation_history)
-    end
-  end
-end
-```
+### 2.3 服务层变更
 
-### 2. 工单状态管理优化
+1. 简化 `FeeDetailVerificationService`，移除对 `FeeDetailSelection.verification_status` 的处理，直接更新 `FeeDetail.verification_status`。
+2. 更新 `AuditWorkOrderService` 和 `CommunicationWorkOrderService` 中的 `update_fee_detail_verification` 方法，适应新的验证逻辑。
 
-#### 变更前
-- 工单状态可能在表单中被直接编辑
-- 状态字段包含在`permit_params`中，允许通过表单提交更改
-- 状态变更逻辑分散在控制器和JavaScript中
+### 2.4 UI变更
 
-#### 变更后
-- 移除了表单中的状态直接编辑功能
-- 从`permit_params`中移除了`status`字段
-- 在表单中只显示状态，不允许编辑
-- 添加了明确的状态操作按钮（开始处理、审核通过、审核拒绝等）
-- 通过成员操作(member_action)实现状态变更，确保调用状态机方法
-- 状态变更逻辑集中在服务层和状态机中
+1. 更新 ActiveAdmin 表单和显示逻辑，移除对 `FeeDetailSelection.verification_status` 的引用。
+2. 确保费用明细列表显示的是 `FeeDetail.verification_status`。
 
-```ruby
-# 表单中状态只显示，不允许编辑
-<% unless f.object.new_record? %>
-  <li class="string input optional">
-    <label class="label">状态</label>
-    <span><%= f.object.status %></span>
-  </li>
-<% end %>
+### 2.5 数据迁移
 
-# 添加状态操作按钮
-panel "操作" do
-  if resource.pending?
-    span do
-      button_to "开始处理", start_processing_admin_audit_work_order_path(resource), method: :post, class: "button"
-      button_to "审核通过", approve_admin_audit_work_order_path(resource), method: :post, class: "button"
-    end
-  elsif resource.processing?
-    span do
-      button_to "审核通过", approve_admin_audit_work_order_path(resource), method: :post, class: "button"
-      button_to "审核拒绝", reject_admin_audit_work_order_path(resource), method: :post, class: "button"
-    end
-  end
-end
+1. 创建 Rake 任务 `fix_fee_detail_selections`，在应用迁移前确保数据一致性：
+   - 收集所有 `FeeDetailSelection` 中的状态信息
+   - 根据优先级（verified > problematic > pending）更新对应的 `FeeDetail` 记录
+   - 确保没有数据丢失
 
-# 添加状态操作的成员操作
-member_action :start_processing, method: :post do
-  @work_order = AuditWorkOrder.find(params[:id])
-  service = AuditWorkOrderService.new(@work_order, current_admin_user)
-  
-  if service.start_processing
-    redirect_to admin_audit_work_order_path(@work_order), notice: "已开始处理"
-  else
-    redirect_to admin_audit_work_order_path(@work_order), alert: "无法开始处理: #{@work_order.errors.full_messages.join(', ')}"
-  end
-end
-```
+## 3. 实施步骤
 
-## 实施建议
+1. 运行 Rake 任务确保数据一致性：
+   ```
+   bundle exec rake sci2:fix_fee_detail_selections
+   ```
 
-### 1. 操作历史只读化实施步骤
+2. 应用数据库迁移：
+   ```
+   bundle exec rails db:migrate
+   ```
 
-1. 更新`app/admin/operation_histories.rb`，限制actions为`:index, :show`
-2. 添加导入功能和导入页面
-3. 确保导入服务(`OperationHistoryImportService`)正常工作
-4. 更新测试，确保操作历史只能通过导入添加
+3. 部署更新后的代码。
 
-### 2. 工单状态管理优化实施步骤
+## 4. 测试要点
 
-1. 更新工单资源文件，从`permit_params`中移除`status`
-2. 更新表单模板，将状态字段改为只读显示
-3. 添加状态操作按钮和对应的成员操作
-4. 确保服务层方法正确调用状态机事件
-5. 更新测试，验证状态只能通过操作按钮变更
+1. 验证费用明细状态能够正确根据工单状态更新：
+   - 工单状态为 `approved` 时，费用明细状态变为 `verified`
+   - 其他任何工单状态，费用明细状态变为 `problematic`
 
-## 预期效果
+2. 验证费用明细可以关联到多个工单，状态跟随最新处理的工单状态变化。
 
-### 1. 操作历史只读化
+3. 验证报销单状态能够正确根据费用明细状态更新：
+   - 所有费用明细 `verified` 时，报销单状态自动变为 `waiting_completion`
 
-- 确保操作历史数据的完整性和一致性
-- 明确操作历史的来源为ERP系统导入
-- 防止手动创建或修改操作历史导致的数据不一致
+4. 验证处理意见与工单状态的关系正确实现：
+   - 处理意见为"审核通过"时，工单状态变为 `approved`
+   - 处理意见为"无法通过"时，工单状态变为 `rejected`
+   - 其他处理意见，工单状态变为 `processing`
 
-### 2. 工单状态管理优化
+## 5. 优势
 
-- 确保工单状态变更符合业务流程规则
-- 提高用户界面的直观性，通过明确的操作按钮引导用户
-- 减少用户错误操作的可能性
-- 集中状态变更逻辑，便于维护和扩展
+1. **简化数据模型**：移除冗余状态字段，减少状态同步的复杂性。
+2. **明确责任划分**：`FeeDetail` 模型完全负责状态管理，`FeeDetailSelection` 仅负责关联关系。
+3. **减少错误可能**：状态只存储在一个地方，避免状态不一致的问题。
+4. **提高性能**：减少数据库查询和更新操作。
 
-## 结论
+## 6. 注意事项
 
-这些变更将使SCI2工单系统的UI实现更加符合业务需求，提高系统的可用性和数据一致性。通过限制操作历史的编辑和优化工单状态管理，系统将更加稳定和可靠，同时提供更好的用户体验。
+1. 确保在应用迁移前运行 Rake 任务，以防数据丢失。
+2. 更新后的系统中，`FeeDetailSelection` 不再包含状态信息，所有状态查询和更新都应直接针对 `FeeDetail`。
+3. 如果有依赖 `FeeDetailSelection.verification_status` 的自定义报表或查询，需要相应更新。

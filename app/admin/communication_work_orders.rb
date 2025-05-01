@@ -66,7 +66,7 @@ ActiveAdmin.register CommunicationWorkOrder do
               work_order_id: @communication_work_order.id,
               work_order_type: 'CommunicationWorkOrder'
             )
-            selection.update(verification_status: fee_detail.verification_status)
+            # No longer need to update verification_status as it's been removed
             Rails.logger.info "创建/更新费用明细选择 ##{selection.id} 关联费用明细 ##{fee_detail.id}"
           end
         else
@@ -78,6 +78,37 @@ ActiveAdmin.register CommunicationWorkOrder do
         Rails.logger.info "CommunicationWorkOrder create: 保存失败，错误: #{@communication_work_order.errors.full_messages.join(', ')}"
         flash.now[:error] = "创建沟通工单失败: #{@communication_work_order.errors.full_messages.join(', ')}"
         render :new
+      end
+    end
+
+    # 重写更新方法，确保正确处理处理意见
+    def update
+      Rails.logger.info "CommunicationWorkOrder update: params[:communication_work_order] = #{params[:communication_work_order].inspect}"
+      
+      # 获取当前工单
+      @communication_work_order = CommunicationWorkOrder.find(params[:id])
+      
+      # 使用ActiveAdmin的permit_params定义的参数
+      communication_work_order_params = params.require(:communication_work_order).permit(
+        :reimbursement_id, :communication_method, :initiator_role, :resolution_summary,
+        :problem_type, :problem_description, :remark, :processing_opinion, :needs_communication
+      )
+      
+      Rails.logger.info "CommunicationWorkOrder update: 更新参数 = #{communication_work_order_params.inspect}"
+      
+      # 记录处理意见变更
+      old_processing_opinion = @communication_work_order.processing_opinion
+      new_processing_opinion = communication_work_order_params[:processing_opinion]
+      
+      if @communication_work_order.update(communication_work_order_params)
+        Rails.logger.info "CommunicationWorkOrder update: 更新成功，ID=#{@communication_work_order.id}"
+        Rails.logger.info "CommunicationWorkOrder update: 处理意见从 '#{old_processing_opinion}' 变更为 '#{new_processing_opinion}'"
+        
+        redirect_to admin_communication_work_order_path(@communication_work_order), notice: "沟通工单已成功更新"
+      else
+        Rails.logger.info "CommunicationWorkOrder update: 更新失败，错误: #{@communication_work_order.errors.full_messages.join(', ')}"
+        flash.now[:error] = "更新沟通工单失败: #{@communication_work_order.errors.full_messages.join(', ')}"
+        render :edit
       end
     end
   end
@@ -284,8 +315,7 @@ ActiveAdmin.register CommunicationWorkOrder do
                column "费用明细ID", :fee_detail_id do |sel| link_to sel.fee_detail_id, admin_fee_detail_path(sel.fee_detail) end
                column "费用类型", :fee_type do |sel| sel.fee_detail.fee_type end
                column "金额", :amount do |sel| number_to_currency(sel.fee_detail.amount, unit: "¥") end
-               column "全局状态", :global_status do |sel| status_tag sel.fee_detail.verification_status end
-               column "工单内状态", :verification_status do |sel| status_tag sel.verification_status end
+               column "状态", :status do |sel| status_tag sel.fee_detail.verification_status end
                column "验证意见", :verification_comment
                column "操作" do |sel|
                  link_to("更新验证状态", verify_fee_detail_admin_communication_work_order_path(resource, fee_detail_id: sel.fee_detail_id))

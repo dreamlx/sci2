@@ -66,7 +66,6 @@ erDiagram
         integer fee_detail_id FK
         integer work_order_id FK
         string work_order_type # Polymorphic type
-        string verification_status # Synced/Redundant status
         text verification_comment
         integer verified_by FK # Link to AdminUser
         datetime verified_at
@@ -148,33 +147,33 @@ erDiagram
 
 ```
 [创建] --> pending --> processing --> rejected/approved
+                  \
+                   \--> approved/rejected (直接路径，基于处理意见)
 ```
 
-- **初始状态**：`pending`（处理意见为空）
-- **处理中状态**：`processing`（问题类型/说明有内容或备注不为空）
+- **初始状态**：`pending`（创建时）
+- **处理中状态**：`processing`（处理意见非空且不是"审核通过"或"无法通过"）
 - **结束状态**：
   - `approved`（处理意见为"审核通过"）
-  - `rejected`（处理意见为"否决"）
-- **直接通过路径**：支持从 `pending` 直接到 `approved` 的状态转换
+  - `rejected`（处理意见为"无法通过"）
+- **状态转换触发**：处理意见字段是主要驱动因素
 
 #### 沟通工单 (CommunicationWorkOrder < WorkOrder)
 
 沟通工单状态流转图：
 
 ```
-[创建] --> pending --> processing/needs_communication --> rejected/approved
+[创建] --> pending --> processing --> rejected/approved
+                  \
+                   \--> approved/rejected (直接路径，基于处理意见)
 ```
 
-- **初始状态**：`pending`（处理意见为空）
-- **处理中状态**：
-  - `processing`（问题类型/说明有内容或备注不为空）
-  - 同时可设置 `needs_communication` 布尔标志为 true，表示需要沟通
+- **初始状态**：`pending`（创建时）
+- **处理中状态**：`processing`（处理意见非空且不是"审核通过"或"无法通过"）
 - **结束状态**：
   - `approved`（处理意见为"审核通过"）
-  - `rejected`（处理意见为"否决"）
-- **直接通过路径**：支持从 `pending` 直接到 `approved` 的状态转换
-
-**特别说明**：`needs_communication` 实现为布尔字段（boolean），而不是状态值。这样设计允许沟通工单在任何状态下都可以标记为"需要沟通"，更灵活地满足业务需求。
+  - `rejected`（处理意见为"无法通过"）
+- **需要沟通标志**：`needs_communication` 实现为布尔字段（boolean），而不是状态值。这样设计允许沟通工单在任何状态下都可以标记为"需要沟通"，更灵活地满足业务需求。
 
 ### 2.3 费用明细验证流程 (基于最新需求)
 

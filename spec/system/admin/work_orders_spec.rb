@@ -201,12 +201,18 @@ RSpec.describe "Admin Work Orders", type: :system do
     end
     
     it "displays associated fee details" do
+      # 确保没有重复的记录
+      FeeDetailSelection.where(
+        work_order_id: audit_work_order.id,
+        work_order_type: 'AuditWorkOrder',
+        fee_detail_id: fee_detail.id
+      ).destroy_all
+      
       # Create a fee detail selection
       FeeDetailSelection.create!(
         work_order: audit_work_order,
         work_order_type: 'AuditWorkOrder',
         fee_detail: fee_detail,
-        verification_status: 'pending',
         verification_comment: '测试验证备注'
       )
       

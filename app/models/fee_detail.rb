@@ -45,17 +45,31 @@ class FeeDetail < ApplicationRecord
   
   # 业务方法
   def mark_as_verified(verifier = nil, comment = nil)
-    update(
+    Rails.logger.info "FeeDetail ##{id}: 开始标记为已验证，验证者: #{verifier&.email}"
+    result = update(
       verification_status: VERIFICATION_STATUS_VERIFIED,
       notes: comment
     )
+    if result
+      Rails.logger.info "FeeDetail ##{id}: 成功标记为已验证"
+    else
+      Rails.logger.error "FeeDetail ##{id}: 标记为已验证失败: #{errors.full_messages.join(', ')}"
+    end
+    result
   end
   
   def mark_as_problematic(verifier = nil, comment = nil)
-    update(
+    Rails.logger.info "FeeDetail ##{id}: 开始标记为有问题，验证者: #{verifier&.email}"
+    result = update(
       verification_status: VERIFICATION_STATUS_PROBLEMATIC,
       notes: comment
     )
+    if result
+      Rails.logger.info "FeeDetail ##{id}: 成功标记为有问题"
+    else
+      Rails.logger.error "FeeDetail ##{id}: 标记为有问题失败: #{errors.full_messages.join(', ')}"
+    end
+    result
   end
   
   # ActiveAdmin 配置

@@ -10,8 +10,6 @@ RSpec.describe FeeDetailSelection, type: :model do
     it { should validate_presence_of(:fee_detail_id) }
     it { should validate_presence_of(:work_order_id) }
     it { should validate_presence_of(:work_order_type) }
-    it { should validate_presence_of(:verification_status) }
-    it { should validate_inclusion_of(:verification_status).in_array(%w[pending problematic verified]) }
     # Test uniqueness with scope
     it "validates uniqueness of fee_detail_id scoped to work_order" do
       create(:fee_detail_selection, fee_detail: fee_detail, work_order: audit_work_order)
@@ -29,8 +27,10 @@ RSpec.describe FeeDetailSelection, type: :model do
   describe "ransackable methods" do
     it "includes expected attributes" do
       expect(FeeDetailSelection.ransackable_attributes).to include(
-        "id", "fee_detail_id", "work_order_id", "work_order_type", "verification_status", "verification_comment", "verified_by", "verified_at", "created_at", "updated_at"
+        "id", "fee_detail_id", "work_order_id", "work_order_type", "verification_comment", "verifier_id", "verified_at", "created_at", "updated_at"
       )
+      # verification_status has been removed from the model
+      expect(FeeDetailSelection.ransackable_attributes).not_to include("verification_status")
     end
 
     it "includes expected associations" do

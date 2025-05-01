@@ -71,7 +71,7 @@ RSpec.describe "Status Interactions", type: :model do
       expect(fee_detail.verification_status).to eq('verified')
     end
     
-    it "can create a fee detail selection with problematic status" do
+    it "can associate a fee detail with a work order" do
       # Create a new fee detail
       new_fee_detail = create(:fee_detail, document_number: reimbursement.invoice_number)
       
@@ -80,14 +80,14 @@ RSpec.describe "Status Interactions", type: :model do
       new_audit_work_order.instance_variable_set('@fee_detail_ids_to_select', [])
       new_audit_work_order.save!
       
-      # Create a fee detail selection with problematic status
+      # Create a fee detail selection
       selection = FeeDetailSelection.create!(
         work_order: new_audit_work_order,
-        fee_detail: new_fee_detail,
-        verification_status: 'problematic'
+        fee_detail: new_fee_detail
       )
       
-      expect(selection.verification_status).to eq('problematic')
+      expect(selection.fee_detail_id).to eq(new_fee_detail.id)
+      expect(selection.work_order_id).to eq(new_audit_work_order.id)
     end
   end
   

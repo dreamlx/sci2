@@ -78,7 +78,6 @@ RSpec.describe AuditWorkOrderService, type: :service do
       selection = FeeDetailSelection.last
       expect(selection.fee_detail_id).to eq(fee_detail.id)
       expect(selection.work_order_id).to eq(audit_work_order.id)
-      expect(selection.verification_status).to eq(fee_detail.verification_status)
     end
     
     it "does not select a fee detail if it does not belong to the same reimbursement" do

@@ -16,41 +16,23 @@ RSpec.describe FeeDetailVerificationService do
   
   describe '#update_verification_status' do
     context 'with valid status' do
-      it 'updates fee detail to verified' do
-        expect(fee_detail).to receive(:mark_as_verified).with(admin_user, nil).and_return(true)
+      it 'updates fee detail status directly' do
+        expect(fee_detail).to receive(:update).with(hash_including(verification_status: 'verified')).and_return(true)
         expect(service.update_verification_status(fee_detail, 'verified')).to be true
       end
       
       it 'updates fee detail to problematic' do
-        expect(fee_detail).to receive(:mark_as_problematic).with(admin_user, nil).and_return(true)
+        expect(fee_detail).to receive(:update).with(hash_including(verification_status: 'problematic')).and_return(true)
         expect(service.update_verification_status(fee_detail, 'problematic')).to be true
       end
       
-      it 'passes comment to mark_as_verified' do
-        expect(fee_detail).to receive(:mark_as_verified).with(admin_user, '测试验证意见').and_return(true)
-        service.update_verification_status(fee_detail, 'verified', '测试验证意见')
+      it 'includes comment as notes when provided' do
+        expect(fee_detail).to receive(:update).with(hash_including(verification_status: 'verified', notes: '测试备注')).and_return(true)
+        expect(service.update_verification_status(fee_detail, 'verified', '测试备注')).to be true
       end
       
-      it 'updates associated fee detail selections' do
-        selection = create(:fee_detail_selection, fee_detail: fee_detail, verification_status: 'pending')
-        
-        allow(fee_detail).to receive(:mark_as_verified).and_return(true)
-        allow(fee_detail).to receive(:fee_detail_selections).and_return([selection])
-        
-        expect(selection).to receive(:update).with(
-          hash_including(
-            verification_status: 'verified',
-            verification_comment: nil,
-            verifier: admin_user
-          )
-        )
-        
-        service.update_verification_status(fee_detail, 'verified')
-      end
-
       it 'calls update_status_based_on_fee_details! on reimbursement after successful update' do
-        allow(fee_detail).to receive(:mark_as_verified).and_return(true)
-        allow(fee_detail).to receive(:fee_detail_selections).and_return([]) # Stub to avoid testing selections update here
+        allow(fee_detail).to receive(:update).and_return(true)
         allow(fee_detail).to receive(:reimbursement).and_return(reimbursement) # Ensure reimbursement is available
         expect(reimbursement).to receive(:update_status_based_on_fee_details!)
         service.update_verification_status(fee_detail, 'verified')

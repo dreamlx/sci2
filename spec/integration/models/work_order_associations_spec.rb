@@ -16,8 +16,8 @@ RSpec.describe "WorkOrder Associations", type: :model do
       selection = FeeDetailSelection.create!(
         work_order_id: work_order.id,
         work_order_type: work_order.class.name,
-        fee_detail_id: fee_detail.id,
-        verification_status: 'pending'
+        fee_detail_id: fee_detail.id
+        # verification_status has been removed from FeeDetailSelection
       )
       
       # Reload to ensure associations are properly loaded
