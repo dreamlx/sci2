@@ -9,7 +9,27 @@ class FeeDetail < ApplicationRecord
   # 关联
   belongs_to :reimbursement, foreign_key: 'document_number', primary_key: 'invoice_number', optional: true, inverse_of: :fee_details
   has_many :fee_detail_selections, dependent: :destroy
-  has_many :work_orders, through: :fee_detail_selections, source: :work_order, source_type: 'WorkOrder'
+  
+  # 通用工单关联 - 需要自定义方法来获取所有类型的工单
+  # 由于多态关联的限制，我们不能直接使用 has_many :through 获取所有类型的工单
+  def work_orders
+    # 使用原生SQL查询，因为多态关联在ActiveRecord中有限制
+    work_order_ids = FeeDetailSelection.where(fee_detail_id: self.id).pluck(:work_order_id)
+    WorkOrder.where(id: work_order_ids)
+  end
+  
+  # 特定类型工单关联
+  has_many :audit_work_orders,
+           -> { where(type: 'AuditWorkOrder') },
+           through: :fee_detail_selections,
+           source: :work_order,
+           source_type: 'AuditWorkOrder'
+           
+  has_many :communication_work_orders,
+           -> { where(type: 'CommunicationWorkOrder') },
+           through: :fee_detail_selections,
+           source: :work_order,
+           source_type: 'CommunicationWorkOrder'
   
   # 验证
   validates :document_number, presence: true

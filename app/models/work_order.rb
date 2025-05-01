@@ -11,6 +11,13 @@ class WorkOrder < ApplicationRecord
   has_many :fee_detail_selections, as: :work_order, dependent: :destroy
   has_many :fee_details, through: :fee_detail_selections
   has_many :work_order_status_changes, as: :work_order, dependent: :destroy
+  
+  # 辅助方法，用于获取关联的费用明细
+  def associated_fee_details
+    FeeDetail.joins(:fee_detail_selections)
+             .where(fee_detail_selections: { work_order_id: self.id, work_order_type: self.class.name })
+             .distinct
+  end
 
   # 验证
   validates :reimbursement_id, presence: true
@@ -192,13 +199,9 @@ class WorkOrder < ApplicationRecord
       return
     end
     
-    # 直接查询关联的费用明细选择记录，而不是通过has_many :through关联
-    selections = FeeDetailSelection.where(work_order_id: self.id, work_order_type: self.class.name)
-    Rails.logger.info "WorkOrder ##{id}: 找到 #{selections.count} 个关联的费用明细选择记录"
-    
-    # 获取关联的费用明细
-    associated_fee_details = FeeDetail.where(id: selections.pluck(:fee_detail_id))
-    Rails.logger.info "WorkOrder ##{id}: 找到 #{associated_fee_details.count} 个关联的费用明细"
+    # 使用辅助方法获取关联的费用明细
+    fee_details = associated_fee_details
+    Rails.logger.info "WorkOrder ##{id}: 找到 #{fee_details.count} 个关联的费用明细"
     
     # 直接更新费用明细状态，不再使用 FeeDetailVerificationService
     # 也不再区分测试环境和生产环境
