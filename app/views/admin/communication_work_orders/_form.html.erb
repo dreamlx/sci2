@@ -1,14 +1,8 @@
 <%= semantic_form_for [:admin, @communication_work_order] do |f| %>
   <%= f.inputs "基本信息" do %>
-    <% if f.object.new_record? && params[:reimbursement_id] %>
-      <%= f.input :reimbursement_id, as: :hidden, input_html: { value: params[:reimbursement_id] } %>
-      <li class="string input optional">
-        <label class="label">报销单</label>
-        <%= link_to f.object.reimbursement&.invoice_number, admin_reimbursement_path(f.object.reimbursement) %>
-      </li>
-    <% else %>
-      <%= f.input :reimbursement_id, as: :select, collection: Reimbursement.all.map { |r| [r.invoice_number, r.id] }, input_html: { disabled: !f.object.new_record? } %>
-    <% end %>
+    <%= f.input :reimbursement_id, as: :select, collection: Reimbursement.all.map { |r| [r.invoice_number, r.id] }, input_html: { disabled: !f.object.new_record? } %>
+    
+
     
     <% unless f.object.new_record? %>
       <li class="string input optional">
@@ -27,48 +21,54 @@
     <%= f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '无' %>
     
     <% if !f.object.new_record? && (f.object.status == 'approved' || f.object.status == 'rejected') %>
-      <%= f.input :resolution_summary %>
+      <%= f.input :resolution_summary, required: false %>
     <% end %>
-  <% end %>
-  
-  <% if f.object.new_record? %>
-    <%= f.inputs "选择费用明细" do %>
-      <% if f.object.reimbursement_id.present? %>
-        <div class="fee-detail-selection">
+      <% if f.object.reimbursement.present? %>
+      <%= render 'admin/reimbursements/reimbursement_display', reimbursement: f.object.reimbursement %>
+    <% end %>
+  <%= f.inputs "关联费用明细" do %>
+    <% if f.object.reimbursement_id.present? %>
+      <div class="fee-detail-selection">
+      <div class="fee-detail-selection">
+        <% if f.object.new_record? %>
           <div class="select-actions">
             <a href="#" class="select-all">全选</a>
             |
             <a href="#" class="deselect-all">取消全选</a>
           </div>
-          
-          <table class="fee-details-table">
-            <thead>
+        <% end %>
+        
+        <table class="fee-details-table">
+          <thead>
+            <tr>
+              <% if f.object.new_record? %><th class="selectable"></th><% end %>
+              <th>ID</th>
+              <th>费用类型</th>
+              <th>金额</th>
+              <th>费用日期</th>
+              <th>验证状态</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% f.object.reimbursement.fee_details.each do |fee_detail| %>
               <tr>
-                <th class="selectable"></th>
-                <th>ID</th>
-                <th>费用类型</th>
-                <th>金额</th>
-                <th>费用日期</th>
-                <th>验证状态</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% f.object.reimbursement.fee_details.each do |fee_detail| %>
-                <tr>
+                <% if f.object.new_record? %>
                   <td>
                     <%= check_box_tag "communication_work_order[fee_detail_ids][]", fee_detail.id,
                                      f.object.fee_detail_ids.present? && f.object.fee_detail_ids.include?(fee_detail.id) %>
                   </td>
-                  <td><%= fee_detail.id %></td>
-                  <td><%= fee_detail.fee_type %></td>
-                  <td><%= number_to_currency(fee_detail.amount, unit: "¥") %></td>
-                  <td><%= fee_detail.fee_date %></td>
-                  <td><%= fee_detail.verification_status %></td>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
-          
+                <% end %>
+                <td><%= fee_detail.id %></td>
+                <td><%= fee_detail.fee_type %></td>
+                <td><%= number_to_currency(fee_detail.amount, unit: "¥") %></td>
+                <td><%= fee_detail.fee_date %></td>
+                <td><%= fee_detail.verification_status %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+        
+        <% if f.object.new_record? %>
           <script>
             $(document).ready(function() {
               $('.select-all').click(function(e) {
@@ -82,11 +82,12 @@
               });
             });
           </script>
-        </div>
-      <% else %>
-        <p>请先选择报销单，然后才能选择费用明细。</p>
-      <% end %>
+        <% end %>
+      </div>
+    <% else %>
+      <p>请先选择报销单，然后才能查看费用明细。</p>
     <% end %>
+  <% end %>
   <% end %>
   
   <%= f.actions %>

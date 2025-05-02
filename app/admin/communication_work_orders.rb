@@ -9,6 +9,7 @@ ActiveAdmin.register CommunicationWorkOrder do
 
   menu priority: 5, label: "沟通工单", parent: "工单管理"
   config.sort_order = 'created_at_desc'
+  config.remove_action_item :new
 
   controller do
     def scoped_collection
@@ -132,24 +133,8 @@ ActiveAdmin.register CommunicationWorkOrder do
   scope :rejected
 
   # 操作按钮
-  action_item :start_processing, only: :show, if: proc { resource.pending? } do
-    link_to "开始处理", start_processing_admin_communication_work_order_path(resource), method: :post, data: { confirm: "确定要开始处理此工单吗?" }
-  end
-  action_item :toggle_needs_communication, only: :show do
-    if resource.needs_communication?
-      link_to "取消需要沟通标记", toggle_needs_communication_admin_communication_work_order_path(resource), method: :post, data: { confirm: "确定要取消需要沟通标记吗?" }
-    else
-      link_to "标记为需要沟通", toggle_needs_communication_admin_communication_work_order_path(resource), method: :post, data: { confirm: "确定要标记为需要沟通吗?" }
-    end
-  end
-  action_item :approve, only: :show, if: proc { resource.pending? || resource.processing? || resource.needs_communication? } do
-    link_to "沟通后通过", approve_admin_communication_work_order_path(resource)
-  end
   action_item :reject, only: :show, if: proc { resource.processing? || resource.needs_communication? } do
     link_to "沟通后拒绝", reject_admin_communication_work_order_path(resource)
-  end
-  action_item :add_communication_record, only: :show do
-    link_to "添加沟通记录", new_communication_record_admin_communication_work_order_path(resource)
   end
 
   # 成员操作
@@ -274,6 +259,7 @@ ActiveAdmin.register CommunicationWorkOrder do
          attributes_table do
            row :id
            row :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
+           
            row :type
            row :status do |wo| status_tag wo.status end
            row :communication_method
@@ -289,25 +275,13 @@ ActiveAdmin.register CommunicationWorkOrder do
            row :created_at
            row :updated_at
          end
+         
+         # Include the reimbursement display partial
+         if resource.reimbursement.present?
+           render 'admin/reimbursements/reimbursement_display', reimbursement: resource.reimbursement
+         end
        end
 
-       tab "沟通记录 (#{resource.communication_records.count})" do
-          panel "沟通记录" do
-            table_for resource.communication_records.order(recorded_at: :desc) do
-              column :id
-              column :communicator_role
-              column :communicator_name
-              column :communication_method
-              column :content
-              column :recorded_at
-            end
-          end
-          div class: "action_items" do
-             span class: "action_item" do
-               link_to "添加沟通记录", new_communication_record_admin_communication_work_order_path(resource), class: "button"
-             end
-          end
-       end
 
        tab "费用明细 (#{FeeDetail.joins(:fee_detail_selections).where(fee_detail_selections: {work_order_id: resource.id, work_order_type: 'CommunicationWorkOrder'}).count})" do
           panel "费用明细信息" do

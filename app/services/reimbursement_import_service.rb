@@ -14,7 +14,8 @@ class ReimbursementImportService
 
     begin
       file_path = @file.respond_to?(:tempfile) ? @file.tempfile.to_path.to_s : @file.path
-      spreadsheet = test_spreadsheet || Roo::Spreadsheet.open(file_path, extension: :csv)
+      extension = File.extname(file_path).delete('.').downcase.to_sym
+      spreadsheet = test_spreadsheet || Roo::Spreadsheet.open(file_path, extension: extension)
       # Handle both Excel and CSV files
       sheet = if spreadsheet.respond_to?(:sheet)
                 spreadsheet.sheet(0)

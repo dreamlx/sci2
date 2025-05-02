@@ -1,4 +1,5 @@
 ActiveAdmin.register FeeDetail do
+  actions :index, :show
   permit_params :reimbursement_id, :document_number, :fee_type, :amount, :fee_date,
                 :verification_status, :payment_method, :notes
 
@@ -11,9 +12,6 @@ ActiveAdmin.register FeeDetail do
   filter :fee_date
   filter :created_at
 
-  action_item :import, only: :index do
-    link_to "导入费用明细", new_import_admin_fee_details_path
-  end
 
   collection_action :new_import, method: :get do
     render "admin/shared/import_form", locals: {
@@ -70,23 +68,49 @@ ActiveAdmin.register FeeDetail do
   end
 
   show do
-    attributes_table do
-      row :id
-      row :reimbursement do |fee_detail|
-        link_to fee_detail.document_number, admin_reimbursement_path(fee_detail.reimbursement) if fee_detail.reimbursement
+    tabs do
+      tab "基本信息" do
+        attributes_table do
+          row :id
+          row :reimbursement do |fee_detail|
+            link_to fee_detail.document_number, admin_reimbursement_path(fee_detail.reimbursement) if fee_detail.reimbursement
+          end
+          row :fee_type
+          row :amount do |fee_detail|
+            number_to_currency(fee_detail.amount, unit: "¥")
+          end
+          row :fee_date
+          row :verification_status do |fee_detail|
+            status_tag fee_detail.verification_status
+          end
+          row :payment_method
+          row :notes
+          row :created_at
+          row :updated_at
+        end
       end
-      row :fee_type
-      row :amount do |fee_detail|
-        number_to_currency(fee_detail.amount, unit: "¥")
+
+      tab "关联工单 (#{resource.fee_detail_selections.count})" do
+        panel "关联工单信息" do
+          table_for resource.fee_detail_selections.includes(:work_order) do |selection|
+            column "工单ID", :work_order_id do |sel|
+              link_to sel.work_order_id,
+                      case sel.work_order_type
+                      when 'AuditWorkOrder' then admin_audit_work_order_path(sel.work_order)
+                      when 'CommunicationWorkOrder' then admin_communication_work_order_path(sel.work_order)
+                      else '#' # Fallback for unexpected types
+                      end
+            end
+            column "工单类型", :work_order_type
+            column "工单状态", :status do |sel|
+              status_tag sel.work_order.status
+            end
+            column "创建时间", :created_at do |sel|
+              sel.work_order.created_at
+            end
+          end
+        end
       end
-      row :fee_date
-      row :verification_status do |fee_detail|
-        status_tag fee_detail.verification_status
-      end
-      row :payment_method
-      row :notes
-      row :created_at
-      row :updated_at
     end
   end
 

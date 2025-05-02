@@ -1,4 +1,4 @@
-source 'https://rubygems.org'
+source 'https://gems.ruby-china.com'
 
 git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
@@ -45,15 +45,16 @@ group :development do
   gem 'capistrano-rails', '~> 1.6'
   gem 'capistrano-bundler', '~> 2.1'
   gem 'capistrano-rvm', '~> 0.1'
-  gem 'capistrano-puma', '~> 5.2'
-  gem 'capistrano3-puma', '~> 5.2'
+  gem 'capistrano3-puma', '~> 6.0'
   gem 'sshkit', '~> 1.22'
 end
 
+# Windows does not include zoneinfo files, so bundle the tzinfo-data gem
+  gem "tzinfo-data"
 group :development, :test do
   gem 'shoulda-matchers'
   gem 'factory_bot_rails'
-  gem 'roo'
+  gem 'roo', '~> 2.9'
   # Call 'byebug' anywhere in the code to stop execution and get a debugger console
   gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
   gem 'rspec-rails'

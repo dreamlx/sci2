@@ -8,6 +8,7 @@ ActiveAdmin.register AuditWorkOrder do
 
   menu priority: 4, label: "审核工单", parent: "工单管理"
   config.sort_order = 'created_at_desc'
+  config.remove_action_item :new
 
   controller do
     def scoped_collection
@@ -260,9 +261,15 @@ ActiveAdmin.register AuditWorkOrder do
   show title: proc{|wo| "审核工单 ##{wo.id}" } do
     tabs do
       tab "基本信息" do
+        # Include the reimbursement display partial
+        if resource.reimbursement.present?
+          render 'admin/reimbursements/reimbursement_display', reimbursement: resource.reimbursement
+        end
+
         attributes_table do
           row :id
           row :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
+          
           row :type
           row :status do |wo| status_tag wo.status end
           row :audit_result do |wo| status_tag wo.audit_result if wo.audit_result.present? end

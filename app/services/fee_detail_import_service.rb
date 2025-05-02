@@ -15,12 +15,9 @@ class FeeDetailImportService
     return { success: false, errors: ["文件不存在"] } unless @file.present?
     
     begin
-      file_path = if @file.respond_to?(:tempfile)
-                   @file.tempfile.to_path.to_s
-                 else
-                   @file.path
-                 end
-      spreadsheet = test_spreadsheet || Roo::Spreadsheet.open(file_path, extension: :csv)
+      file_path = @file.respond_to?(:tempfile) ? @file.tempfile.to_path.to_s : @file.path
+      extension = File.extname(file_path).delete('.').downcase.to_sym
+      spreadsheet = test_spreadsheet || Roo::Spreadsheet.open(file_path, extension: extension)
       # Handle both Excel and CSV files
       sheet = if spreadsheet.respond_to?(:sheet)
                 spreadsheet.sheet(0)

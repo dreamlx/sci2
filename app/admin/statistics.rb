@@ -1,4 +1,5 @@
 ActiveAdmin.register_page "Statistics" do
+  menu false
   controller do
     def reimbursement_status_counts
       counts = {
