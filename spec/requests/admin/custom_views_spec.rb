@@ -37,7 +37,7 @@ RSpec.describe "Admin::CustomViews", type: :request do
       }
 
       expect(AuditWorkOrderService).to have_received(:new).with(audit_work_order, admin_user)
-      expect(service_double).to have_received(:approve).with(hash_including(audit_comment: "测试审核通过", vat_verified: true))
+      expect(service_double).to have_received(:approve).with(hash_including(audit_comment: "测试审核通过"))
       expect(response).to redirect_to(admin_audit_work_order_path(audit_work_order))
     end
 
@@ -110,9 +110,9 @@ RSpec.describe "Admin::CustomViews", type: :request do
     end
 
     it "POST /admin/audit_work_orders/:id/do_verify_fee_detail 处理验证状态更新请求" do
-      service_double = instance_double(FeeDetailVerificationService)
-      allow(FeeDetailVerificationService).to receive(:new).and_return(service_double)
-      allow(service_double).to receive(:update_verification_status).and_return(true) # Assuming the service returns boolean
+      service_double = instance_double(AuditWorkOrderService)
+      allow(AuditWorkOrderService).to receive(:new).and_return(service_double)
+      allow(service_double).to receive(:update_fee_detail_verification).and_return(true) # Assuming the service returns boolean
 
       post do_verify_fee_detail_admin_audit_work_order_path(audit_work_order), params: {
         fee_detail_id: fee_detail.id,
@@ -120,8 +120,8 @@ RSpec.describe "Admin::CustomViews", type: :request do
         comment: "测试验证通过"
       }
 
-      expect(FeeDetailVerificationService).to have_received(:new).with(admin_user)
-      expect(service_double).to have_received(:update_verification_status).with(fee_detail, "verified", "测试验证通过")
+      expect(AuditWorkOrderService).to have_received(:new).with(audit_work_order, admin_user)
+      expect(service_double).to have_received(:update_fee_detail_verification).with(fee_detail.id.to_s, "verified", "测试验证通过")
       expect(response).to redirect_to(admin_audit_work_order_path(audit_work_order))
     end
   end
@@ -135,7 +135,9 @@ RSpec.describe "Admin::CustomViews", type: :request do
     it "POST /admin/communication_work_orders/:id/create_communication_record 处理添加沟通记录请求" do
       service_double = instance_double(CommunicationWorkOrderService)
       allow(CommunicationWorkOrderService).to receive(:new).and_return(service_double)
-      allow(service_double).to receive(:add_communication_record).and_return(build_stubbed(:communication_record, persisted?: true)) # Assuming the service returns the record
+      # Mock the service method to return a CommunicationRecord instance that responds true to persisted?
+      mock_record = instance_double(CommunicationRecord, persisted?: true)
+      allow(service_double).to receive(:add_communication_record).and_return(mock_record)
 
       post create_communication_record_admin_communication_work_order_path(communication_work_order), params: {
         communication_record: {

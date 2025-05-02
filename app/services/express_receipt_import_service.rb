@@ -18,7 +18,12 @@ class ExpressReceiptImportService
     return { success: false, errors: ["导入用户不存在"] } unless @current_admin_user
     
     begin
-      spreadsheet = test_spreadsheet || Roo::Spreadsheet.open(@file.tempfile.to_path.to_s, extension: :csv)
+      file_path = if @file.respond_to?(:tempfile)
+                   @file.tempfile.to_path.to_s
+                 else
+                   @file.path
+                 end
+      spreadsheet = test_spreadsheet || Roo::Spreadsheet.open(file_path, extension: :csv)
       # Handle both Excel and CSV files
       sheet = if spreadsheet.respond_to?(:sheet)
                 spreadsheet.sheet(0)

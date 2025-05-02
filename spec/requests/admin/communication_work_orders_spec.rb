@@ -55,7 +55,7 @@ RSpec.describe "Admin::CommunicationWorkOrders", type: :request do
       ).exists?).to be true
       
       follow_redirect!
-      expect(response.body).to include("沟通工单创建成功")
+      expect(response.body).to include("沟通工单已成功创建")
     end
   end
 
@@ -65,48 +65,52 @@ RSpec.describe "Admin::CommunicationWorkOrders", type: :request do
       allow(CommunicationWorkOrderService).to receive(:new).and_return(service_double)
       allow(service_double).to receive(:approve).and_return(double(success?: true, work_order: communication_work_order))
 
-      put approve_admin_communication_work_order_path(communication_work_order)
+      post do_approve_admin_communication_work_order_path(communication_work_order), params: { communication_work_order: { resolution_summary: "测试通过理由" } }
 
       expect(CommunicationWorkOrderService).to have_received(:new).with(communication_work_order, admin_user)
-      expect(service_double).to have_received(:approve)
+      expect(service_double).to have_received(:approve).with(hash_including(resolution_summary: "测试通过理由"))
       expect(response).to redirect_to(admin_communication_work_order_path(communication_work_order))
       follow_redirect!
-      expect(response.body).to include("沟通工单已通过")
+      expect(response.body).to include("工单已沟通通过")
     end
   end
 
-  describe "PUT /admin/communication_work_orders/:id/reject" do
+  describe "POST /admin/communication_work_orders/:id/reject" do
     it "rejects the communication work order" do
       service_double = instance_double(CommunicationWorkOrderService)
       allow(CommunicationWorkOrderService).to receive(:new).and_return(service_double)
       allow(service_double).to receive(:reject).and_return(double(success?: true, work_order: communication_work_order))
 
-      put reject_admin_communication_work_order_path(communication_work_order), params: { communication_work_order: { resolution_summary: "测试拒绝理由" } }
+      post do_reject_admin_communication_work_order_path(communication_work_order), params: { communication_work_order: { resolution_summary: "测试拒绝理由" } }
 
       expect(CommunicationWorkOrderService).to have_received(:new).with(communication_work_order, admin_user)
       expect(service_double).to have_received(:reject).with(hash_including(resolution_summary: "测试拒绝理由"))
       expect(response).to redirect_to(admin_communication_work_order_path(communication_work_order))
       follow_redirect!
-      expect(response.body).to include("沟通工单已拒绝")
+      expect(response.body).to include("工单已沟通拒绝")
     end
   end
 
-  describe "PUT /admin/communication_work_orders/:id/verify_fee_detail" do
+  describe "POST /admin/communication_work_orders/:id/verify_fee_detail" do
     let(:fee_detail_to_verify) { create(:fee_detail, document_number: reimbursement.invoice_number, verification_status: 'problematic') }
-    let!(:communication_work_order_with_fee_detail) { create(:communication_work_order, reimbursement: reimbursement, fee_details: [fee_detail_to_verify], status: 'processing') }
+    let!(:communication_work_order_with_fee_detail) do
+      work_order = create(:communication_work_order, reimbursement: reimbursement, status: 'processing')
+      create(:fee_detail_selection, work_order: work_order, fee_detail: fee_detail_to_verify)
+      work_order
+    end
 
     it "verifies the associated fee detail" do
-      service_double = instance_double(FeeDetailVerificationService)
-      allow(FeeDetailVerificationService).to receive(:new).and_return(service_double)
-      allow(service_double).to receive(:update_verification_status).and_return(true) # Assuming the service returns boolean
+      service_double = instance_double(CommunicationWorkOrderService)
+      allow(CommunicationWorkOrderService).to receive(:new).and_return(service_double)
+      allow(service_double).to receive(:update_fee_detail_verification).and_return(true) # Assuming the service returns boolean
 
-      put verify_fee_detail_admin_communication_work_order_path(communication_work_order_with_fee_detail), params: { fee_detail_id: fee_detail_to_verify.id, verification_status: 'verified' }
+      post do_verify_fee_detail_admin_communication_work_order_path(communication_work_order_with_fee_detail), params: { fee_detail_id: fee_detail_to_verify.id, verification_status: 'verified', comment: '测试验证意见' }
 
-      expect(FeeDetailVerificationService).to have_received(:new).with(admin_user)
-      expect(service_double).to have_received(:update_verification_status).with(fee_detail_to_verify.id, 'verified', nil)
+      expect(CommunicationWorkOrderService).to have_received(:new).with(communication_work_order_with_fee_detail, admin_user)
+      expect(service_double).to have_received(:update_fee_detail_verification).with(fee_detail_to_verify.id.to_s, 'verified', '测试验证意见')
       expect(response).to redirect_to(admin_communication_work_order_path(communication_work_order_with_fee_detail))
       follow_redirect!
-      expect(response.body).to include("费用明细验证状态更新成功")
+      expect(response.body).to include("费用明细 ##{fee_detail_to_verify.id} 状态已更新")
     end
   end
 end

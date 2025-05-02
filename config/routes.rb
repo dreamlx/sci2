@@ -36,7 +36,13 @@ Rails.application.routes.draw do
       end
     end
 
-    resources :statistics, only: [:index]
+    resources :statistics, only: [:index] do
+      collection do
+        get :reimbursement_status_counts
+        get :work_order_status_counts
+        get :fee_detail_verification_counts
+      end
+    end
     resources :dashboards, only: [:index]
 
     # Explicit route for start_processing member action

@@ -14,9 +14,9 @@ require 'capybara/rspec' # Require Capybara RSpec integration
 require 'selenium-webdriver' # For JavaScript-enabled tests
 # Manually require state_machines-activerecord with error handling
 begin
-  require 'state_machines/active_record'
+  require 'state_machines-activerecord'
 rescue LoadError => e
-  puts "Warning: state_machines/active_record could not be loaded in test environment: #{e.message}"
+  puts "Warning: state_machines-activerecord could not be loaded in test environment: #{e.message}"
 end
 # Add additional requires below this line. Rails is not loaded until this point!
 

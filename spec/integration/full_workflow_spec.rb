@@ -1,14 +1,16 @@
 # spec/integration/full_workflow_spec.rb
 require 'rails_helper'
 require 'csv'
+require 'state_machines'
+require 'state_machines-activerecord'
 
 RSpec.describe "Full Workflow Integration", type: :model do
   let(:admin_user) { create(:admin_user) }
-  let(:reimbursements_csv_path) { Rails.root.join('spec/test_data/test_reimbursements.csv') }
-  let(:express_receipts_csv_path) { Rails.root.join('spec/test_data/test_express_receipts.csv') }
-  let(:fee_details_csv_path) { Rails.root.join('spec/test_data/test_fee_details.csv') }
-  let(:operation_histories_csv_path) { Rails.root.join('spec/test_data/test_operation_histories.csv') }
-  let(:operation_histories_approval_csv_path) { Rails.root.join('spec/test_data/test_operation_histories_approval.csv') }
+  let(:reimbursements_csv_path) { Rails.root.join('spec/fixtures/files/test_reimbursements.csv') }
+  let(:express_receipts_csv_path) { Rails.root.join('spec/fixtures/files/test_express_receipts.csv') }
+  let(:fee_details_csv_path) { Rails.root.join('spec/fixtures/files/test_fee_details.csv') }
+  let(:operation_histories_csv_path) { Rails.root.join('spec/fixtures/files/test_operation_histories.csv') }
+  let(:operation_histories_approval_csv_path) { Rails.root.join('spec/fixtures/files/test_operation_histories_approval.csv') }
 
   before do
     # 清理数据库
@@ -28,17 +30,24 @@ RSpec.describe "Full Workflow Integration", type: :model do
     puts "\n--- 第一阶段：数据导入 ---"
     
     # 导入报销单
-    import_result = ReimbursementImportService.new(reimbursements_csv_path, admin_user).import
+    puts "Before import - Reimbursement count: #{Reimbursement.count}"
+    uploaded_file = Rack::Test::UploadedFile.new(reimbursements_csv_path, 'text/csv')
+    import_result = ReimbursementImportService.new(uploaded_file, admin_user).import
+    puts "Import result: #{import_result.inspect}"
     unless import_result[:success]
       puts "Reimbursement import failed: #{import_result[:errors].join(', ')}"
       puts "Error details: #{import_result[:error_details].join('; ')}" if import_result[:error_details].present?
     end
+    puts "After import - Reimbursement count: #{Reimbursement.count}"
+    puts "Reimbursement records:"
+    Reimbursement.all.each { |r| puts r.inspect }
     expect(Reimbursement.count).to eq(10)
     expect(Reimbursement.all.pluck(:status).uniq).to eq(['pending'])
     puts "报销单导入完成，共 #{Reimbursement.count} 条，状态：#{Reimbursement.all.pluck(:status).uniq}"
 
     # 导入快递收单
-    import_result = ExpressReceiptImportService.new(express_receipts_csv_path, admin_user).import
+    uploaded_file = Rack::Test::UploadedFile.new(express_receipts_csv_path, 'text/csv')
+    import_result = ExpressReceiptImportService.new(uploaded_file, admin_user).import
     unless import_result[:success]
       puts "Express Receipt import failed: #{import_result[:errors].join(', ')}"
     end
@@ -52,13 +61,48 @@ RSpec.describe "Full Workflow Integration", type: :model do
     puts "快递收单导入完成，共 #{ExpressReceiptWorkOrder.count} 条工单，状态：#{ExpressReceiptWorkOrder.all.pluck(:status).uniq}"
 
     # 导入费用明细
-    FeeDetailImportService.new(fee_details_csv_path, admin_user).import
+    puts "Before FeeDetail import - Reimbursement count: #{Reimbursement.count}"
+    puts "Reimbursement invoice_numbers: #{Reimbursement.pluck(:invoice_number)}"
+    puts "FeeDetails CSV path: #{fee_details_csv_path}"
+    puts "FeeDetails CSV content:"
+    puts File.read(fee_details_csv_path).lines.first(5).join
+    
+    uploaded_file = Rack::Test::UploadedFile.new(fee_details_csv_path, 'text/csv')
+    import_result = FeeDetailImportService.new(uploaded_file, admin_user).import
+    puts "FeeDetail import result: #{import_result}"
+    
+    unless import_result[:success]
+      puts "Fee detail import failed: #{import_result[:errors].join(', ')}"
+      puts "Unmatched details: #{import_result[:unmatched_details].map { |d| "#{d[:document_number]} (#{d[:error]})" }.join(', ')}" if import_result[:unmatched_details].present?
+    end
+    
+    puts "After FeeDetail import - FeeDetail count: #{FeeDetail.count}"
+    puts "FeeDetail records:"
+    FeeDetail.all.each { |fd| puts fd.inspect }
+    
     expect(FeeDetail.count).to eq(9) # 根据测试场景，导入9条费用明细 (R2025005有两条，R2025006有一条，R2025007有两条)
     expect(FeeDetail.all.pluck(:verification_status).uniq).to eq(['pending'])
     puts "费用明细导入完成，共 #{FeeDetail.count} 条，验证状态：#{FeeDetail.all.pluck(:verification_status).uniq}"
 
     # 导入操作历史
-    OperationHistoryImportService.new(operation_histories_csv_path, admin_user).import
+    puts "Before OperationHistory import - OperationHistory count: #{OperationHistory.count}"
+    puts "OperationHistory CSV path: #{operation_histories_csv_path}"
+    puts "OperationHistory CSV content:"
+    puts File.read(operation_histories_csv_path).lines.first(5).join
+    
+    uploaded_file = Rack::Test::UploadedFile.new(operation_histories_csv_path, 'text/csv')
+    import_result = OperationHistoryImportService.new(uploaded_file, admin_user).import
+    puts "OperationHistory import result: #{import_result}"
+    
+    unless import_result[:success]
+      puts "Operation history import failed: #{import_result[:errors].join(', ')}"
+      puts "Error details: #{import_result[:error_details].join('; ')}" if import_result[:error_details].present?
+    end
+    
+    puts "After OperationHistory import - OperationHistory count: #{OperationHistory.count}"
+    puts "OperationHistory records:"
+    OperationHistory.all.each { |oh| puts oh.inspect }
+    
     expect(OperationHistory.count).to eq(10)
     # 验证报销单状态未因提交操作历史改变
     expect(Reimbursement.all.pluck(:status).uniq).to eq(['processing'])
@@ -69,7 +113,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
     # 第二阶段：审核工单处理
     puts "\n--- 第二阶段：审核工单处理 ---"
     # 报销单 R2025001（直接通过路径）
-    reimbursement1 = Reimbursement.find_by(invoice_number: 'R2025001')
+    reimbursement1 = Reimbursement.find_by(invoice_number: 'ER14228251')
     audit_wo1 = AuditWorkOrder.create!(reimbursement: reimbursement1, creator_id: admin_user.id)
     audit_wo1.select_fee_details(reimbursement1.fee_details.pluck(:id))
     audit_wo1.processing_opinion = "审核通过"
@@ -81,7 +125,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
     puts "报销单 R2025001 审核通过流程验证通过。"
 
     # 报销单 R2025002（标准通过路径）
-    reimbursement2 = Reimbursement.find_by(invoice_number: 'R2025002')
+    reimbursement2 = Reimbursement.find_by(invoice_number: 'ER14228252')
     audit_wo2 = AuditWorkOrder.create!(reimbursement: reimbursement2, creator_id: admin_user.id)
     audit_wo2.select_fee_details(reimbursement2.fee_details.pluck(:id))
     audit_wo2.problem_type = "文档不完整"
@@ -103,7 +147,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
     puts "报销单 R2025002 标准审核通过流程验证通过。"
 
     # 报销单 R2025003（拒绝路径）
-    reimbursement3 = Reimbursement.find_by(invoice_number: 'R2025003')
+    reimbursement3 = Reimbursement.find_by(invoice_number: 'ER14228253')
     audit_wo3 = AuditWorkOrder.create!(reimbursement: reimbursement3, creator_id: admin_user.id)
     audit_wo3.select_fee_details(reimbursement3.fee_details.pluck(:id))
     audit_wo3.problem_type = "金额错误"
@@ -121,7 +165,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
     # 第三阶段：沟通工单处理
     puts "\n--- 第三阶段：沟通工单处理 ---"
     # 报销单 R2025003（沟通后通过）
-    reimbursement3 = Reimbursement.find_by(invoice_number: 'R2025003')
+    reimbursement3 = Reimbursement.find_by(invoice_number: 'ER14228253')
     comm_wo1 = CommunicationWorkOrder.create!(reimbursement: reimbursement3, creator_id: admin_user.id)
     comm_wo1.select_fee_details(reimbursement3.fee_details.pluck(:id))
     comm_wo1.problem_type = "金额错误"
@@ -149,7 +193,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
     puts "报销单 R2025003 沟通后通过流程验证通过。"
 
     # 报销单 R2025004（直接通过路径）
-    reimbursement4 = Reimbursement.find_by(invoice_number: 'R2025004')
+    reimbursement4 = Reimbursement.find_by(invoice_number: 'ER14228254')
     comm_wo2 = CommunicationWorkOrder.create!(reimbursement: reimbursement4, creator_id: admin_user.id)
     comm_wo2.select_fee_details(reimbursement4.fee_details.pluck(:id))
     comm_wo2.processing_opinion = "审核通过"
@@ -164,7 +208,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
     # 第四阶段：混合处理场景
     puts "\n--- 第四阶段：混合处理场景 ---"
     # 报销单 R2025005（费用明细分开处理）
-    reimbursement5 = Reimbursement.find_by(invoice_number: 'R2025005')
+    reimbursement5 = Reimbursement.find_by(invoice_number: 'ER14228255')
     # 查找为 R2025005 创建的两条费用明细
     fee_detail_5a = reimbursement5.fee_details.find_by(fee_type: '费用类型5A')
     fee_detail_5b = reimbursement5.fee_details.find_by(fee_type: '费用类型5B')
@@ -191,7 +235,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
     puts "报销单 R2025005 费用明细分开处理验证通过。"
 
     # 报销单 R2025006（审核拒绝后沟通通过）
-    reimbursement6 = Reimbursement.find_by(invoice_number: 'R2025006')
+    reimbursement6 = Reimbursement.find_by(invoice_number: 'R2025006') # This one is correct as it's in the second group
     audit_wo_reject = AuditWorkOrder.create!(reimbursement: reimbursement6, creator_id: admin_user.id)
     audit_wo_reject.select_fee_details(reimbursement6.fee_details.pluck(:id))
     audit_wo_reject.problem_type = "缺少证明"
@@ -232,21 +276,33 @@ RSpec.describe "Full Workflow Integration", type: :model do
 
     # 第五阶段：操作历史导入与状态更新
     puts "\n--- 第五阶段：操作历史导入与状态更新 ---"
-    OperationHistoryImportService.new(operation_histories_approval_csv_path, admin_user).import
+    puts "Approval CSV path: #{operation_histories_approval_csv_path}"
+    puts "File exists? #{File.exist?(operation_histories_approval_csv_path)}"
+    spreadsheet = Roo::Spreadsheet.open(operation_histories_approval_csv_path, extension: :csv)
+    import_result = OperationHistoryImportService.new(operation_histories_approval_csv_path, admin_user).import(spreadsheet)
+    puts "Import result: #{import_result.inspect}"
     expect(OperationHistory.count).to eq(16) # 初始10条 + 新导入6条
     puts "审批操作历史导入完成，共 #{OperationHistory.count} 条。"
 
     (1..6).each do |i|
-      reimbursement = Reimbursement.find_by(invoice_number: "R2025%03d" % i)
+      if i <= 5
+        reimbursement = Reimbursement.find_by(invoice_number: "ER1422825#{i}")
+      else
+        reimbursement = Reimbursement.find_by(invoice_number: "R2025%03d" % i)
+      end
       expect(reimbursement.reload.status).to eq('closed')
     end
     (7..10).each do |i|
-      reimbursement = Reimbursement.find_by(invoice_number: "R2025%03d" % i)
+      if i <= 5
+        reimbursement = Reimbursement.find_by(invoice_number: "ER1422825#{i}")
+      else
+        reimbursement = Reimbursement.find_by(invoice_number: "R2025%03d" % i)
+      end
       expect(reimbursement.reload.status).not_to eq('closed') # 其他报销单状态不变
     end
     
     # 创建一个处理中状态的沟通工单，用于验证状态不受影响
-    reimbursement7 = Reimbursement.find_by(invoice_number: 'R2025007')
+    reimbursement7 = Reimbursement.find_by(invoice_number: 'R2025007') # This one is correct as it's in the second group
     comm_wo_processing = CommunicationWorkOrder.create!(reimbursement: reimbursement7, creator_id: admin_user.id)
     comm_wo_processing.problem_type = "其他问题"
     comm_wo_processing.problem_description = "需要确认信息"
@@ -265,7 +321,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
 
     # 第六阶段：电子发票标志测试
     puts "\n--- 第六阶段：电子发票标志测试 ---"
-    reimbursement7 = Reimbursement.find_by(invoice_number: 'R2025007')
+    reimbursement7 = Reimbursement.find_by(invoice_number: 'R2025007') # This one is correct as it's in the second group
     reimbursement7.update!(is_electronic: true)
     expect(reimbursement7.is_electronic?).to be_truthy
     # TODO: Add UI verification if feature specs are implemented
@@ -274,7 +330,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
 
     # 第七阶段：多工单关联同一费用明细
     puts "\n--- 第七阶段：多工单关联同一费用明细 ---"
-    reimbursement7 = Reimbursement.find_by(invoice_number: 'R2025007')
+    reimbursement7 = Reimbursement.find_by(invoice_number: 'R2025007') # This one is correct as it's in the second group
     fee_detail_computer = reimbursement7.fee_details.find_by(fee_type: '电脑')
     fee_detail_monitor = reimbursement7.fee_details.find_by(fee_type: '显示器')
 
@@ -325,7 +381,12 @@ RSpec.describe "Full Workflow Integration", type: :model do
     # 创建 test_reimbursements.csv
     CSV.open(reimbursements_csv_path, "w") do |csv|
       csv << ["报销单单号", "单据名称", "报销单申请人", "报销单申请人工号", "申请人公司", "申请人部门", "收单状态", "收单日期", "提交报销日期", "报销金额（单据币种）", "报销单状态"]
-      (1..10).each do |i|
+      # First 5 records use ER14228251-ER14228255 format
+      (1..5).each do |i|
+        csv << ["ER1422825#{i}", "报销单#{i}", "申请人#{i}", "E%03d" % i, "科技有限公司", "部门#{i}", "pending", "", "2025-04-%02d" % i, (100 + i * 50).round(2), "待审批"]
+      end
+      # Remaining records use R2025006-R2025010 format
+      (6..10).each do |i|
         csv << ["R2025%03d" % i, "报销单#{i}", "申请人#{i}", "E%03d" % i, "科技有限公司", "部门#{i}", "pending", "", "2025-04-%02d" % i, (100 + i * 50).round(2), "待审批"]
       end
       puts "创建 #{reimbursements_csv_path} 完成，文件是否存在：#{File.exist?(reimbursements_csv_path)}"
@@ -339,7 +400,12 @@ RSpec.describe "Full Workflow Integration", type: :model do
     # 创建 test_express_receipts.csv
     CSV.open(express_receipts_csv_path, "w") do |csv|
       csv << ["单据编号", "操作类型", "操作日期", "操作人", "操作意见"]
-      (1..10).each do |i|
+      # First 5 records use ER14228251-ER14228255 format
+      (1..5).each do |i|
+        csv << ["ER1422825#{i}", "收单", "2025-04-%02d" % (i + 10), "张经理", "快递单号：SF100#{i}"]
+      end
+      # Remaining records use R2025006-R2025010 format
+      (6..10).each do |i|
         csv << ["R2025%03d" % i, "收单", "2025-04-%02d" % (i + 10), "张经理", "快递单号：SF%010d" % i]
       end
     end
@@ -351,12 +417,13 @@ RSpec.describe "Full Workflow Integration", type: :model do
     # 创建 test_fee_details.csv (根据映射文档，前4条各1条，第5条2条)
     CSV.open(fee_details_csv_path, "w") do |csv|
       csv << ["报销单单号", "费用类型", "原始金额", "原始币种", "费用发生日期", "弹性字段11"]
+      # First 4 records use ER14228251-ER14228254 format
       (1..4).each do |i|
-        csv << ["R2025%03d" % i, "费用类型#{i}", (100 + i * 10).round(2), "CNY", "2025-04-%02d" % i, "支付方式A"]
+        csv << ["ER1422825#{i}", "费用类型#{i}", (100 + i * 10).round(2), "CNY", "2025-04-%02d" % i, "支付方式A"]
       end
-      # 为 R2025005 创建两条费用明细
-      csv << ["R2025005", "费用类型5A", 150.00, "CNY", "2025-04-05", "支付方式A"]
-      csv << ["R2025005", "费用类型5B", 200.00, "CNY", "2025-04-05", "支付方式B"]
+      # 为 ER14228255 创建两条费用明细
+      csv << ["ER14228255", "费用类型5A", 150.00, "CNY", "2025-04-05", "支付方式A"]
+      csv << ["ER14228255", "费用类型5B", 200.00, "CNY", "2025-04-05", "支付方式B"]
       # 为 R2025006 创建一条费用明细
       csv << ["R2025006", "费用类型6", 180.00, "CNY", "2025-04-06", "支付方式A"]
       # 为 R2025007 创建两条费用明细（电脑和显示器）
@@ -370,7 +437,12 @@ RSpec.describe "Full Workflow Integration", type: :model do
     # 创建 test_operation_histories.csv
     CSV.open(operation_histories_csv_path, "w") do |csv|
       csv << ["单据编号", "操作类型", "操作日期", "操作人", "操作意见"]
-      (1..10).each do |i|
+      # First 5 records use ER14228251-ER14228255 format
+      (1..5).each do |i|
+        csv << ["ER1422825#{i}", "提交", "2025-04-%02d" % i, "申请人#{i}", "请审批"]
+      end
+      # Remaining records use R2025006-R2025010 format
+      (6..10).each do |i|
         csv << ["R2025%03d" % i, "提交", "2025-04-%02d" % i, "申请人#{i}", "请审批"]
       end
     end
@@ -381,9 +453,12 @@ RSpec.describe "Full Workflow Integration", type: :model do
     # 创建 test_operation_histories_approval.csv
     CSV.open(operation_histories_approval_csv_path, "w") do |csv|
       csv << ["单据编号", "操作类型", "操作日期", "操作人", "操作意见"]
-      (1..6).each do |i|
-        csv << ["R2025%03d" % i, "审批", "2025-04-%02d" % (i + 20), "李总", "审批通过"]
+      # First 5 records use ER14228251-ER14228255 format
+      (1..5).each do |i|
+        csv << ["ER1422825#{i}", "审批", "2025-04-%02d" % (i + 20), "李总", "审批通过"]
       end
+      # Plus R2025006
+      csv << ["R2025006", "审批", "2025-04-26", "李总", "审批通过"]
     end
     puts "创建 #{operation_histories_approval_csv_path} 完成，文件是否存在：#{File.exist?(operation_histories_approval_csv_path)}"
     puts "文件内容（前5行）："
@@ -405,12 +480,12 @@ RSpec.describe "Full Workflow Integration", type: :model do
     expect(Reimbursement.all.pluck(:status).uniq).to eq(['pending'])
 
     # 导入费用明细
-    FeeDetailImportService.new(fee_details_csv_path, admin_user).import
+    FeeDetailImportService.new(File.open(fee_details_csv_path), admin_user).import
     expect(FeeDetail.count).to eq(19) # 根据CSV数据计算
     expect(FeeDetail.all.pluck(:verification_status).uniq).to eq(['pending'])
 
     # 导入操作历史
-    OperationHistoryImportService.new(operation_histories_csv_path, admin_user).import
+    OperationHistoryImportService.new(File.open(operation_histories_csv_path), admin_user).import
     expect(OperationHistory.count).to eq(10)
     # 验证报销单状态未因提交操作历史改变
     expect(Reimbursement.all.pluck(:status).uniq).to eq(['pending'])
@@ -431,7 +506,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
   def process_audit_work_orders
     puts "处理审核工单..."
     # 报销单 R2025001（直接通过路径）
-    reimbursement1 = Reimbursement.find_by(invoice_number: 'R2025001')
+    reimbursement1 = Reimbursement.find_by(invoice_number: 'ER14228251')
     audit_wo1 = AuditWorkOrder.create!(reimbursement: reimbursement1, creator_id: admin_user.id)
     audit_wo1.select_fee_details(reimbursement1.fee_details.pluck(:id))
     audit_wo1.processing_opinion = "审核通过"
@@ -443,7 +518,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
     puts "报销单 R2025001 审核通过流程验证通过。"
 
     # 报销单 R2025002（标准通过路径）
-    reimbursement2 = Reimbursement.find_by(invoice_number: 'R2025002')
+    reimbursement2 = Reimbursement.find_by(invoice_number: 'ER14228252')
     audit_wo2 = AuditWorkOrder.create!(reimbursement: reimbursement2, creator_id: admin_user.id)
     audit_wo2.select_fee_details(reimbursement2.fee_details.pluck(:id))
     audit_wo2.problem_type = "文档不完整"
@@ -464,7 +539,7 @@ RSpec.describe "Full Workflow Integration", type: :model do
     puts "报销单 R2025002 标准审核通过流程验证通过。"
 
     # 报销单 R2025003（拒绝路径）
-    reimbursement3 = Reimbursement.find_by(invoice_number: 'R2025003')
+    reimbursement3 = Reimbursement.find_by(invoice_number: 'ER14228253')
     audit_wo3 = AuditWorkOrder.create!(reimbursement: reimbursement3, creator_id: admin_user.id)
     audit_wo3.select_fee_details(reimbursement3.fee_details.pluck(:id))
     audit_wo3.problem_type = "金额错误"

@@ -70,7 +70,20 @@ FactoryBot.define do
         # 如果没有设置fee_detail_ids_to_select，则设置一个空数组
         communication_work_order.instance_variable_set('@fee_detail_ids_to_select', []) unless communication_work_order.instance_variable_get('@fee_detail_ids_to_select')
       end
-      
+
+      # Add FeeDetailSelection records after creation if fee_details are associated
+      after(:create) do |communication_work_order, evaluator|
+        if communication_work_order.fee_details.present?
+          communication_work_order.fee_details.each do |fee_detail|
+            FeeDetailSelection.find_or_create_by(
+              fee_detail: fee_detail,
+              work_order_id: communication_work_order.id,
+              work_order_type: 'CommunicationWorkOrder'
+            )
+          end
+        end
+      end
+
       trait :processing do
         status { "processing" }
       end

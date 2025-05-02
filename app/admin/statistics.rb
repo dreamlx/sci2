@@ -1,6 +1,4 @@
 ActiveAdmin.register_page "Statistics" do
-  menu false # 隐藏菜单项，仅用于API
-
   controller do
     def reimbursement_status_counts
       counts = {
