@@ -38,6 +38,18 @@ gem 'turbo-rails'
 
 # Reduces boot times through caching; required in config/boot.rb
 gem 'bootsnap', require: false
+
+group :development do
+  # Capistrano deployment
+  gem 'capistrano', '~> 3.19'
+  gem 'capistrano-rails', '~> 1.6'
+  gem 'capistrano-bundler', '~> 2.1'
+  gem 'capistrano-rvm', '~> 0.1'
+  gem 'capistrano-puma', '~> 5.2'
+  gem 'capistrano3-puma', '~> 5.2'
+  gem 'sshkit', '~> 1.22'
+end
+
 group :development, :test do
   gem 'shoulda-matchers'
   gem 'factory_bot_rails'
