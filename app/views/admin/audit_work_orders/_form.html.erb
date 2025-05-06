@@ -1,30 +1,7 @@
 <%= semantic_form_for [:admin, @audit_work_order] do |f| %>
   <%= f.inputs "基本信息" do %>
-    <%= f.input :reimbursement_id, as: :select, collection: Reimbursement.all.map { |r| [r.invoice_number, r.id] }, input_html: { disabled: !f.object.new_record? } %>
-
-    
-    <% unless f.object.new_record? %>
-      <li class="string input optional">
-        <label class="label">状态</label>
-        <span><%= f.object.status %></span>
-      </li>
-    <% end %>
-    
-    <%= f.input :problem_type, as: :select, collection: ProblemTypeOptions.all, include_blank: '无' %>
-    <%= f.input :problem_description, as: :select, collection: ProblemDescriptionOptions.all, include_blank: '无' %>
-    <%= f.input :remark, as: :text, input_html: { rows: 3 } %>
-    <%= f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '无' %>
-    
-    <% if !f.object.new_record? && f.object.audit_result.present? %>
-      <%= f.input :audit_result, input_html: { disabled: true } %>
-      <%= f.input :audit_comment %>
-      <%= f.input :audit_date, as: :string %>
-      <%= f.input :vat_verified %>
-    <% end %>
+    <%= render 'admin/shared/work_order_form_fields', f: f %>
   <% end %>
-      <% if f.object.reimbursement.present? %>
-      <%= render 'admin/reimbursements/reimbursement_display', reimbursement: f.object.reimbursement %>
-    <% end %>
     <%= f.inputs "选择费用明细" do %>
       <% if f.object.reimbursement_id.present? %>
         <div class="fee-detail-selection">

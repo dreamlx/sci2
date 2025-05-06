@@ -1,46 +1,11 @@
-<div class="panel">
-  <h3>审核拒绝</h3>
-
-  <div class="panel_contents">
-    <div class="work-order-info">
-      <h4>工单信息</h4>
-      <table>
-        <tr>
-          <th>工单ID</th>
-          <td><%= @audit_work_order.id %></td>
-        </tr>
-        <tr>
-          <th>报销单号</th>
-          <td><%= @audit_work_order.reimbursement.invoice_number %></td>
-        </tr>
-        <tr>
-          <th>问题类型</th>
-          <td><%= @audit_work_order.problem_type %></td>
-        </tr>
-        <tr>
-          <th>问题描述</th>
-          <td><%= @audit_work_order.problem_description %></td>
-        </tr>
-      </table>
-    </div>
-
-    <%= semantic_form_for [:admin, @audit_work_order], url: do_reject_admin_audit_work_order_path(@audit_work_order), method: :post do |f| %>
-      <%= f.inputs do %>
-        <%= f.input :audit_comment, label: "拒绝原因", input_html: { rows: 3 }, required: true %>
-        <%= f.input :audit_date, label: "审核日期", as: :date_select, input_html: { value: Date.today } %>
-        <%= f.input :problem_type, as: :hidden %>
-        <%= f.input :problem_description, as: :hidden %>
-        <%= f.input :remark, as: :hidden %>
-        <%= f.input :processing_opinion, as: :hidden %>
-      <% end %>
-
-      <div class="actions">
-        <%= f.submit "确认拒绝", class: "button" %>
-        <%= link_to "取消", admin_audit_work_order_path(@audit_work_order), class: "button" %>
-      </div>
-    <% end %>
-  </div>
-</div>
+<%= render 'admin/shared/work_order_approve_or_reject',
+  work_order: @audit_work_order,
+  form_url: do_reject_admin_audit_work_order_path(@audit_work_order),
+  form_method: :post,
+  action_type: :reject,
+  work_order_type: :audit,
+  label: '拒绝原因',
+  button_text: '确认拒绝' %>
 
 <style>
   .work-order-info {

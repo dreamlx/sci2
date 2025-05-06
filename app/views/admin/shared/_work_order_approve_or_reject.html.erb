@@ -1,0 +1,128 @@
+<div class="panel">
+  <h3><%= local_assigns[:title] || (action_type == :approve ? '审核通过' : '审核拒绝') %></h3>
+
+  <div class="panel_contents">
+    <div class="work-order-info">
+      <h4>工单信息</h4>
+      <table>
+        <tr>
+          <th>工单ID</th>
+          <td><%= work_order.id %></td>
+        </tr>
+        <tr>
+          <th>报销单号</th>
+          <td><%= work_order.reimbursement.invoice_number %></td>
+        </tr>
+        <tr>
+          <th>问题类型</th>
+          <td><%= work_order.problem_type %></td>
+        </tr>
+        <% if work_order_type == :communication %>
+          <tr>
+            <th>沟通方式</th>
+            <td><%= work_order.communication_method %></td>
+          </tr>
+        <% else %>
+          <tr>
+            <th>问题描述</th>
+            <td><%= work_order.problem_description %></td>
+          </tr>
+        <% end %>
+      </table>
+    </div>
+
+    <% if work_order_type == :communication && defined?(work_order.communication_records) %>
+      <div class="communication-records">
+        <h4>沟通记录</h4>
+        <% if work_order.communication_records.any? %>
+          <table>
+            <thead>
+              <tr>
+                <th>沟通人角色</th>
+                <th>沟通人姓名</th>
+                <th>沟通方式</th>
+                <th>沟通内容</th>
+                <th>沟通时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% work_order.communication_records.order(recorded_at: :desc).each do |record| %>
+                <tr>
+                  <td><%= record.communicator_role %></td>
+                  <td><%= record.communicator_name %></td>
+                  <td><%= record.communication_method %></td>
+                  <td><%= record.content %></td>
+                  <td><%= record.recorded_at.strftime("%Y-%m-%d %H:%M") %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        <% else %>
+          <p>暂无沟通记录</p>
+        <% end %>
+      </div>
+    <% end %>
+
+    <%= semantic_form_for [:admin, work_order], url: form_url, method: form_method do |f| %>
+      <%= f.inputs do %>
+        <% if work_order_type == :audit %>
+          <% if action_type == :approve %>
+            <%= f.input :audit_comment, label: (label || '审核意见'), input_html: { rows: 3 }, required: true %>
+            <%= f.input :audit_date, label: '审核日期', as: :date_select, input_html: { value: Date.today } %>
+            <%= f.input :vat_verified, label: '增值税发票已验证' %>
+          <% else %>
+            <%= f.input :audit_comment, label: (label || '拒绝原因'), input_html: { rows: 3 }, required: true %>
+            <%= f.input :audit_date, label: '审核日期', as: :date_select, input_html: { value: Date.today } %>
+          <% end %>
+          <%= f.input :problem_type, as: :hidden %>
+          <%= f.input :problem_description, as: :hidden %>
+          <%= f.input :remark, as: :hidden %>
+          <%= f.input :processing_opinion, as: :hidden %>
+        <% elsif work_order_type == :communication %>
+          <%= f.input :resolution_summary, label: (label || (action_type == :approve ? '解决方案摘要' : '拒绝原因摘要')), input_html: { rows: 3 }, required: true %>
+          <%= f.input :problem_type, as: :hidden %>
+          <%= f.input :problem_description, as: :hidden %>
+          <%= f.input :remark, as: :hidden %>
+          <%= f.input :processing_opinion, as: :hidden %>
+        <% end %>
+      <% end %>
+      <div class="actions">
+        <%= f.submit (button_text || (action_type == :approve ? '确认通过' : '确认拒绝')), class: "button" %>
+        <% if work_order_type == :audit %>
+          <%= link_to "取消", admin_audit_work_order_path(work_order), class: "button" %>
+        <% else %>
+          <%= link_to "取消", admin_communication_work_order_path(work_order), class: "button" %>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</div>
+
+<style>
+  .work-order-info, .communication-records {
+    margin-bottom: 20px;
+  }
+  .work-order-info table, .communication-records table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .work-order-info th, .work-order-info td,
+  .communication-records th, .communication-records td {
+    padding: 8px;
+    border: 1px solid #ddd;
+    text-align: left;
+  }
+  .work-order-info th, .communication-records th {
+    background-color: #f5f5f5;
+  }
+  .work-order-info th {
+    width: 120px;
+  }
+  .actions {
+    margin-top: 20px;
+    text-align: right;
+  }
+  .button {
+    margin-left: 10px;
+  }
+</style> 

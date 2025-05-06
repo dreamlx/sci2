@@ -1,34 +1,9 @@
 <%= semantic_form_for [:admin, @communication_work_order] do |f| %>
   <%= f.inputs "基本信息" do %>
-    <%= f.input :reimbursement_id, as: :select, collection: Reimbursement.all.map { |r| [r.invoice_number, r.id] }, input_html: { disabled: !f.object.new_record? } %>
-    
-
-    
-    <% unless f.object.new_record? %>
-      <li class="string input optional">
-        <label class="label">状态</label>
-        <span><%= f.object.status %></span>
-      </li>
-    <% end %>
-    
-    <%= f.input :communication_method, as: :select, collection: CommunicationMethodOptions.all %>
-    <%= f.input :initiator_role, as: :select, collection: InitiatorRoleOptions.all %>
-    <%= f.input :needs_communication, as: :boolean, label: '需要沟通' %>
-    
-    <%= f.input :problem_type, as: :select, collection: ProblemTypeOptions.all, include_blank: '无' %>
-    <%= f.input :problem_description, as: :select, collection: ProblemDescriptionOptions.all, include_blank: '无' %>
-    <%= f.input :remark, as: :text, input_html: { rows: 3 } %>
-    <%= f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '无' %>
-    
-    <% if !f.object.new_record? && (f.object.status == 'approved' || f.object.status == 'rejected') %>
-      <%= f.input :resolution_summary, required: false %>
-    <% end %>
-      <% if f.object.reimbursement.present? %>
-      <%= render 'admin/reimbursements/reimbursement_display', reimbursement: f.object.reimbursement %>
-    <% end %>
+    <%= render 'admin/shared/work_order_form_fields', f: f %>
+  <% end %>
   <%= f.inputs "关联费用明细" do %>
     <% if f.object.reimbursement_id.present? %>
-      <div class="fee-detail-selection">
       <div class="fee-detail-selection">
         <% if f.object.new_record? %>
           <div class="select-actions">
@@ -87,7 +62,6 @@
     <% else %>
       <p>请先选择报销单，然后才能查看费用明细。</p>
     <% end %>
-  <% end %>
   <% end %>
   
   <%= f.actions %>

@@ -1,75 +1,11 @@
-<div class="panel">
-  <h3>沟通后通过</h3>
-
-  <div class="panel_contents">
-    <div class="work-order-info">
-      <h4>工单信息</h4>
-      <table>
-        <tr>
-          <th>工单ID</th>
-          <td><%= @communication_work_order.id %></td>
-        </tr>
-        <tr>
-          <th>报销单号</th>
-          <td><%= @communication_work_order.reimbursement.invoice_number %></td>
-        </tr>
-        <tr>
-          <th>问题类型</th>
-          <td><%= @communication_work_order.problem_type %></td>
-        </tr>
-        <tr>
-          <th>沟通方式</th>
-          <td><%= @communication_work_order.communication_method %></td>
-        </tr>
-      </table>
-    </div>
-
-    <div class="communication-records">
-      <h4>沟通记录</h4>
-      <% if @communication_work_order.communication_records.any? %>
-        <table>
-          <thead>
-            <tr>
-              <th>沟通人角色</th>
-              <th>沟通人姓名</th>
-              <th>沟通方式</th>
-              <th>沟通内容</th>
-              <th>沟通时间</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% @communication_work_order.communication_records.order(recorded_at: :desc).each do |record| %>
-              <tr>
-                <td><%= record.communicator_role %></td>
-                <td><%= record.communicator_name %></td>
-                <td><%= record.communication_method %></td>
-                <td><%= record.content %></td>
-                <td><%= record.recorded_at.strftime("%Y-%m-%d %H:%M") %></td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
-      <% else %>
-        <p>暂无沟通记录</p>
-      <% end %>
-    </div>
-
-    <%= semantic_form_for [:admin, @communication_work_order], url: do_approve_admin_communication_work_order_path(@communication_work_order), method: :post do |f| %>
-      <%= f.inputs do %>
-        <%= f.input :resolution_summary, label: "解决方案摘要", input_html: { rows: 3 }, required: true %>
-        <%= f.input :problem_type, as: :hidden %>
-        <%= f.input :problem_description, as: :hidden %>
-        <%= f.input :remark, as: :hidden %>
-        <%= f.input :processing_opinion, as: :hidden %>
-      <% end %>
-
-      <div class="actions">
-        <%= f.submit "确认通过", class: "button" %>
-        <%= link_to "取消", admin_communication_work_order_path(@communication_work_order), class: "button" %>
-      </div>
-    <% end %>
-  </div>
-</div>
+<%= render 'admin/shared/work_order_approve_or_reject',
+  work_order: @communication_work_order,
+  form_url: do_approve_admin_communication_work_order_path(@communication_work_order),
+  form_method: :post,
+  action_type: :approve,
+  work_order_type: :communication,
+  label: '解决方案摘要',
+  button_text: '确认通过' %>
 
 <style>
   .work-order-info, .communication-records {
