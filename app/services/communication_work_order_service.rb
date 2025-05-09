@@ -63,15 +63,13 @@ class CommunicationWorkOrderService
   
   # 更新费用明细验证状态
   def update_fee_detail_verification(fee_detail_id, verification_status, comment = nil)
-    fee_detail = FeeDetail.joins(:fee_detail_selections)
-                         .where(fee_detail_selections: {
-                           work_order_id: @communication_work_order.id,
-                           work_order_type: 'CommunicationWorkOrder'
-                         })
-                         .find_by(id: fee_detail_id)
+    # 通过 CommunicationWorkOrder 的 fee_details 关联来查找特定的 FeeDetail
+    fee_detail = @communication_work_order.fee_details.find_by(id: fee_detail_id)
 
     unless fee_detail
-      @communication_work_order.errors.add(:base, "无法更新费用明细验证状态: 未找到关联的费用明细 ##{fee_detail_id}")
+      error_message = "无法更新费用明细验证状态: 费用明细 ##{fee_detail_id} 未找到或未与此工单关联。"
+      @communication_work_order.errors.add(:base, error_message)
+      Rails.logger.warn "[CommunicationWorkOrderService] #{error_message} WorkOrder ID: #{@communication_work_order.id}"
       return false
     end
 
@@ -79,11 +77,18 @@ class CommunicationWorkOrderService
       verification_service = FeeDetailVerificationService.new(@current_admin_user)
       result = verification_service.update_verification_status(fee_detail, verification_status, comment)
 
-      # 确保状态更新成功
-      fee_detail.reload
+      unless result
+         fee_detail.errors.full_messages.each do |msg|
+            @communication_work_order.errors.add(:base, "费用明细 ##{fee_detail.id} 更新失败: #{msg}")
+         end
+         Rails.logger.warn "[CommunicationWorkOrderService] FeeDetailVerificationService failed for FeeDetail ##{fee_detail.id} on WorkOrder ID: #{@communication_work_order.id}. Errors: #{fee_detail.errors.full_messages.join(', ')}"
+      end
+      
       return result
     rescue StandardError => e
-      @communication_work_order.errors.add(:base, "无法更新费用明细验证状态: #{e.message}")
+      error_message = "更新费用明细 ##{fee_detail_id} 验证状态时发生内部错误: #{e.message}"
+      @communication_work_order.errors.add(:base, error_message)
+      Rails.logger.error "[CommunicationWorkOrderService] #{error_message} WorkOrder ID: #{@communication_work_order.id}. Backtrace: #{e.backtrace.join("\n")}"
       return false
     end
   end

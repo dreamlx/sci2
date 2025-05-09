@@ -77,11 +77,11 @@ ActiveAdmin.register FeeDetail do
           end
           row :fee_type
           row :amount do |fee_detail|
-            number_to_currency(fee_detail.amount, unit: "¥")
+            number_to_currency(fee_detail.amount, unit: "¥") if fee_detail.amount.present?
           end
           row :fee_date
           row :verification_status do |fee_detail|
-            status_tag fee_detail.verification_status
+            status_tag fee_detail.verification_status if fee_detail.verification_status.present?
           end
           row :payment_method
           row :notes
@@ -90,32 +90,35 @@ ActiveAdmin.register FeeDetail do
         end
       end
 
-      tab "关联工单 (#{resource.fee_detail_selections.count})" do
+      tab "关联工单 (#{resource.work_orders.count})" do
         panel "关联工单信息" do
-          table_for resource.fee_detail_selections.includes(:work_order) do |selection|
-            column :fee_detail_id
-            column "工单类型", :work_order_type
-            column "工单ID", :work_order_id do |sel|
-              if sel.work_order.present?
-                actual_work_order_instance = sel.work_order
-                link_to sel.work_order_id,
-                        case actual_work_order_instance.class.name
-                        when 'AuditWorkOrder' then admin_audit_work_order_path(actual_work_order_instance)
-                        when 'CommunicationWorkOrder' then admin_communication_work_order_path(actual_work_order_instance)
-                        else
-                          Rails.logger.warn "FeeDetailSelection ##{sel.id} (DB work_order_type: #{sel.work_order_type}) links to WorkOrder of unexpected class: #{actual_work_order_instance.class.name}"
-                          "##{sel.work_order_id} (类型: #{actual_work_order_instance.class.name})"
-                        end
-              else
-                "ID: #{sel.work_order_id} (类型: #{sel.work_order_type}, 工单记录不存在)"
+          if resource.work_orders.any?
+            table_for resource.work_orders.includes(:reimbursement) do
+              column "工单ID" do |work_order|
+                case work_order.type
+                when 'AuditWorkOrder'
+                  link_to work_order.id, admin_audit_work_order_path(work_order)
+                when 'CommunicationWorkOrder'
+                  link_to work_order.id, admin_communication_work_order_path(work_order)
+                when 'ExpressReceiptWorkOrder'
+                  link_to work_order.id, admin_express_receipt_work_order_path(work_order)
+                else
+                  "##{work_order.id} (类型: #{work_order.type})"
+                end
               end
+              column "工单类型", :type
+              column "工单状态" do |work_order|
+                status_tag work_order.status if work_order.status.present?
+              end
+              column "关联报销单" do |work_order|
+                if work_order.reimbursement
+                  link_to work_order.reimbursement.invoice_number, admin_reimbursement_path(work_order.reimbursement)
+                end
+              end
+              column "创建时间", :created_at
             end
-            column "工单状态", :status do |sel|
-              status_tag sel.work_order.status
-            end
-            column "创建时间", :created_at do |sel|
-              sel.work_order.created_at
-            end
+          else
+            para "此费用明细当前未关联任何工单。"
           end
         end
       end

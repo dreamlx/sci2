@@ -1,12 +1,18 @@
 ActiveAdmin.register ExpressReceiptWorkOrder do
-  permit_params :reimbursement_id, :tracking_number, :received_at, :courier_name, :created_by, fee_detail_ids: []
+  permit_params :reimbursement_id, :tracking_number, :received_at, :courier_name, :creator_id
 
   menu priority: 3, label: "快递收单工单", parent: "工单管理"
   config.sort_order = 'created_at_desc'
 
   controller do
     def scoped_collection
-      ExpressReceiptWorkOrder.includes(:reimbursement, :creator)
+      super.includes(:reimbursement, :creator)
+    end
+
+    def create
+      super do |resource|
+        resource.creator_id ||= current_admin_user.id if resource.new_record? && resource.creator_id.blank?
+      end
     end
   end
 

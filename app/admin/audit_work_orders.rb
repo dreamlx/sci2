@@ -3,7 +3,7 @@ ActiveAdmin.register AuditWorkOrder do
                 :vat_verified, :creator_id,
                 # 共享字段 (Req 6/7)
                 :problem_type, :problem_description, :remark, :processing_opinion,
-                fee_detail_ids: []
+                submitted_fee_detail_ids: []
   # 移除 status 从 permit_params 中，状态由系统自动管理
 
   menu priority: 4, label: "审核工单", parent: "工单管理"
@@ -12,7 +12,7 @@ ActiveAdmin.register AuditWorkOrder do
 
   controller do
     def scoped_collection
-      AuditWorkOrder.includes(:reimbursement, :creator) # 预加载关联数据
+      AuditWorkOrder.includes(:reimbursement, :creator, :fee_details) # 预加载更多关联
     end
 
     # 创建时设置报销单ID
@@ -41,15 +41,18 @@ ActiveAdmin.register AuditWorkOrder do
       audit_work_order_params = params.require(:audit_work_order).permit(
         :reimbursement_id, :audit_result, :audit_comment, :audit_date,
         :vat_verified, :problem_type, :problem_description, :remark, :processing_opinion,
-        fee_detail_ids: [] # Ensure fee_detail_ids is permitted
+        submitted_fee_detail_ids: [] # Ensure fee_detail_ids is permitted
       )
 
-      @audit_work_order = AuditWorkOrder.new(audit_work_order_params)
+      @audit_work_order = AuditWorkOrder.new(audit_work_order_params.except(:submitted_fee_detail_ids))
       @audit_work_order.creator_id = current_admin_user.id # Set creator
       @audit_work_order.status = 'pending' # Set initial status
 
-      # Model's `fee_detail_ids=` setter and `process_fee_detail_ids` callback will handle selections.
-      # No need for manual FeeDetailSelection creation here.
+      # 将 submitted_fee_detail_ids 赋值给模型的 accessor
+      # 模型内部的 after_save 回调 (process_submitted_fee_details) 会处理这些 ID
+      if audit_work_order_params[:submitted_fee_detail_ids].present?
+        @audit_work_order.submitted_fee_detail_ids = audit_work_order_params[:submitted_fee_detail_ids]
+      end
       
       if @audit_work_order.save
         redirect_to admin_audit_work_order_path(@audit_work_order), notice: "审核工单已成功创建"
@@ -72,7 +75,7 @@ ActiveAdmin.register AuditWorkOrder do
         # No fee_detail_ids here based on the new edit form display
       )
       
-      if @audit_work_order.update(audit_work_order_params)
+      if @audit_work_order.update(audit_work_order_params.except(:submitted_fee_detail_ids))
         redirect_to admin_audit_work_order_path(@audit_work_order), notice: "审核工单已成功更新"
       else
         flash.now[:error] = "更新审核工单失败: #{@audit_work_order.errors.full_messages.join(', ')}"
@@ -164,37 +167,37 @@ ActiveAdmin.register AuditWorkOrder do
 
   # 费用明细验证操作
   member_action :verify_fee_detail, method: :get do
-     @work_order = resource # 用于共享视图上下文
-     @fee_detail = FeeDetail.joins(:fee_detail_selections)
-                           .where(fee_detail_selections: {work_order_id: resource.id, work_order_type: 'AuditWorkOrder'})
-                           .find(params[:fee_detail_id])
-     render 'admin/shared/verify_fee_detail' # 渲染 app/views/admin/shared/verify_fee_detail.html.erb
+     @work_order = resource
+     # 使用新的关联查找 fee_detail
+     @fee_detail = @work_order.fee_details.find_by(id: params[:fee_detail_id])
+     unless @fee_detail
+       redirect_to admin_audit_work_order_path(@work_order), alert: "未找到关联的费用明细 ##{params[:fee_detail_id]}"
+       return
+     end
+     render 'admin/shared/verify_fee_detail'
   end
 
   member_action :do_verify_fee_detail, method: :post do
-    service = AuditWorkOrderService.new(resource, current_admin_user)
-    if service.update_fee_detail_verification(params[:fee_detail_id], params[:verification_status], params[:comment])
-       redirect_to admin_audit_work_order_path(resource), notice: "费用明细 ##{params[:fee_detail_id]} 状态已更新"
-    else
-       @work_order = resource
-       @fee_detail = FeeDetail.joins(:fee_detail_selections)
-                             .where(fee_detail_selections: {work_order_id: resource.id, work_order_type: 'AuditWorkOrder'})
-                             .find(params[:fee_detail_id])
-       flash.now[:alert] = "费用明细 ##{params[:fee_detail_id]} 更新失败: #{@fee_detail.errors.full_messages.join(', ')}"
-       render 'admin/shared/verify_fee_detail'
-    end
-  end
+    @work_order = resource # Assign resource to @work_order for consistency
+    service = AuditWorkOrderService.new(@work_order, current_admin_user) # Use @work_order
 
-  member_action :update_fee_detail_verification, method: :post do
-    service = AuditWorkOrderService.new(resource, current_admin_user)
+    # 查找 fee_detail 以便在失败时重新渲染表单
+    @fee_detail = @work_order.fee_details.find_by(id: params[:fee_detail_id])
+    unless @fee_detail
+      redirect_to admin_audit_work_order_path(@work_order), alert: "尝试验证的费用明细 ##{params[:fee_detail_id]} 未找到或未关联。"
+      return
+    end
+
     if service.update_fee_detail_verification(params[:fee_detail_id], params[:verification_status], params[:comment])
-       redirect_to admin_audit_work_order_path(resource), notice: "费用明细 ##{params[:fee_detail_id]} 状态已更新"
+       redirect_to admin_audit_work_order_path(@work_order), notice: "费用明细 ##{params[:fee_detail_id]} 状态已更新"
     else
-       @work_order = resource
-       @fee_detail = FeeDetail.joins(:fee_detail_selections)
-                             .where(fee_detail_selections: {work_order_id: resource.id, work_order_type: 'AuditWorkOrder'})
-                             .find(params[:fee_detail_id])
-       flash.now[:alert] = "费用明细 ##{params[:fee_detail_id]} 更新失败: #{@fee_detail.errors.full_messages.join(', ')}"
+       # Errors should be on @work_order.errors from the service call if it added them,
+       # or on @fee_detail.errors if FeeDetailVerificationService added them.
+       # Ensure verify_fee_detail.html.erb can display errors from @work_order or @fee_detail
+       flash.now[:alert] = "费用明细 ##{params[:fee_detail_id]} 更新失败。"
+       # Add specific errors to flash or ensure they are on @work_order.errors or @fee_detail.errors
+       # Example: @work_order.errors.full_messages.join(', ')
+       # Example: @fee_detail.errors.full_messages.join(', ')
        render 'admin/shared/verify_fee_detail'
     end
   end
@@ -270,7 +273,7 @@ ActiveAdmin.register AuditWorkOrder do
   end
 
   # 表单使用 partial
-  form do |f|
+  form title: proc { |wo| wo.new_record? ? "新建审核工单" : "编辑审核工单 ##{wo.id}" } do |f|
     f.semantic_errors
 
     reimbursement = f.object.reimbursement || (params[:reimbursement_id] ? Reimbursement.find_by(id: params[:reimbursement_id]) : nil)
@@ -309,7 +312,7 @@ ActiveAdmin.register AuditWorkOrder do
               available_fee_details = FeeDetail.where(document_number: reimbursement.invoice_number)
               if available_fee_details.any?
                 selected_ids = [] # Always empty for new
-                f.input :fee_detail_ids, as: :check_boxes, 
+                f.input :submitted_fee_detail_ids, as: :check_boxes, 
                         collection: available_fee_details.map { |fd| ["ID: #{fd.id} - #{fd.notes} (¥#{fd.amount})", fd.id] },
                         selected: selected_ids,
                         label: false

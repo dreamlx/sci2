@@ -49,14 +49,7 @@ Rails.application.routes.draw do
     put 'reimbursements/:id/start_processing', to: 'reimbursements#start_processing', as: :start_processing_admin_reimbursement
 
     # Audit work orders routes
-    resources :audit_work_orders do
-      member do
-        put :start_processing
-        put :do_approve
-        put :do_reject
-        get :do_verify_fee_detail
-      end
-    end
+
   end
 
   # 设置根路由重定向到管理界面
