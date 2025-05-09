@@ -31,7 +31,6 @@ class Reimbursement < ApplicationRecord
   scope :non_electronic, -> { where(is_electronic: false) }
   scope :pending, -> { where(status: 'pending') }
   scope :processing, -> { where(status: 'processing') }
-  scope :waiting_completion, -> { where(status: 'waiting_completion') }
   scope :closed, -> { where(status: 'closed') }
   
   # 可选的其他范围查询
@@ -47,18 +46,13 @@ class Reimbursement < ApplicationRecord
       transition [:pending, :waiting_completion] => :processing
     end
     
-    event :mark_waiting_completion do
-      # 条件在 before_transition 回调中检查
-      transition :processing => :waiting_completion, if: :all_fee_details_verified?
-    end
-    
     event :close do
       # 由外部触发 (如 OperationHistoryImportService)
       transition all => :closed
     end
     
     # 状态转换前检查条件
-    before_transition on: :mark_waiting_completion, do: :check_fee_details_status
+    # before_transition on: :mark_waiting_completion, do: :check_fee_details_status
     
     # 状态转换后记录日志
     after_transition do |reimbursement, transition|

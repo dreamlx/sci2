@@ -117,10 +117,6 @@ ActiveAdmin.register Reimbursement do
     link_to "开始处理", start_processing_admin_reimbursement_path(resource), method: :put, data: { confirm: "确定要开始处理此报销单吗?" }
   end
 
-  action_item :mark_waiting_completion, only: :show, if: proc{resource.processing?} do
-    link_to "标记为等待完成", mark_waiting_completion_admin_reimbursement_path(resource), method: :put, data: { confirm: "确定要将此报销单标记为等待完成吗?" }
-  end
-
   action_item :close, only: :show, if: proc{resource.waiting_completion?} do
     link_to "关闭报销单", close_admin_reimbursement_path(resource), method: :put, data: { confirm: "确定要关闭此报销单吗?" }
   end
@@ -129,15 +125,6 @@ ActiveAdmin.register Reimbursement do
     begin
       resource.start_processing!
       redirect_to admin_reimbursement_path(resource), notice: "报销单已开始处理"
-    rescue => e
-      redirect_to admin_reimbursement_path(resource), alert: "操作失败: #{e.message}"
-    end
-  end
-
-  member_action :mark_waiting_completion, method: :put do
-    begin
-      resource.mark_waiting_completion!
-      redirect_to admin_reimbursement_path(resource), notice: "报销单已标记为等待完成"
     rescue => e
       redirect_to admin_reimbursement_path(resource), alert: "操作失败: #{e.message}"
     end

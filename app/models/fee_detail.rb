@@ -79,7 +79,10 @@ class FeeDetail < ApplicationRecord
   
   # 新的多对多关联
   has_many :work_order_fee_details, dependent: :destroy
-  has_many :work_orders, through: :work_order_fee_details
+  has_many :work_orders,
+           through: :work_order_fee_details,
+           source: :work_order,
+           source_type: 'WorkOrder'
 
   # 如果需要根据类型快速获取工单，可以添加如下方法：
   # def audit_work_orders
