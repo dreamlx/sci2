@@ -19,8 +19,8 @@
         </tr>
         <% if work_order_type == :communication %>
           <tr>
-            <th>沟通方式</th>
-            <td><%= work_order.communication_method %></td>
+            <th>问题描述</th>
+            <td><%= work_order.try(:problem_description) || 'N/A' %></td>
           </tr>
         <% else %>
           <tr>
@@ -79,7 +79,7 @@
           <%= f.input :remark, as: :hidden %>
           <%= f.input :processing_opinion, as: :hidden %>
         <% elsif work_order_type == :communication %>
-          <%= f.input :resolution_summary, label: (label || (action_type == :approve ? '解决方案摘要' : '拒绝原因摘要')), input_html: { rows: 3 }, required: true %>
+          <%= f.input :audit_comment, label: (label || (action_type == :approve ? '审核意见' : '拒绝原因')), input_html: { rows: 3 }, required: true %>
           <%= f.input :problem_type, as: :hidden %>
           <%= f.input :problem_description, as: :hidden %>
           <%= f.input :remark, as: :hidden %>

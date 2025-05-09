@@ -176,6 +176,28 @@ ActiveAdmin.register Reimbursement do
           row :created_at
           row :updated_at
         end
+
+        panel "费用明细信息" do
+          table_for resource.fee_details.order(created_at: :desc) do
+            column(:id) { |fd| link_to fd.id, admin_fee_detail_path(fd) }
+            column :fee_type
+            column "金额", :amount do |fd| number_to_currency(fd.amount, unit: "¥") end
+            column :fee_date
+            column "验证状态", :verification_status do |fd| status_tag fd.verification_status end
+            column :payment_method
+            column "创建时间", :created_at
+          end
+        end
+
+        # New panel to display total amount again for double check
+        div "报销总金额复核" do
+          hr 
+          attributes_table_for resource do
+            row :amount, label: "总金额" do |reimbursement| 
+              strong { number_to_currency(reimbursement.amount, unit: "¥") }
+            end
+          end
+        end
       end
 
       tab "快递收单工单" do
@@ -225,20 +247,6 @@ ActiveAdmin.register Reimbursement do
               link_to "新建沟通工单", new_admin_communication_work_order_path(reimbursement_id: resource.id), class: "button"
             end
          end
-      end
-
-      tab "费用明细" do
-        panel "费用明细信息" do
-          table_for resource.fee_details.order(created_at: :desc) do
-            column(:id) { |fd| link_to fd.id, admin_fee_detail_path(fd) }
-            column :fee_type
-            column :amount do |fd| number_to_currency(fd.amount, unit: "¥") end
-            column :fee_date
-            column :verification_status do |fd| status_tag fd.verification_status end
-            column :payment_method
-            column :created_at
-          end
-        end
       end
 
        tab "操作历史" do

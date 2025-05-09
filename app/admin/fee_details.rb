@@ -93,15 +93,23 @@ ActiveAdmin.register FeeDetail do
       tab "关联工单 (#{resource.fee_detail_selections.count})" do
         panel "关联工单信息" do
           table_for resource.fee_detail_selections.includes(:work_order) do |selection|
-            column "工单ID", :work_order_id do |sel|
-              link_to sel.work_order_id,
-                      case sel.work_order_type
-                      when 'AuditWorkOrder' then admin_audit_work_order_path(sel.work_order)
-                      when 'CommunicationWorkOrder' then admin_communication_work_order_path(sel.work_order)
-                      else '#' # Fallback for unexpected types
-                      end
-            end
+            column :fee_detail_id
             column "工单类型", :work_order_type
+            column "工单ID", :work_order_id do |sel|
+              if sel.work_order.present?
+                actual_work_order_instance = sel.work_order
+                link_to sel.work_order_id,
+                        case actual_work_order_instance.class.name
+                        when 'AuditWorkOrder' then admin_audit_work_order_path(actual_work_order_instance)
+                        when 'CommunicationWorkOrder' then admin_communication_work_order_path(actual_work_order_instance)
+                        else
+                          Rails.logger.warn "FeeDetailSelection ##{sel.id} (DB work_order_type: #{sel.work_order_type}) links to WorkOrder of unexpected class: #{actual_work_order_instance.class.name}"
+                          "##{sel.work_order_id} (类型: #{actual_work_order_instance.class.name})"
+                        end
+              else
+                "ID: #{sel.work_order_id} (类型: #{sel.work_order_type}, 工单记录不存在)"
+              end
+            end
             column "工单状态", :status do |sel|
               status_tag sel.work_order.status
             end

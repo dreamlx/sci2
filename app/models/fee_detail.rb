@@ -8,32 +8,17 @@ class FeeDetail < ApplicationRecord
   
   # 关联
   belongs_to :reimbursement, foreign_key: 'document_number', primary_key: 'invoice_number', optional: true, inverse_of: :fee_details
-  has_many :fee_detail_selections, dependent: :destroy
+  
   
   # 通用工单关联 - 需要自定义方法来获取所有类型的工单
   # 由于多态关联的限制，我们不能直接使用 has_many :through 获取所有类型的工单
-  def work_orders
-    # 使用原生SQL查询，因为多态关联在ActiveRecord中有限制
-    work_order_ids = FeeDetailSelection.where(fee_detail_id: self.id).pluck(:work_order_id)
-    WorkOrder.where(id: work_order_ids)
-  end
+
   
   # 特定类型工单关联
-  has_many :audit_work_orders,
-           -> { where(type: 'AuditWorkOrder') },
-           through: :fee_detail_selections,
-           source: :work_order,
-           source_type: 'AuditWorkOrder'
-           
-  has_many :communication_work_orders,
-           -> { where(type: 'CommunicationWorkOrder') },
-           through: :fee_detail_selections,
-           source: :work_order,
-           source_type: 'CommunicationWorkOrder'
+
   
-  # 验证
+           # 验证
   validates :document_number, presence: true
-  validates :fee_type, presence: true
   validates :amount, presence: true, numericality: { greater_than: 0 }
   validates :verification_status, presence: true, inclusion: { in: VERIFICATION_STATUSES }
   
@@ -92,13 +77,30 @@ class FeeDetail < ApplicationRecord
     result
   end
   
+  # 新的多对多关联
+  has_many :work_order_fee_details, dependent: :destroy
+  has_many :work_orders, through: :work_order_fee_details
+
+  # 如果需要根据类型快速获取工单，可以添加如下方法：
+  # def audit_work_orders
+  #   work_orders.where(type: 'AuditWorkOrder')
+  # end
+  #
+  # def communication_work_orders
+  #   work_orders.where(type: 'CommunicationWorkOrder')
+  # end
+
   # ActiveAdmin 配置
   def self.ransackable_attributes(auth_object = nil)
     %w[id document_number fee_type amount currency fee_date payment_method verification_status notes created_at updated_at]
   end
   
   def self.ransackable_associations(auth_object = nil)
-    %w[reimbursement fee_detail_selections work_orders]
+    %w[reimbursement work_orders work_order_fee_details] # 添加了新的关联
+  end
+  
+  def summary_for_selection
+    "ID: #{id} - #{fee_type} (#{amount} #{currency})"
   end
   
   private

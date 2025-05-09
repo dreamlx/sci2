@@ -7,10 +7,17 @@
   </li>
 <% end %>
 
+<% if f.object.is_a?(AuditWorkOrder) || f.object.is_a?(CommunicationWorkOrder) %>
+  <%= f.input :problem_type_id, as: :select, collection: ProblemType.all.map { |pt| [pt.name, pt.id] }, include_blank: '无', input_html: { class: 'problem-type-select' } %>
+  <%= f.input :problem_description_id, as: :select, collection: [], include_blank: '无', input_html: { class: 'problem-description-select' } %>
+  <div class="input optional">
+    <label class="label">补充材料</label>
+    <select class="material-select" multiple style="width: 100%; min-height: 60px;"></select>
+  </div>
+<% end %>
+
 <% if f.object.is_a?(AuditWorkOrder) %>
-  <%= f.input :problem_type, as: :select, collection: ProblemTypeOptions.all, include_blank: '无' %>
-  <%= f.input :problem_description, as: :select, collection: ProblemDescriptionOptions.all, include_blank: '无' %>
-  <%= f.input :remark, as: :text, input_html: { rows: 3 } %>
+  <%= f.input :remark, as: :text, input_html: { rows: 3, class: 'remark-textarea' } %>
   <%= f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '无' %>
   <% if !f.object.new_record? && f.object.audit_result.present? %>
     <%= f.input :audit_result, input_html: { disabled: true } %>
@@ -22,9 +29,7 @@
   <%= f.input :communication_method, as: :select, collection: CommunicationMethodOptions.all %>
   <%= f.input :initiator_role, as: :select, collection: InitiatorRoleOptions.all %>
   <%= f.input :needs_communication, as: :boolean, label: '需要沟通' %>
-  <%= f.input :problem_type, as: :select, collection: ProblemTypeOptions.all, include_blank: '无' %>
-  <%= f.input :problem_description, as: :select, collection: ProblemDescriptionOptions.all, include_blank: '无' %>
-  <%= f.input :remark, as: :text, input_html: { rows: 3 } %>
+  <%= f.input :remark, as: :text, input_html: { rows: 3, class: 'remark-textarea' } %>
   <%= f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '无' %>
   <% if !f.object.new_record? && (f.object.status == 'approved' || f.object.status == 'rejected') %>
     <%= f.input :resolution_summary, required: false %>
@@ -33,4 +38,56 @@
 
 <% if f.object.reimbursement.present? %>
   <%= render 'admin/reimbursements/reimbursement_display', reimbursement: f.object.reimbursement %>
-<% end %> 
+<% end %>
+<script>
+$(function() {
+  // 问题类型变动时，加载问题说明和补充材料
+  function loadProblemTypeRelated(problemTypeId, selectedDescId, selectedMaterials) {
+    var $descSelect = $('.problem-description-select');
+    var $materialSelect = $('.material-select');
+    $descSelect.empty().append('<option value="">无</option>');
+    $materialSelect.empty();
+    if (!problemTypeId) return;
+    // 拉取问题说明
+    $.get('/admin/problem_descriptions.json', { q: { problem_type_id_eq: problemTypeId } }, function(data) {
+      data.forEach(function(desc) {
+        var selected = selectedDescId && desc.id == selectedDescId ? ' selected' : '';
+        $descSelect.append('<option value="' + desc.id + '"' + selected + '>' + desc.description + '</option>');
+      });
+    });
+    // 拉取补充材料
+    $.get('/admin/problem_type_materials.json', { q: { problem_type_id_eq: problemTypeId }, include: 'material' }, function(data) {
+      data.forEach(function(ptm) {
+        if(ptm.material) {
+          var selected = selectedMaterials && selectedMaterials.includes(ptm.material.id) ? ' selected' : '';
+          $materialSelect.append('<option value="' + ptm.material.id + '"' + selected + '>' + ptm.material.name + '</option>');
+        }
+      });
+    });
+  }
+
+  // 页面加载时自动预加载
+  var initialProblemTypeId = $('.problem-type-select').val();
+  var initialProblemDescriptionId = $('.problem-description-select').data('selected');
+  if (initialProblemTypeId) {
+    loadProblemTypeRelated(initialProblemTypeId, initialProblemDescriptionId, []);
+  }
+
+  $('.problem-type-select').on('change', function() {
+    var problemTypeId = $(this).val();
+    loadProblemTypeRelated(problemTypeId, null, []);
+  });
+
+  // 补充材料选中时，自动 append 到备注
+  $('.material-select').on('change', function() {
+    var selected = $(this).find('option:selected').map(function() { return $(this).text(); }).get();
+    var $remark = $('.remark-textarea');
+    var base = $remark.val().replace(/\n?【补充材料】.*/g, '');
+    if (selected.length > 0) {
+      $remark.val(base + '\n【补充材料】' + selected.join('，'));
+    } else {
+      $remark.val(base);
+    }
+  });
+});
+</script> 

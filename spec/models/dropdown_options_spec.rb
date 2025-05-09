@@ -16,7 +16,10 @@ RSpec.describe "Dropdown Options", type: :model do
   describe ProblemDescriptionOptions do
     it "returns the correct options list" do
       expect(ProblemDescriptionOptions.all).to eq([
-        "发票信息不完整",
+        "需要补充材料",
+        "需要修改申报信息",
+        "需要重新提交",  
+      "发票信息不完整",
         "发票金额与申报金额不符",
         "费用类型选择错误",
         "缺少必要证明材料",
@@ -28,9 +31,6 @@ RSpec.describe "Dropdown Options", type: :model do
   describe ProcessingOpinionOptions do
     it "returns the correct options list" do
       expect(ProcessingOpinionOptions.all).to eq([
-        "需要补充材料",
-        "需要修改申报信息",
-        "需要重新提交",
         "可以通过",
         "无法通过"
       ])

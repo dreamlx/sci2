@@ -35,91 +35,46 @@ ActiveAdmin.register AuditWorkOrder do
       resource
     end
     
-    # 重写创建方法，确保设置creator_id
+    # Updated create action
     def create
-      params[:audit_work_order][:creator_id] = current_admin_user.id
-      # 添加调试日志
-      Rails.logger.info "AuditWorkOrder create: params[:audit_work_order][:fee_detail_ids] = #{params[:audit_work_order][:fee_detail_ids].inspect}"
-      
-      # 保存费用明细IDs，确保在重定向后仍然可用
-      fee_detail_ids = params[:audit_work_order][:fee_detail_ids]
-      
-      # 直接创建AuditWorkOrder并手动处理费用明细选择
-      # 使用ActiveAdmin的permit_params定义的参数
+      # Permit fee_detail_ids along with other attributes
       audit_work_order_params = params.require(:audit_work_order).permit(
         :reimbursement_id, :audit_result, :audit_comment, :audit_date,
-        :vat_verified, :problem_type, :problem_description, :remark, :processing_opinion
+        :vat_verified, :problem_type, :problem_description, :remark, :processing_opinion,
+        fee_detail_ids: [] # Ensure fee_detail_ids is permitted
       )
-      
+
       @audit_work_order = AuditWorkOrder.new(audit_work_order_params)
-      @audit_work_order.creator_id = current_admin_user.id
-      @audit_work_order.status = 'pending' # 设置初始状态
-      
-      # 设置@fee_detail_ids_to_select以通过验证
-      if fee_detail_ids.present?
-        @audit_work_order.instance_variable_set(:@fee_detail_ids_to_select, fee_detail_ids)
-      end
-      
-      Rails.logger.info "AuditWorkOrder create: 创建新的AuditWorkOrder实例"
+      @audit_work_order.creator_id = current_admin_user.id # Set creator
+      @audit_work_order.status = 'pending' # Set initial status
+
+      # Model's `fee_detail_ids=` setter and `process_fee_detail_ids` callback will handle selections.
+      # No need for manual FeeDetailSelection creation here.
       
       if @audit_work_order.save
-        Rails.logger.info "AuditWorkOrder create: 保存成功，ID=#{@audit_work_order.id}"
-        
-        # 手动处理费用明细选择
-        if fee_detail_ids.present?
-          Rails.logger.info "AuditWorkOrder create: 开始处理费用明细选择，IDs=#{fee_detail_ids.inspect}"
-          
-          fee_details = FeeDetail.where(id: fee_detail_ids, document_number: @audit_work_order.reimbursement.invoice_number)
-          Rails.logger.info "找到 #{fee_details.count} 个匹配的费用明细"
-          
-          fee_details.each do |fee_detail|
-            # 显式指定work_order_type为'AuditWorkOrder'
-            selection = FeeDetailSelection.find_or_create_by(
-              fee_detail: fee_detail,
-              work_order_id: @audit_work_order.id,
-              work_order_type: 'AuditWorkOrder'
-            )
-            # No longer need to update verification_status as it's been removed
-            Rails.logger.info "创建/更新费用明细选择 ##{selection.id} 关联费用明细 ##{fee_detail.id}"
-          end
-        else
-          Rails.logger.info "AuditWorkOrder create: 没有费用明细IDs需要处理"
-        end
-        
         redirect_to admin_audit_work_order_path(@audit_work_order), notice: "审核工单已成功创建"
       else
-        Rails.logger.info "AuditWorkOrder create: 保存失败，错误: #{@audit_work_order.errors.full_messages.join(', ')}"
+        # Re-fetch reimbursement if save fails, needed for the form on render :new
+        @reimbursement = Reimbursement.find_by(id: audit_work_order_params[:reimbursement_id])
         flash.now[:error] = "创建审核工单失败: #{@audit_work_order.errors.full_messages.join(', ')}"
         render :new
       end
     end
 
-    # 重写更新方法，确保正确处理处理意见
+    # Update action might need review if fee details were editable here before
     def update
-      Rails.logger.info "AuditWorkOrder update: params[:audit_work_order] = #{params[:audit_work_order].inspect}"
-      
-      # 获取当前工单
       @audit_work_order = AuditWorkOrder.find(params[:id])
       
-      # 使用ActiveAdmin的permit_params定义的参数
+      # Permit params for update - typically fee_detail_ids are NOT managed via checkboxes on edit anymore
       audit_work_order_params = params.require(:audit_work_order).permit(
         :reimbursement_id, :audit_result, :audit_comment, :audit_date,
         :vat_verified, :problem_type, :problem_description, :remark, :processing_opinion
+        # No fee_detail_ids here based on the new edit form display
       )
       
-      Rails.logger.info "AuditWorkOrder update: 更新参数 = #{audit_work_order_params.inspect}"
-      
-      # 记录处理意见变更
-      old_processing_opinion = @audit_work_order.processing_opinion
-      new_processing_opinion = audit_work_order_params[:processing_opinion]
-      
       if @audit_work_order.update(audit_work_order_params)
-        Rails.logger.info "AuditWorkOrder update: 更新成功，ID=#{@audit_work_order.id}"
-        Rails.logger.info "AuditWorkOrder update: 处理意见从 '#{old_processing_opinion}' 变更为 '#{new_processing_opinion}'"
-        
         redirect_to admin_audit_work_order_path(@audit_work_order), notice: "审核工单已成功更新"
       else
-        Rails.logger.info "AuditWorkOrder update: 更新失败，错误: #{@audit_work_order.errors.full_messages.join(', ')}"
         flash.now[:error] = "更新审核工单失败: #{@audit_work_order.errors.full_messages.join(', ')}"
         render :edit
       end
@@ -259,65 +214,176 @@ ActiveAdmin.register AuditWorkOrder do
 
   # 详情页
   show title: proc{|wo| "审核工单 ##{wo.id}" } do
-    tabs do
-      tab "基本信息" do
-        # Include the reimbursement display partial
-        if resource.reimbursement.present?
-          render 'admin/reimbursements/reimbursement_display', reimbursement: resource.reimbursement
-        end
-
-        attributes_table do
-          row :id
-          row :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
-          
-          row :type
-          row :status do |wo| status_tag wo.status end
-          row :audit_result do |wo| status_tag wo.audit_result if wo.audit_result.present? end
-          row :audit_comment
-          row :audit_date
-          row :vat_verified
-          # 显示共享字段 (Req 6/7)
-          row :problem_type
-          row :problem_description
-          row :remark
-          row :processing_opinion
-          row :creator
-          row :created_at
-          row :updated_at
-        end
+    panel "基本信息" do
+      # reimbursement display partial (原"基本信息"Tab内容)
+      if resource.reimbursement.present?
+        render 'admin/reimbursements/reimbursement_display', reimbursement: resource.reimbursement
       end
 
-      tab "费用明细 (#{FeeDetail.joins(:fee_detail_selections).where(fee_detail_selections: {work_order_id: resource.id, work_order_type: 'AuditWorkOrder'}).count})" do
-        panel "费用明细信息" do
-          table_for FeeDetailSelection.where(work_order_id: resource.id, work_order_type: 'AuditWorkOrder').includes(:fee_detail) do |selection|
-            column "费用明细ID", :fee_detail_id do |sel| link_to sel.fee_detail_id, admin_fee_detail_path(sel.fee_detail) end
-            column "费用类型", :fee_type do |sel| sel.fee_detail.fee_type end
-            column "金额", :amount do |sel| number_to_currency(sel.fee_detail.amount, unit: "¥") end
-            column "状态", :status do |sel| status_tag sel.fee_detail.verification_status end
-            column "验证意见", :verification_comment
-            column "操作" do |sel|
-              link_to("更新验证状态", verify_fee_detail_admin_audit_work_order_path(resource, fee_detail_id: sel.fee_detail_id))
-            end
-          end
-        end
-      end
-
-      tab "状态变更历史" do
-         panel "状态变更历史" do
-           table_for WorkOrderStatusChange.where(work_order_id: resource.id, work_order_type: 'AuditWorkOrder').order(changed_at: :desc) do
-             column :from_status
-             column :to_status
-             column :changed_at
-             column :changer do |change| change.changer&.email end
-           end
-         end
+      # attributes_table (原"基本信息"Tab内容)
+      attributes_table do
+        row :id
+        row :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
+        row :type
+        row :status do |wo| status_tag wo.status end
+        row :audit_result do |wo| status_tag wo.audit_result if wo.audit_result.present? end
+        row :audit_comment
+        row :audit_date
+        row :vat_verified
+        # 显示共享字段 (Req 6/7)
+        row :problem_type
+        row :problem_description
+        row :remark
+        row :processing_opinion
+        row :creator
+        row :created_at
+        row :updated_at
       end
     end
+
+    # panel for Fee Details (原"费用明细"Tab内容)
+    panel "关联的费用明细" do
+      table_for audit_work_order.fee_details do
+        column "ID" do |fee_detail|
+          link_to fee_detail.id, admin_fee_detail_path(fee_detail)
+        end
+        column "费用类型", :fee_type
+        column "金额" do |fee_detail|
+          number_to_currency(fee_detail.amount, unit: fee_detail.currency)
+        end
+        column "费用日期", :fee_date
+        column "验证状态" do |fee_detail|
+          status_tag fee_detail.verification_status, class: case fee_detail.verification_status
+                                                            when FeeDetail::VERIFICATION_STATUS_VERIFIED
+                                                              'ok' # green
+                                                            when FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
+                                                              'error' # red
+                                                            else
+                                                              'warning' # orange
+                                                            end
+        end
+        column "备注", :notes
+      end
+    end
+
     active_admin_comments
   end
 
   # 表单使用 partial
-  form partial: 'form'
+  form do |f|
+    f.semantic_errors
+
+    reimbursement = f.object.reimbursement || (params[:reimbursement_id] ? Reimbursement.find_by(id: params[:reimbursement_id]) : nil)
+
+    tabs do
+      tab '基本信息' do
+        f.inputs '工单详情' do
+          if reimbursement
+            f.input :reimbursement_id, as: :hidden, input_html: { value: reimbursement.id }
+            f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: reimbursement.invoice_number, readonly: true, disabled: true }
+          elsif f.object.reimbursement
+             f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: f.object.reimbursement.invoice_number, readonly: true, disabled: true }
+          end
+          f.input :status, input_html: { readonly: true, disabled: true }, label: '工单状态' if f.object.persisted?
+          # Fields like audit_result, audit_date are typically not in the main edit form here, but set via member_actions
+        end
+
+        # Updated Fee Detail Section
+        if reimbursement
+          if f.object.persisted? # EDIT MODE: Show read-only list
+            panel "已关联的费用明细" do
+              if f.object.fee_details.any?
+                table_for f.object.fee_details.order(created_at: :desc) do
+                  column(:id) { |fd| link_to fd.id, admin_fee_detail_path(fd) }
+                  column :fee_type
+                  column "金额", :amount do |fd| number_to_currency(fd.amount, unit: "¥") end
+                  column "备注", :notes
+                  column "验证状态", :verification_status do |fd| status_tag fd.verification_status end
+                end
+              else
+                para "此工单当前未关联任何费用明细。"
+              end
+            end
+          else # NEW MODE: Show checkboxes for selection
+            panel "选择关联的费用明细" do
+              available_fee_details = FeeDetail.where(document_number: reimbursement.invoice_number)
+              if available_fee_details.any?
+                selected_ids = [] # Always empty for new
+                f.input :fee_detail_ids, as: :check_boxes, 
+                        collection: available_fee_details.map { |fd| ["ID: #{fd.id} - #{fd.notes} (¥#{fd.amount})", fd.id] },
+                        selected: selected_ids,
+                        label: false
+              else
+                para "此报销单没有可供选择的费用明细。"
+              end
+            end
+          end
+        else
+          f.inputs '费用明细' do
+            para "无法加载费用明细，未关联有效的报销单。"
+          end
+        end
+
+        f.inputs '处理与反馈' do # New section matching CommunicationWorkOrder
+          f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '请选择处理意见', input_html: { id: 'audit_work_order_processing_opinion' } # Changed ID
+          
+          f.input :problem_type, as: :select, collection: ProblemTypeOptions.all, include_blank: '请选择问题类型', wrapper_html: { id: 'problem_type_row', style: 'display:none;' }
+          
+          f.input :problem_description, as: :select, collection: ProblemDescriptionOptions.all, include_blank: '请选择问题描述', wrapper_html: { id: 'problem_description_row', style: 'display:none;' }
+          
+          f.input :audit_comment, label: "审核意见", wrapper_html: { id: 'audit_comment_row', style: 'display:none;' }
+          
+          f.input :remark, label: "备注", wrapper_html: { id: 'remark_row', style: 'display:none;' }
+
+          # Specific Audit fields if needed in main form (usually part of approve/reject actions)
+          # f.input :vat_verified, label: '增值税发票已验证' if f.object.persisted? # Example placement
+        end
+      end
+      # Other tabs for AuditWorkOrder if they exist and are still relevant
+    end
+    f.actions
+
+    # JavaScript for conditional fields (Same logic, ensure IDs match, e.g., audit_work_order_processing_opinion)
+    script do
+      raw """
+        document.addEventListener('DOMContentLoaded', function() {
+          const processingOpinionSelect = document.getElementById('audit_work_order_processing_opinion'); // ID Updated
+          const problemTypeRow = document.getElementById('problem_type_row');
+          const problemDescriptionRow = document.getElementById('problem_description_row');
+          const auditCommentRow = document.getElementById('audit_comment_row');
+          const remarkRow = document.getElementById('remark_row');
+
+          function toggleFields() {
+            if (!processingOpinionSelect || !problemTypeRow || !problemDescriptionRow || !auditCommentRow || !remarkRow) {
+              return;
+            }
+            const selectedValue = processingOpinionSelect.value;
+
+            problemTypeRow.style.display = 'none';
+            problemDescriptionRow.style.display = 'none';
+            auditCommentRow.style.display = 'none';
+            remarkRow.style.display = 'none';
+
+            if (selectedValue === '无法通过') {
+              problemTypeRow.style.display = 'list-item';
+              problemDescriptionRow.style.display = 'list-item';
+              auditCommentRow.style.display = 'list-item';
+              remarkRow.style.display = 'list-item';
+            } else if (selectedValue === '可以通过') {
+              auditCommentRow.style.display = 'list-item';
+            } else { // Blank
+              auditCommentRow.style.display = 'list-item';
+            }
+          }
+
+          if (processingOpinionSelect) {
+            processingOpinionSelect.addEventListener('change', toggleFields);
+            toggleFields();
+          }
+        });
+      """
+    end
+  end
   
   # 处理意见与状态关系由模型的 set_status_based_on_processing_opinion 回调自动处理
   

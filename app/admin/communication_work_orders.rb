@@ -1,11 +1,9 @@
 ActiveAdmin.register CommunicationWorkOrder do
-  permit_params :reimbursement_id, :communication_method,
-                :initiator_role, :resolution_summary, :creator_id,
-                # 共享字段 (Req 6/7)
+  permit_params :reimbursement_id, :creator_id,
+                :audit_comment,
+                # Shared fields
                 :problem_type, :problem_description, :remark, :processing_opinion,
-                :needs_communication,
                 fee_detail_ids: []
-  # 移除 status 从 permit_params 中，状态由系统自动管理
 
   menu priority: 5, label: "沟通工单", parent: "工单管理"
   config.sort_order = 'created_at_desc'
@@ -13,131 +11,80 @@ ActiveAdmin.register CommunicationWorkOrder do
 
   controller do
     def scoped_collection
-      CommunicationWorkOrder.includes(:reimbursement, :creator) # 移除 audit_work_order 关联
+      CommunicationWorkOrder.includes(:reimbursement, :creator)
     end
 
-    # 创建时设置报销单ID (移除审核工单ID设置)
     def build_new_resource
       resource = super
       if params[:reimbursement_id] && resource.reimbursement_id.nil?
         resource.reimbursement_id = params[:reimbursement_id]
       end
+      if params[:communication_work_order] && params[:communication_work_order][:fee_detail_ids]
+        resource.fee_detail_ids = params[:communication_work_order][:fee_detail_ids].reject(&:blank?)
+      end
       resource
     end
     
-    # 重写创建方法，确保设置creator_id
     def create
-      params[:communication_work_order][:creator_id] = current_admin_user.id
-      
-      # 添加调试日志
-      Rails.logger.info "CommunicationWorkOrder create: params[:communication_work_order][:fee_detail_ids] = #{params[:communication_work_order][:fee_detail_ids].inspect}"
-      
-      # 保存费用明细IDs，确保在重定向后仍然可用
-      fee_detail_ids = params[:communication_work_order][:fee_detail_ids]
-      
-      # 使用ActiveAdmin的permit_params定义的参数
-      communication_work_order_params = params.require(:communication_work_order).permit(
-        :reimbursement_id, :communication_method, :initiator_role, :resolution_summary,
-        :problem_type, :problem_description, :remark, :processing_opinion, :needs_communication
+      _params = params.require(:communication_work_order).permit(
+        :reimbursement_id, :audit_comment,
+        :problem_type, :problem_description, :remark, :processing_opinion,
+        fee_detail_ids: []
       )
-      
-      @communication_work_order = CommunicationWorkOrder.new(communication_work_order_params)
+
+      @communication_work_order = CommunicationWorkOrder.new(_params)
       @communication_work_order.creator_id = current_admin_user.id
-      @communication_work_order.status = 'pending' # 设置初始状态
-      
-      # 设置@fee_detail_ids_to_select以通过验证
-      if fee_detail_ids.present?
-        @communication_work_order.instance_variable_set(:@fee_detail_ids_to_select, fee_detail_ids)
-      end
+      @communication_work_order.status = 'pending'
       
       if @communication_work_order.save
-        Rails.logger.info "CommunicationWorkOrder create: 保存成功，ID=#{@communication_work_order.id}"
-        
-        # 手动处理费用明细选择
-        if fee_detail_ids.present?
-          Rails.logger.info "CommunicationWorkOrder create: 开始处理费用明细选择，IDs=#{fee_detail_ids.inspect}"
-          
-          fee_details = FeeDetail.where(id: fee_detail_ids, document_number: @communication_work_order.reimbursement.invoice_number)
-          Rails.logger.info "找到 #{fee_details.count} 个匹配的费用明细"
-          
-          fee_details.each do |fee_detail|
-            # 显式指定work_order_type为'CommunicationWorkOrder'
-            selection = FeeDetailSelection.find_or_create_by(
-              fee_detail: fee_detail,
-              work_order_id: @communication_work_order.id,
-              work_order_type: 'CommunicationWorkOrder'
-            )
-            # No longer need to update verification_status as it's been removed
-            Rails.logger.info "创建/更新费用明细选择 ##{selection.id} 关联费用明细 ##{fee_detail.id}"
-          end
-        else
-          Rails.logger.info "CommunicationWorkOrder create: 没有费用明细IDs需要处理"
-        end
-        
-        redirect_to admin_communication_work_order_path(@communication_work_order), notice: "沟通工单已成功创建"
+        redirect_to admin_communication_work_order_path(@communication_work_order), notice: "工单已成功创建"
       else
-        Rails.logger.info "CommunicationWorkOrder create: 保存失败，错误: #{@communication_work_order.errors.full_messages.join(', ')}"
-        flash.now[:error] = "创建沟通工单失败: #{@communication_work_order.errors.full_messages.join(', ')}"
+        @reimbursement = Reimbursement.find_by(id: _params[:reimbursement_id])
+        flash.now[:error] = "创建工单失败: #{@communication_work_order.errors.full_messages.join(', ')}"
         render :new
       end
     end
 
-    # 重写更新方法，确保正确处理处理意见
     def update
-      Rails.logger.info "CommunicationWorkOrder update: params[:communication_work_order] = #{params[:communication_work_order].inspect}"
-      
-      # 获取当前工单
       @communication_work_order = CommunicationWorkOrder.find(params[:id])
       
-      # 使用ActiveAdmin的permit_params定义的参数
-      communication_work_order_params = params.require(:communication_work_order).permit(
-        :reimbursement_id, :communication_method, :initiator_role, :resolution_summary,
-        :problem_type, :problem_description, :remark, :processing_opinion, :needs_communication
+      _params = params.require(:communication_work_order).permit(
+        :reimbursement_id, :audit_comment,
+        :problem_type, :problem_description, :remark, :processing_opinion
       )
       
-      Rails.logger.info "CommunicationWorkOrder update: 更新参数 = #{communication_work_order_params.inspect}"
-      
-      # 记录处理意见变更
-      old_processing_opinion = @communication_work_order.processing_opinion
-      new_processing_opinion = communication_work_order_params[:processing_opinion]
-      
-      if @communication_work_order.update(communication_work_order_params)
-        Rails.logger.info "CommunicationWorkOrder update: 更新成功，ID=#{@communication_work_order.id}"
-        Rails.logger.info "CommunicationWorkOrder update: 处理意见从 '#{old_processing_opinion}' 变更为 '#{new_processing_opinion}'"
-        
-        redirect_to admin_communication_work_order_path(@communication_work_order), notice: "沟通工单已成功更新"
+      if @communication_work_order.update(_params)
+        redirect_to admin_communication_work_order_path(@communication_work_order), notice: "工单已成功更新"
       else
-        Rails.logger.info "CommunicationWorkOrder update: 更新失败，错误: #{@communication_work_order.errors.full_messages.join(', ')}"
-        flash.now[:error] = "更新沟通工单失败: #{@communication_work_order.errors.full_messages.join(', ')}"
+        flash.now[:error] = "更新工单失败: #{@communication_work_order.errors.full_messages.join(', ')}"
         render :edit
       end
     end
   end
 
-  # 过滤器 (移除 audit_work_order_id 过滤器)
   filter :reimbursement_invoice_number, as: :string, label: '报销单号'
-  filter :status, as: :select, collection: CommunicationWorkOrder.state_machines[:status].states.map(&:value)
-  filter :communication_method
-  filter :initiator_role
-  filter :needs_communication, as: :boolean, label: '需要沟通'
-  filter :problem_type, as: :select, collection: ProblemTypeOptions.all
+  filter :status, as: :select, collection: -> { CommunicationWorkOrder.state_machines[:status].states.map(&:value) }
+  filter :audit_result, as: :select, collection: ["approved", "rejected"]
+  filter :problem_type, as: :select, collection: -> { ProblemTypeOptions.all }
   filter :creator
   filter :created_at
 
-  # 范围过滤器
   scope :all, default: true
   scope :pending
   scope :processing
-  scope :needs_communication
   scope :approved
   scope :rejected
 
-  # 操作按钮
-  action_item :reject, only: :show, if: proc { resource.processing? || resource.needs_communication? } do
-    link_to "沟通后拒绝", reject_admin_communication_work_order_path(resource)
+  action_item :start_processing, only: :show, if: proc { resource.pending? } do
+    link_to "开始处理", start_processing_admin_communication_work_order_path(resource), method: :post, data: { confirm: "确定要开始处理此工单吗?" }
+  end
+  action_item :approve, only: :show, if: proc { resource.pending? || resource.processing? } do
+    link_to "审核通过", approve_admin_communication_work_order_path(resource)
+  end
+  action_item :reject, only: :show, if: proc { resource.processing? } do
+    link_to "审核拒绝", reject_admin_communication_work_order_path(resource)
   end
 
-  # 成员操作
   member_action :start_processing, method: :post do
     service = CommunicationWorkOrderService.new(resource, current_admin_user)
     if service.start_processing
@@ -147,29 +94,16 @@ ActiveAdmin.register CommunicationWorkOrder do
     end
   end
 
-  member_action :toggle_needs_communication, method: :post do
-    @work_order = CommunicationWorkOrder.find(params[:id])
-    service = CommunicationWorkOrderService.new(@work_order, current_admin_user)
-    
-    if service.toggle_needs_communication
-      redirect_to admin_communication_work_order_path(@work_order),
-        notice: @work_order.needs_communication? ? "已标记为需要沟通" : "已取消需要沟通标记"
-    else
-      redirect_to admin_communication_work_order_path(@work_order),
-        alert: "无法更新沟通标志: #{@work_order.errors.full_messages.join(', ')}"
-    end
-  end
-
   member_action :approve, method: :get do
     @communication_work_order = resource
-    render :approve # 渲染 app/views/admin/communication_work_orders/approve.html.erb
+    render :approve
   end
 
   member_action :do_approve, method: :post do
     service = CommunicationWorkOrderService.new(resource, current_admin_user)
-    permitted_params = params.require(:communication_work_order).permit(:resolution_summary, :problem_type, :problem_description, :remark, :processing_opinion)
+    permitted_params = params.require(:communication_work_order).permit(:audit_comment, :problem_type, :problem_description, :remark, :processing_opinion)
     if service.approve(permitted_params)
-      redirect_to admin_communication_work_order_path(resource), notice: "工单已沟通通过"
+      redirect_to admin_communication_work_order_path(resource), notice: "工单已审核通过"
     else
       @communication_work_order = resource
       flash.now[:alert] = "操作失败: #{resource.errors.full_messages.join(', ')}"
@@ -179,14 +113,14 @@ ActiveAdmin.register CommunicationWorkOrder do
 
   member_action :reject, method: :get do
     @communication_work_order = resource
-    render :reject # 渲染 app/views/admin/communication_work_orders/reject.html.erb
+    render :reject
   end
 
   member_action :do_reject, method: :post do
     service = CommunicationWorkOrderService.new(resource, current_admin_user)
-    permitted_params = params.require(:communication_work_order).permit(:resolution_summary, :problem_type, :problem_description, :remark, :processing_opinion)
+    permitted_params = params.require(:communication_work_order).permit(:audit_comment, :problem_type, :problem_description, :remark, :processing_opinion)
     if service.reject(permitted_params)
-      redirect_to admin_communication_work_order_path(resource), notice: "工单已沟通拒绝"
+      redirect_to admin_communication_work_order_path(resource), notice: "工单已审核拒绝"
     else
       @communication_work_order = resource
       flash.now[:alert] = "操作失败: #{resource.errors.full_messages.join(', ')}"
@@ -194,129 +128,212 @@ ActiveAdmin.register CommunicationWorkOrder do
     end
   end
 
-  # 沟通记录操作
-  member_action :new_communication_record, method: :get do
-     @communication_work_order = resource
-     @communication_record = resource.communication_records.build
-     render :new_communication_record # 渲染 app/views/admin/communication_work_orders/new_communication_record.html.erb
+  member_action :verify_fee_detail, method: :get do
+    @work_order = resource
+    @fee_detail = FeeDetail.joins(:fee_detail_selections)
+                          .where(fee_detail_selections: {work_order_id: resource.id, work_order_type: 'CommunicationWorkOrder'})
+                          .find(params[:fee_detail_id])
+    render 'admin/shared/verify_fee_detail'
   end
 
-  member_action :create_communication_record, method: :post do
+  member_action :do_verify_fee_detail, method: :post do
     service = CommunicationWorkOrderService.new(resource, current_admin_user)
-    record = service.add_communication_record(params.require(:communication_record).permit(:content, :communicator_role, :communicator_name, :communication_method))
-    if record.persisted?
-      redirect_to admin_communication_work_order_path(resource), notice: "沟通记录已添加"
+    if service.update_fee_detail_verification(params[:fee_detail_id], params[:verification_status], params[:comment])
+       redirect_to admin_communication_work_order_path(resource), notice: "费用明细 ##{params[:fee_detail_id]} 状态已更新"
     else
-      @communication_work_order = resource
-      @communication_record = record
-      flash.now[:alert] = "添加沟通记录失败: #{record.errors.full_messages.join(', ')}"
-      render :new_communication_record
+       @work_order = resource
+       @fee_detail = FeeDetail.joins(:fee_detail_selections)
+                             .where(fee_detail_selections: {work_order_id: resource.id, work_order_type: 'CommunicationWorkOrder'})
+                             .find(params[:fee_detail_id])
+       flash.now[:alert] = "费用明细 ##{params[:fee_detail_id]} 更新失败: #{@fee_detail.errors.full_messages.join(', ')}"
+       render 'admin/shared/verify_fee_detail'
     end
   end
 
-   # 费用明细验证操作
-   member_action :verify_fee_detail, method: :get do
-      @work_order = resource
-      @fee_detail = FeeDetail.joins(:fee_detail_selections)
-                            .where(fee_detail_selections: {work_order_id: resource.id, work_order_type: 'CommunicationWorkOrder'})
-                            .find(params[:fee_detail_id])
-      render 'admin/shared/verify_fee_detail'
-   end
-
-   member_action :do_verify_fee_detail, method: :post do
-     service = CommunicationWorkOrderService.new(resource, current_admin_user)
-     if service.update_fee_detail_verification(params[:fee_detail_id], params[:verification_status], params[:comment])
-        redirect_to admin_communication_work_order_path(resource), notice: "费用明细 ##{params[:fee_detail_id]} 状态已更新"
-     else
-        @work_order = resource
-        @fee_detail = FeeDetail.joins(:fee_detail_selections)
-                              .where(fee_detail_selections: {work_order_id: resource.id, work_order_type: 'CommunicationWorkOrder'})
-                              .find(params[:fee_detail_id])
-        flash.now[:alert] = "费用明细 ##{params[:fee_detail_id]} 更新失败: #{@fee_detail.errors.full_messages.join(', ')}"
-        render 'admin/shared/verify_fee_detail'
-     end
-   end
-
-  # 列表页
   index do
     selectable_column
     id_column
     column :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
     column :status do |wo| status_tag wo.status end
+    column :audit_result
     column :problem_type
-    column :problem_description
-    column :needs_communication do |wo| status_tag wo.needs_communication? ? "需要沟通" : "无需沟通" end
-    column :initiator_role
+    column :processing_opinion
     column :creator
     column :created_at
+    column :updated_at
     actions
   end
 
-  # 详情页
-  show title: proc{|wo| "沟通工单 ##{wo.id}" } do
-     tabs do
-       tab "基本信息" do
-         attributes_table do
-           row :id
-           row :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
-           
-           row :type
-           row :status do |wo| status_tag wo.status end
-           row :communication_method
-           row :initiator_role
-           row :resolution_summary
-           row :needs_communication do |wo| status_tag wo.needs_communication? ? "需要沟通" : "无需沟通" end
-           # 显示共享字段 (Req 6/7)
-           row :problem_type
-           row :problem_description
-           row :remark
-           row :processing_opinion
-           row :creator
-           row :created_at
-           row :updated_at
-         end
-         
-         # Include the reimbursement display partial
-         if resource.reimbursement.present?
-           render 'admin/reimbursements/reimbursement_display', reimbursement: resource.reimbursement
-         end
-       end
+  show do
+    panel "基本信息" do
+      if resource.reimbursement.present?
+        render 'admin/reimbursements/reimbursement_display', reimbursement: resource.reimbursement
+      end
 
+      attributes_table do
+        row :id
+        row :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) if wo.reimbursement end
+        row :status do |wo| status_tag wo.status end
+        row :audit_result
+        row :audit_comment
+        row :audit_date
+        row :processing_opinion
+        row :problem_type
+        row :problem_description
+        row :remark
+        row :creator
+        row :created_at
+        row :updated_at
+      end
+    end
 
-       tab "费用明细 (#{FeeDetail.joins(:fee_detail_selections).where(fee_detail_selections: {work_order_id: resource.id, work_order_type: 'CommunicationWorkOrder'}).count})" do
-          panel "费用明细信息" do
-            table_for FeeDetailSelection.where(work_order_id: resource.id, work_order_type: 'CommunicationWorkOrder').includes(:fee_detail) do |selection|
-               column "费用明细ID", :fee_detail_id do |sel| link_to sel.fee_detail_id, admin_fee_detail_path(sel.fee_detail) end
-               column "费用类型", :fee_type do |sel| sel.fee_detail.fee_type end
-               column "金额", :amount do |sel| number_to_currency(sel.fee_detail.amount, unit: "¥") end
-               column "状态", :status do |sel| status_tag sel.fee_detail.verification_status end
-               column "验证意见", :verification_comment
-               column "操作" do |sel|
-                 link_to("更新验证状态", verify_fee_detail_admin_communication_work_order_path(resource, fee_detail_id: sel.fee_detail_id))
-               end
-            end
-          end
-       end
-
-       tab "状态变更历史" do
-          panel "状态变更历史" do
-            table_for WorkOrderStatusChange.where(work_order_id: resource.id, work_order_type: 'CommunicationWorkOrder').order(changed_at: :desc) do
-              column :from_status
-              column :to_status
-              column :changed_at
-              column :changer do |change| change.changer&.email end
-            end
-          end
-       end
-     end
-     active_admin_comments
+    panel "关联的费用明细" do
+      table_for resource.fee_details do
+        column "ID" do |fee_detail|
+          link_to fee_detail.id, admin_fee_detail_path(fee_detail)
+        end
+        column "费用类型", :fee_type
+        column "金额" do |fee_detail|
+          number_to_currency(fee_detail.amount, unit: fee_detail.currency)
+        end
+        column "费用日期", :fee_date
+        column "验证状态" do |fee_detail|
+          status_tag fee_detail.verification_status, class: case fee_detail.verification_status
+                                                            when FeeDetail::VERIFICATION_STATUS_VERIFIED
+                                                              'ok' # green
+                                                            when FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
+                                                              'error' # red
+                                                            else
+                                                              'warning' # orange
+                                                            end
+        end
+        column "备注", :notes
+      end
+    end
+    
+    active_admin_comments
   end
 
-  # 表单使用 partial
-  form partial: 'form'
-  
-  # 处理意见与状态关系由模型的 set_status_based_on_processing_opinion 回调自动处理
-  
-  # 移除控制器方法处理处理意见与状态关系
-  # 处理意见与状态的关系由模型的 set_status_based_on_processing_opinion 回调自动处理
+  form do |f|
+    f.semantic_errors
+
+    reimbursement = f.object.reimbursement || (params[:reimbursement_id] ? Reimbursement.find_by(id: params[:reimbursement_id]) : nil)
+
+    tabs do
+      tab '基本信息' do
+        f.inputs '工单详情' do
+          # Order: 0. 报销单号
+          if reimbursement
+            f.input :reimbursement_id, as: :hidden, input_html: { value: reimbursement.id }
+            f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: reimbursement.invoice_number, readonly: true, disabled: true }
+          elsif f.object.reimbursement # for edit page if already associated
+             f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: f.object.reimbursement.invoice_number, readonly: true, disabled: true }
+          end
+          f.input :status, input_html: { readonly: true, disabled: true }, label: '工单状态' if f.object.persisted?
+        end
+
+        # Updated Fee Detail Section (Conditional display)
+        if reimbursement
+          if f.object.persisted? # EDIT MODE: Show read-only list
+            panel "已关联的费用明细" do
+              if f.object.fee_details.any?
+                table_for f.object.fee_details.order(created_at: :desc) do
+                  column(:id) { |fd| link_to fd.id, admin_fee_detail_path(fd) }
+                  column :fee_type
+                  column "金额", :amount do |fd| number_to_currency(fd.amount, unit: "¥") end
+                  column "备注", :notes # Using notes
+                  column "验证状态", :verification_status do |fd| status_tag fd.verification_status end
+                end
+              else
+                para "此工单当前未关联任何费用明细。"
+              end
+            end
+          else # NEW MODE: Show checkboxes for selection
+            panel "选择关联的费用明细" do
+              available_fee_details = FeeDetail.where(document_number: reimbursement.invoice_number)
+              if available_fee_details.any?
+                selected_ids = [] # Always empty for new
+                # Ensure this uses fd.notes or the correct field name for FeeDetail description
+                f.input :fee_detail_ids, as: :check_boxes, 
+                        collection: available_fee_details.map { |fd| ["ID: #{fd.id} - #{fd.notes} (¥#{fd.amount})", fd.id] },
+                        selected: selected_ids,
+                        label: false
+              else
+                para "此报销单没有可供选择的费用明细。"
+              end
+            end
+          end
+        else
+          f.inputs '费用明细' do
+            para "无法加载费用明细，未关联有效的报销单。"
+          end
+        end
+
+        f.inputs '处理与反馈' do
+          # Order: 2. 处理意见
+          f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '请选择处理意见', input_html: { id: 'communication_work_order_processing_opinion' }
+          
+          # Order: 3. 问题类型 (Conditionally Visible)
+          f.input :problem_type, as: :select, collection: ProblemTypeOptions.all, include_blank: '请选择问题类型', wrapper_html: { id: 'problem_type_row', style: 'display:none;' }
+          
+          # Order: 4. 问题说明 (Conditionally Visible)
+          f.input :problem_description, as: :select, collection: ProblemDescriptionOptions.all, include_blank: '请选择问题描述', wrapper_html: { id: 'problem_description_row', style: 'display:none;' }
+          
+          # Order: 5. 审核意见
+          f.input :audit_comment, label: "审核意见", wrapper_html: { id: 'audit_comment_row', style: 'display:none;' }
+          
+          # Order: 6. 备注
+          f.input :remark, label: "备注", wrapper_html: { id: 'remark_row', style: 'display:none;' }
+        end
+      end
+    end
+    f.actions
+
+    # JavaScript for conditional fields (UPDATED LOGIC)
+    script do
+      raw """
+        document.addEventListener('DOMContentLoaded', function() {
+          const processingOpinionSelect = document.getElementById('communication_work_order_processing_opinion');
+          const problemTypeRow = document.getElementById('problem_type_row');
+          const problemDescriptionRow = document.getElementById('problem_description_row');
+          const auditCommentRow = document.getElementById('audit_comment_row');
+          const remarkRow = document.getElementById('remark_row');
+
+          function toggleFields() {
+            if (!processingOpinionSelect || !problemTypeRow || !problemDescriptionRow || !auditCommentRow || !remarkRow) {
+              // console.error('One or more form elements not found for conditional display.');
+              return;
+            }
+            const selectedValue = processingOpinionSelect.value;
+
+            // Default all conditional fields to hidden first
+            problemTypeRow.style.display = 'none';
+            problemDescriptionRow.style.display = 'none';
+            auditCommentRow.style.display = 'none';
+            remarkRow.style.display = 'none';
+
+            if (selectedValue === '无法通过') {
+              problemTypeRow.style.display = 'list-item';
+              problemDescriptionRow.style.display = 'list-item';
+              auditCommentRow.style.display = 'list-item';
+              remarkRow.style.display = 'list-item';
+            } else if (selectedValue === '可以通过') {
+              auditCommentRow.style.display = 'list-item';
+              // remarkRow remains hidden
+              // problemTypeRow and problemDescriptionRow remain hidden
+            } else { // Blank / 请选择处理意见 (empty string value)
+              auditCommentRow.style.display = 'list-item';
+              // remarkRow remains hidden
+              // problemTypeRow and problemDescriptionRow remain hidden
+            }
+          }
+
+          if (processingOpinionSelect) {
+            processingOpinionSelect.addEventListener('change', toggleFields);
+            toggleFields(); // Initial call 
+          }
+        });
+      """
+    end
+  end
 end

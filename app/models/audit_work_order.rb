@@ -2,7 +2,6 @@
 class AuditWorkOrder < WorkOrder
   # 验证 (如上)
   validates :status, inclusion: { in: %w[pending processing approved rejected] }
-  validates :audit_result, presence: true, if: -> { approved? || rejected? }
 
   # 可选的其他验证
   validates :problem_type, presence: true, if: -> { rejected? }
@@ -72,63 +71,63 @@ class AuditWorkOrder < WorkOrder
   end
 
   # 费用明细选择方法 (如上)
-  def select_fee_detail(fee_detail)
-    return nil unless fee_detail.document_number == self.reimbursement.invoice_number
-    
-    # 确保使用正确的work_order_type
-    FeeDetailSelection.find_or_create_by!(
-      fee_detail: fee_detail,
-      work_order_id: self.id,
-      work_order_type: 'AuditWorkOrder'
-    )
-  end
+  # def select_fee_detail(fee_detail)
+  #   return nil unless fee_detail.document_number == self.reimbursement.invoice_number
+  #   
+  #   # 确保使用正确的work_order_type
+  #   FeeDetailSelection.find_or_create_by!(
+  #     fee_detail: fee_detail,
+  #     work_order_id: self.id,
+  #     work_order_type: 'AuditWorkOrder'
+  #   )
+  # end
 
-  def select_fee_details(fee_detail_ids)
-    return [] if fee_detail_ids.blank? || !persisted?
-    
-    # 直接处理费用明细选择
-    fee_details_to_select = FeeDetail.where(id: fee_detail_ids, document_number: self.reimbursement.invoice_number)
-    selections = []
-    
-    fee_details_to_select.each do |fd|
-      selection = select_fee_detail(fd)
-      selections << selection if selection
-    end
-    
-    selections
-  end
+  # def select_fee_details(fee_detail_ids)
+  #   return [] if fee_detail_ids.blank? || !persisted?
+  #   
+  #   # 直接处理费用明细选择
+  #   fee_details_to_select = FeeDetail.where(id: fee_detail_ids, document_number: self.reimbursement.invoice_number)
+  #   selections = []
+  #   
+  #   fee_details_to_select.each do |fd|
+  #     selection = select_fee_detail(fd)
+  #     selections << selection if selection
+  #   end
+  #   
+  #   selections
+  # end
   
-  # 保留回调以兼容现有代码
-  after_create :process_fee_detail_selections
+  # # 保留回调以兼容现有代码  <--- 移除这行及对应方法
+  # after_create :process_fee_detail_selections
   
-  def process_fee_detail_selections
-    # 使用@fee_detail_ids_to_select，如果存在
-    return unless @fee_detail_ids_to_select.present?
-    
-    # 添加日志以便调试
-    Rails.logger.info "Processing fee detail selections for AuditWorkOrder ##{id}: #{@fee_detail_ids_to_select.inspect}"
-    
-    # 确保我们有关联的报销单
-    if reimbursement.nil?
-      Rails.logger.error "AuditWorkOrder ##{id} has no associated reimbursement"
-      return
-    end
-    
-    # 查找费用明细
-    fee_details = FeeDetail.where(id: @fee_detail_ids_to_select, document_number: reimbursement.invoice_number)
-    Rails.logger.info "Found #{fee_details.count} fee details for AuditWorkOrder ##{id}"
-    
-    # 创建费用明细选择
-    fee_details.each do |fee_detail|
-      # 显式指定work_order_type为'AuditWorkOrder'
-      selection = FeeDetailSelection.find_or_create_by(
-        fee_detail: fee_detail,
-        work_order_id: self.id,
-        work_order_type: 'AuditWorkOrder'
-      )
-      Rails.logger.info "Created fee detail selection for fee detail ##{fee_detail.id}"
-    end
-  end
+  # def process_fee_detail_selections <--- 移除这个方法
+    # # 使用@fee_detail_ids_to_select，如果存在
+    # return unless @fee_detail_ids_to_select.present?
+    # 
+    # # 添加日志以便调试
+    # Rails.logger.info "Processing fee detail selections for AuditWorkOrder ##{id}: #{@fee_detail_ids_to_select.inspect}"
+    # 
+    # # 确保我们有关联的报销单
+    # if reimbursement.nil?
+    #   Rails.logger.error "AuditWorkOrder ##{id} has no associated reimbursement"
+    #   return
+    # end
+    # 
+    # # 查找费用明细
+    # fee_details = FeeDetail.where(id: @fee_detail_ids_to_select, document_number: reimbursement.invoice_number)
+    # Rails.logger.info "Found #{fee_details.count} fee details for AuditWorkOrder ##{id}"
+    # 
+    # # 创建费用明细选择
+    # fee_details.each do |fee_detail|
+    #   # 显式指定work_order_type为'AuditWorkOrder'
+    #   selection = FeeDetailSelection.find_or_create_by(
+    #     fee_detail: fee_detail,
+    #     work_order_id: self.id,
+    #     work_order_type: 'AuditWorkOrder'
+    #   )
+    #   Rails.logger.info "Created fee detail selection for fee detail ##{fee_detail.id}"
+    # end
+  # end
 
   # ActiveAdmin 支持
   # 覆盖基类的 ransackable 方法
