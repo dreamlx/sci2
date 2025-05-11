@@ -23,7 +23,15 @@ class ExpressReceiptImportService
                  else
                    @file.path
                  end
-      spreadsheet = test_spreadsheet || Roo::Spreadsheet.open(file_path, extension: :csv)
+      
+      # 根据文件扩展名确定文件类型
+      extension = File.extname(file_path).downcase[1..-1]
+      unless %w[csv xls xlsx].include?(extension)
+        return { success: false, errors: ["不支持的文件格式，请上传 CSV 或 Excel 文件"] }
+      end
+      
+      spreadsheet = test_spreadsheet || Roo::Spreadsheet.open(file_path, extension: extension.to_sym)
+      
       # Handle both Excel and CSV files
       sheet = if spreadsheet.respond_to?(:sheet)
                 spreadsheet.sheet(0)
@@ -32,10 +40,13 @@ class ExpressReceiptImportService
               end
       
       headers = sheet.row(1).map { |h| h.to_s.strip }
+      Rails.logger.info "CSV Headers: #{headers.inspect}"
+      
       sheet.each_with_index do |row, idx|
         next if idx == 0
         
         row_data = Hash[headers.zip(row)]
+        Rails.logger.info "Row #{idx + 1} data: #{row_data.inspect}"
         import_express_receipt(row_data, idx + 1)
       end
       
@@ -57,9 +68,9 @@ class ExpressReceiptImportService
   private
   
   def import_express_receipt(row, row_number)
-    document_number = row['单据编号']&.strip
+    document_number = row['单号']&.strip
     operation_notes = row['操作意见']&.strip
-    received_at_str = row['操作时间'] # 使用 '操作时间'
+    received_at_str = row['操作时间']
     
     # 使用正则表达式提取快递单号
     tracking_number = operation_notes&.match(TRACKING_NUMBER_REGEX)&.captures&.first&.strip

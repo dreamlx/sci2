@@ -74,7 +74,17 @@ ActiveAdmin.register Reimbursement do
 
   # 导入操作
   collection_action :new_import, method: :get do
-    render "admin/reimbursements/new_import"
+    render "admin/shared/import_form", locals: {
+      title: "导入报销单",
+      import_path: import_admin_reimbursements_path,
+      cancel_path: admin_reimbursements_path,
+      instructions: [
+        "请上传CSV格式文件",
+        "文件必须包含以下列：发票号码,文档名称,申请人,申请人ID,公司,部门,金额,收单状态,状态,收单日期,提交日期,是否电子发票,外部状态,审批日期,审批人",
+        "如果报销单已存在（根据发票号码判断），将更新现有记录",
+        "如果报销单不存在，将创建新记录"
+      ]
+    }
   end
 
   collection_action :import, method: :post do

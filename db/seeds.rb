@@ -7,18 +7,8 @@ if Rails.env.development? && AdminUser.count == 0
   AdminUser.create!(email: 'admin@example.com', password: 'password', password_confirmation: 'password')
 end
 
-# 费用类型
-fee_types = %w[交通费 差旅费 餐饮费 材料费 住宿费].map { |name| FeeType.find_or_create_by!(name: name) }
-
 # 问题类型
 problem_types = %w[发票问题 金额问题 材料问题].map { |name| ProblemType.find_or_create_by!(name: name) }
-
-# 问题类型-费用类型多对多
-ProblemTypeFeeType.find_or_create_by!(problem_type: problem_types[0], fee_type: fee_types[0]) # 发票-交通
-ProblemTypeFeeType.find_or_create_by!(problem_type: problem_types[0], fee_type: fee_types[1]) # 发票-差旅
-ProblemTypeFeeType.find_or_create_by!(problem_type: problem_types[1], fee_type: fee_types[2]) # 金额-餐饮
-ProblemTypeFeeType.find_or_create_by!(problem_type: problem_types[2], fee_type: fee_types[3]) # 材料-材料
-ProblemTypeFeeType.find_or_create_by!(problem_type: problem_types[2], fee_type: fee_types[4]) # 材料-住宿
 
 # 问题说明
 ProblemDescription.find_or_create_by!(problem_type: problem_types[0], description: '发票抬头错误')

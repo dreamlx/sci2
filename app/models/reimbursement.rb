@@ -31,6 +31,7 @@ class Reimbursement < ApplicationRecord
   scope :non_electronic, -> { where(is_electronic: false) }
   scope :pending, -> { where(status: 'pending') }
   scope :processing, -> { where(status: 'processing') }
+  scope :waiting_completion, -> { where(status: 'waiting_completion') }
   scope :closed, -> { where(status: 'closed') }
   
   # 可选的其他范围查询

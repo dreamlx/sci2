@@ -39,7 +39,18 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
 
   # 导入操作
   collection_action :new_import, method: :get do
-    render "admin/express_receipt_work_orders/new_import"
+    render "admin/shared/import_form", locals: {
+      title: "导入快递收单工单",
+      import_path: import_admin_express_receipt_work_orders_path,
+      cancel_path: admin_express_receipt_work_orders_path,
+      instructions: [
+        "请上传CSV格式文件",
+        "文件必须包含以下列：报销单号,快递单号,快递公司,收单日期",
+        "系统会根据报销单号关联到已存在的报销单",
+        "如果快递收单工单已存在（根据报销单号+快递单号判断），将跳过该记录",
+        "如果快递收单工单不存在，将创建新记录"
+      ]
+    }
   end
 
   collection_action :import, method: :post do
