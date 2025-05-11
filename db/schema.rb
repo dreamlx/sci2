@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_05_09_140625) do
+ActiveRecord::Schema[7.1].define(version: 2025_05_11_115018) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -176,7 +176,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_05_09_140625) do
     t.string "tracking_number"
     t.datetime "received_at"
     t.string "courier_name"
-    t.string "audit_result"
+    t.string "resolution"
     t.text "audit_comment"
     t.datetime "audit_date"
     t.boolean "vat_verified"
@@ -185,6 +185,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_05_09_140625) do
     t.integer "problem_type_id"
     t.integer "problem_description_id"
     t.text "material_ids"
+    t.string "initiator_role", default: "internal"
     t.index ["creator_id"], name: "index_work_orders_on_creator_id"
     t.index ["reimbursement_id", "tracking_number"], name: "index_work_orders_on_reimbursement_and_tracking", where: "type = 'ExpressReceiptWorkOrder' AND tracking_number IS NOT NULL"
     t.index ["reimbursement_id"], name: "index_work_orders_on_reimbursement_id"

@@ -19,9 +19,8 @@ ActiveAdmin.register Reimbursement do
   scope :all, default: true
   scope :pending
   scope :processing
-  scope :waiting_completion
   scope :closed
-  scope :electronic, ->{where(is_electronic: true)}, label: "电子发票"
+  scope :electronic, -> { where(is_electronic: true) }
 
   # 批量操作
   batch_action :mark_as_received do |ids|
@@ -127,10 +126,6 @@ ActiveAdmin.register Reimbursement do
     link_to "开始处理", start_processing_admin_reimbursement_path(resource), method: :put, data: { confirm: "确定要开始处理此报销单吗?" }
   end
 
-  action_item :close, only: :show, if: proc{resource.waiting_completion?} do
-    link_to "关闭报销单", close_admin_reimbursement_path(resource), method: :put, data: { confirm: "确定要关闭此报销单吗?" }
-  end
-
   member_action :start_processing, method: :put do
     begin
       resource.start_processing!
@@ -216,7 +211,7 @@ ActiveAdmin.register Reimbursement do
           table_for resource.audit_work_orders.order(created_at: :desc) do
             column(:id) { |wo| link_to wo.id, admin_audit_work_order_path(wo) }
             column(:status) { |wo| status_tag wo.status }
-            column(:audit_result) { |wo| status_tag wo.audit_result if wo.audit_result.present? }
+            column("处理结果", :resolution) { |wo| status_tag wo.resolution if wo.resolution.present? }
             column :audit_date
             column :creator
             column :created_at

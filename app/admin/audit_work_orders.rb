@@ -1,8 +1,8 @@
 ActiveAdmin.register AuditWorkOrder do
-  permit_params :reimbursement_id, :audit_result, :audit_comment, :audit_date,
-                :vat_verified, :creator_id,
-                # 共享字段 (Req 6/7)
-                :problem_type, :problem_description, :remark, :processing_opinion,
+  permit_params :reimbursement_id, :audit_comment, # resolution & audit_date are set by system, creator_id by controller
+                :vat_verified,
+                # 共享字段 - 使用 _id 后缀
+                :problem_type_id, :problem_description_id, :remark, :processing_opinion,
                 submitted_fee_detail_ids: []
   # 移除 status 从 permit_params 中，状态由系统自动管理
 
@@ -21,44 +21,43 @@ ActiveAdmin.register AuditWorkOrder do
       if params[:reimbursement_id] && resource.reimbursement_id.nil?
         resource.reimbursement_id = params[:reimbursement_id]
       end
-      # 如果是从表单提交的，设置fee_detail_ids
-      if params[:audit_work_order] && params[:audit_work_order][:fee_detail_ids]
+      # 如果是从表单提交的，设置 submitted_fee_detail_ids
+      if params[:audit_work_order] && params[:audit_work_order][:submitted_fee_detail_ids] # Changed from :fee_detail_ids
         # 添加调试日志
-        Rails.logger.debug "AuditWorkOrder build_new_resource: 设置fee_detail_ids为 #{params[:audit_work_order][:fee_detail_ids].inspect}"
-        resource.fee_detail_ids = params[:audit_work_order][:fee_detail_ids]
+        Rails.logger.debug "AuditWorkOrder build_new_resource: 设置 submitted_fee_detail_ids 为 #{params[:audit_work_order][:submitted_fee_detail_ids].inspect}"
+        resource.submitted_fee_detail_ids = params[:audit_work_order][:submitted_fee_detail_ids] # Changed from :fee_detail_ids
         # 检查设置后的值
-        Rails.logger.debug "AuditWorkOrder build_new_resource: 设置后fee_detail_ids为 #{resource.fee_detail_ids.inspect}"
-        Rails.logger.debug "AuditWorkOrder build_new_resource: 设置后@fee_detail_ids_to_select为 #{resource.instance_variable_get(:@fee_detail_ids_to_select).inspect}"
+        Rails.logger.debug "AuditWorkOrder build_new_resource: 设置后 submitted_fee_detail_ids 为 #{resource.submitted_fee_detail_ids.inspect}"
       else
-        Rails.logger.debug "AuditWorkOrder build_new_resource: 没有fee_detail_ids参数"
+        Rails.logger.debug "AuditWorkOrder build_new_resource: 没有 submitted_fee_detail_ids 参数"
       end
       resource
     end
     
     # Updated create action
     def create
-      # Permit fee_detail_ids along with other attributes
-      audit_work_order_params = params.require(:audit_work_order).permit(
-        :reimbursement_id, :audit_result, :audit_comment, :audit_date,
-        :vat_verified, :problem_type, :problem_description, :remark, :processing_opinion,
-        submitted_fee_detail_ids: [] # Ensure fee_detail_ids is permitted
+      # Permit submitted_fee_detail_ids along with other attributes
+      # Parameters should align with the main permit_params, using _id for problem type/description
+      _audit_work_order_params = params.require(:audit_work_order).permit(
+        :reimbursement_id, :audit_comment, # resolution & audit_date are set by system
+        :vat_verified, 
+        :problem_type_id, :problem_description_id, :remark, :processing_opinion, # Use _id
+        submitted_fee_detail_ids: [] 
       )
 
-      @audit_work_order = AuditWorkOrder.new(audit_work_order_params.except(:submitted_fee_detail_ids))
+      @audit_work_order = AuditWorkOrder.new(_audit_work_order_params.except(:submitted_fee_detail_ids))
       @audit_work_order.creator_id = current_admin_user.id # Set creator
-      @audit_work_order.status = 'pending' # Set initial status
+      # @audit_work_order.status = 'pending' # Initial status is set by state_machine default
 
-      # 将 submitted_fee_detail_ids 赋值给模型的 accessor
-      # 模型内部的 after_save 回调 (process_submitted_fee_details) 会处理这些 ID
-      if audit_work_order_params[:submitted_fee_detail_ids].present?
-        @audit_work_order.submitted_fee_detail_ids = audit_work_order_params[:submitted_fee_detail_ids]
+      if _audit_work_order_params[:submitted_fee_detail_ids].present?
+        @audit_work_order.submitted_fee_detail_ids = _audit_work_order_params[:submitted_fee_detail_ids]
       end
       
       if @audit_work_order.save
         redirect_to admin_audit_work_order_path(@audit_work_order), notice: "审核工单已成功创建"
       else
         # Re-fetch reimbursement if save fails, needed for the form on render :new
-        @reimbursement = Reimbursement.find_by(id: audit_work_order_params[:reimbursement_id])
+        @reimbursement = Reimbursement.find_by(id: _audit_work_order_params[:reimbursement_id])
         flash.now[:error] = "创建审核工单失败: #{@audit_work_order.errors.full_messages.join(', ')}"
         render :new
       end
@@ -67,27 +66,37 @@ ActiveAdmin.register AuditWorkOrder do
     # Update action might need review if fee details were editable here before
     def update
       @audit_work_order = AuditWorkOrder.find(params[:id])
+      service = AuditWorkOrderService.new(@audit_work_order, current_admin_user)
       
-      # Permit params for update - typically fee_detail_ids are NOT managed via checkboxes on edit anymore
-      audit_work_order_params = params.require(:audit_work_order).permit(
-        :reimbursement_id, :audit_result, :audit_comment, :audit_date,
-        :vat_verified, :problem_type, :problem_description, :remark, :processing_opinion
-        # No fee_detail_ids here based on the new edit form display
-      )
-      
-      if @audit_work_order.update(audit_work_order_params.except(:submitted_fee_detail_ids))
-        redirect_to admin_audit_work_order_path(@audit_work_order), notice: "审核工单已成功更新"
+      # Use the centrally defined audit_work_order_params method for strong parameters
+      if service.update(audit_work_order_params_for_update) # Renamed to avoid conflict if audit_work_order_params is used elsewhere by AA
+        redirect_to admin_audit_work_order_path(@audit_work_order), notice: '审核工单已更新'
       else
-        flash.now[:error] = "更新审核工单失败: #{@audit_work_order.errors.full_messages.join(', ')}"
         render :edit
       end
+    end
+
+    private
+    
+    # Renamed to audit_work_order_params_for_update to be specific for the update action context
+    def audit_work_order_params_for_update 
+      params.require(:audit_work_order).permit(
+        # reimbursement_id is typically not changed during update
+        :processing_opinion,
+        :problem_type_id,         # Use _id
+        :problem_description_id,  # Use _id
+        :audit_comment,
+        :remark,
+        :vat_verified,            # If editable
+        submitted_fee_detail_ids: []  # If editable
+      )
     end
   end
 
   # 过滤器
   filter :reimbursement_invoice_number, as: :string, label: '报销单号'
-  filter :status, as: :select, collection: AuditWorkOrder.state_machines[:status].states.map(&:value)
-  filter :audit_result, as: :select, collection: ["approved", "rejected"]
+  filter :status, as: :select, collection: -> { AuditWorkOrder.state_machine(:status).states.map(&:value) }
+  filter :resolution, as: :select, collection: -> { AuditWorkOrder.state_machine(:resolution).states.map(&:value) }
   filter :creator # 过滤创建人
   filter :created_at
 
@@ -138,7 +147,9 @@ ActiveAdmin.register AuditWorkOrder do
 
   member_action :do_approve, method: :post do
     service = AuditWorkOrderService.new(resource, current_admin_user)
-    permitted_params = params.require(:audit_work_order).permit(:audit_comment, :problem_type, :problem_description, :remark, :processing_opinion)
+    # Permit only relevant fields for approve action, assuming form only has audit_comment
+    # If problem_type_id etc. are on this form, add them here.
+    permitted_params = params.require(:audit_work_order).permit(:audit_comment, :processing_opinion) # processing_opinion might also be set if form allows
     if service.approve(permitted_params)
       redirect_to admin_audit_work_order_path(resource), notice: "审核已通过"
     else
@@ -155,7 +166,14 @@ ActiveAdmin.register AuditWorkOrder do
 
   member_action :do_reject, method: :post do
     service = AuditWorkOrderService.new(resource, current_admin_user)
-    permitted_params = params.require(:audit_work_order).permit(:audit_comment, :problem_type, :problem_description, :remark, :processing_opinion)
+    # Permit relevant fields for reject action
+    permitted_params = params.require(:audit_work_order).permit(
+      :audit_comment, 
+      :problem_type_id,           # Use _id
+      :problem_description_id,    # Use _id
+      :remark, 
+      :processing_opinion
+    )
     if service.reject(permitted_params)
       redirect_to admin_audit_work_order_path(resource), notice: "审核已拒绝"
     else
@@ -208,7 +226,7 @@ ActiveAdmin.register AuditWorkOrder do
     id_column
     column :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
     column :status do |wo| status_tag wo.status end
-    column :audit_result do |wo| status_tag wo.audit_result if wo.audit_result.present? end
+    column :resolution do |wo| status_tag wo.resolution if wo.resolution.present? end
     column :problem_type
     column :creator
     column :created_at
@@ -229,7 +247,7 @@ ActiveAdmin.register AuditWorkOrder do
         row :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
         row :type
         row :status do |wo| status_tag wo.status end
-        row :audit_result do |wo| status_tag wo.audit_result if wo.audit_result.present? end
+        row :resolution do |wo| status_tag wo.resolution if wo.resolution.present? end
         row :audit_comment
         row :audit_date
         row :vat_verified
@@ -288,7 +306,7 @@ ActiveAdmin.register AuditWorkOrder do
              f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: f.object.reimbursement.invoice_number, readonly: true, disabled: true }
           end
           f.input :status, input_html: { readonly: true, disabled: true }, label: '工单状态' if f.object.persisted?
-          # Fields like audit_result, audit_date are typically not in the main edit form here, but set via member_actions
+          # Fields like resolution are typically not in the main edit form here, but set via member_actions
         end
 
         # Updated Fee Detail Section
@@ -330,16 +348,16 @@ ActiveAdmin.register AuditWorkOrder do
         f.inputs '处理与反馈' do # New section matching CommunicationWorkOrder
           f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '请选择处理意见', input_html: { id: 'audit_work_order_processing_opinion' } # Changed ID
           
-          f.input :problem_type, as: :select, collection: ProblemTypeOptions.all, include_blank: '请选择问题类型', wrapper_html: { id: 'problem_type_row', style: 'display:none;' }
+          f.input :problem_type_id, as: :select, collection: ProblemTypeOptions.all, include_blank: '请选择问题类型', wrapper_html: { id: 'problem_type_row', style: 'display:none;' }
           
-          f.input :problem_description, as: :select, collection: ProblemDescriptionOptions.all, include_blank: '请选择问题描述', wrapper_html: { id: 'problem_description_row', style: 'display:none;' }
+          f.input :problem_description_id, as: :select, collection: ProblemDescriptionOptions.all, include_blank: '请选择问题描述', wrapper_html: { id: 'problem_description_row', style: 'display:none;' }
           
           f.input :audit_comment, label: "审核意见", wrapper_html: { id: 'audit_comment_row', style: 'display:none;' }
           
           f.input :remark, label: "备注", wrapper_html: { id: 'remark_row', style: 'display:none;' }
 
           # Specific Audit fields if needed in main form (usually part of approve/reject actions)
-          # f.input :vat_verified, label: '增值税发票已验证' if f.object.persisted? # Example placement
+          f.input :vat_verified, label: '增值税发票已验证' if f.object.persisted? # Example placement
         end
       end
       # Other tabs for AuditWorkOrder if they exist and are still relevant
@@ -383,6 +401,26 @@ ActiveAdmin.register AuditWorkOrder do
             processingOpinionSelect.addEventListener('change', toggleFields);
             toggleFields();
           }
+        });
+      """
+    end
+
+    # Additional JavaScript for conditional field requirements
+    script do
+      raw """
+        document.addEventListener('DOMContentLoaded', function() {
+          var resultSelect = document.getElementById('resolution_select');
+          var problemType = document.getElementById('problem_type_input');
+          var problemDesc = document.getElementById('problem_description_input');
+          function toggleRequired() {
+            var rejected = resultSelect.value === 'rejected';
+            problemType.required = rejected;
+            problemDesc.required = rejected;
+            problemType.parentElement.style.display = rejected ? '' : 'none';
+            problemDesc.parentElement.style.display = rejected ? '' : 'none';
+          }
+          resultSelect.addEventListener('change', toggleRequired);
+          toggleRequired();
         });
       """
     end

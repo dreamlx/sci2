@@ -28,11 +28,12 @@
 <% elsif f.object.is_a?(CommunicationWorkOrder) %>
   <%= f.input :communication_method, as: :select, collection: CommunicationMethodOptions.all %>
   <%= f.input :initiator_role, as: :select, collection: InitiatorRoleOptions.all %>
-  <%= f.input :needs_communication, as: :boolean, label: '需要沟通' %>
   <%= f.input :remark, as: :text, input_html: { rows: 3, class: 'remark-textarea' } %>
   <%= f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '无' %>
-  <% if !f.object.new_record? && (f.object.status == 'approved' || f.object.status == 'rejected') %>
-    <%= f.input :resolution_summary, required: false %>
+  <% if !f.object.new_record? && f.object.status.in?(%w[approved rejected]) %>
+    <%= f.input :audit_result, input_html: { disabled: true } %>
+    <%= f.input :audit_comment %>
+    <%= f.input :audit_date, as: :string %>
   <% end %>
 <% end %>
 

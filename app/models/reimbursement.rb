@@ -19,7 +19,7 @@ class Reimbursement < ApplicationRecord
   validates :applicant_id, presence: true
   validates :company, presence: true
   validates :department, presence: true
-  validates :status, presence: true, inclusion: { in: %w[pending processing waiting_completion closed] }
+  validates :status, presence: true, inclusion: { in: %w[pending processing closed] }
   validates :receipt_status, inclusion: { in: %w[pending received] }
   validates :is_electronic, inclusion: { in: [true, false] }
   
@@ -31,7 +31,6 @@ class Reimbursement < ApplicationRecord
   scope :non_electronic, -> { where(is_electronic: false) }
   scope :pending, -> { where(status: 'pending') }
   scope :processing, -> { where(status: 'processing') }
-  scope :waiting_completion, -> { where(status: 'waiting_completion') }
   scope :closed, -> { where(status: 'closed') }
   
   # 可选的其他范围查询
@@ -43,8 +42,7 @@ class Reimbursement < ApplicationRecord
   # 注意：在实际环境中，需要确保 state_machines-activerecord gem 已正确安装和加载
   state_machine :status, initial: :pending do
     event :start_processing do
-      # 可以从 pending 或 waiting_completion 回到 processing (如果出现新问题)
-      transition [:pending, :waiting_completion] => :processing
+      transition [:pending] => :processing
     end
     
     event :close do
@@ -68,10 +66,6 @@ class Reimbursement < ApplicationRecord
   
   def processing?
     status == 'processing'
-  end
-  
-  def waiting_completion?
-    status == 'waiting_completion'
   end
   
   def closed?
