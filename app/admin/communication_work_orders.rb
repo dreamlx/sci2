@@ -243,8 +243,6 @@ ActiveAdmin.register CommunicationWorkOrder do
         column "备注", :notes
       end
     end
-    
-    active_admin_comments
   end
 
   form do |f|

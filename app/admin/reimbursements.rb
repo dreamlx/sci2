@@ -253,7 +253,6 @@ ActiveAdmin.register Reimbursement do
          end
        end
     end
-    active_admin_comments
   end
 
   # 表单页

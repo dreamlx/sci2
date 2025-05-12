@@ -28,7 +28,6 @@ ActiveAdmin.register ProblemType do
       row :id
       row :name
     end
-    active_admin_comments
   end
 
   form do |f|

@@ -286,8 +286,6 @@ ActiveAdmin.register AuditWorkOrder do
         column "备注", :notes
       end
     end
-
-    active_admin_comments
   end
 
   # 表单使用 partial

@@ -14,7 +14,6 @@ class AuditWorkOrder < WorkOrder
   validates :problem_type_id, presence: true, if: -> { resolution == 'rejected' && problem_type_id.blank? }
   validates :problem_description_id, presence: true, if: -> { resolution == 'rejected' && problem_description_id.blank? }
   validates :audit_comment, presence: true, if: -> { resolution == 'rejected' && audit_comment.blank? }
-  validates :vat_verified, inclusion: { in: [true, false] }, if: :processing_opinion_pass_or_cannot_pass?
 
   # ActiveAdmin 支持
   def self.ransackable_attributes(auth_object = nil)

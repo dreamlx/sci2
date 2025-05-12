@@ -33,7 +33,6 @@ ActiveAdmin.register ProblemDescription do
       row :problem_type
       row :description
     end
-    active_admin_comments
   end
 
   form do |f|
