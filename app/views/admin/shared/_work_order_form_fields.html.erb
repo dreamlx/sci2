@@ -1,4 +1,6 @@
-<%= f.input :reimbursement_id, as: :select, collection: Reimbursement.all.map { |r| [r.invoice_number, r.id] }, input_html: { disabled: !f.object.new_record? } %>
+<%= f.input :reimbursement_id, as: :select, collection: Reimbursement.all.map { |r| [r.id, r.id] } %>
+<%= f.input :status, as: :select, collection: WorkOrder::STATUSES %>
+<%= f.input :remark, as: :text %>
 
 <% unless f.object.new_record? %>
   <li class="string input optional">
@@ -23,7 +25,6 @@
     <%= f.input :audit_result, input_html: { disabled: true } %>
     <%= f.input :audit_comment %>
     <%= f.input :audit_date, as: :string %>
-    <%= f.input :vat_verified %>
   <% end %>
 <% elsif f.object.is_a?(CommunicationWorkOrder) %>
   <%= f.input :communication_method, as: :select, collection: CommunicationMethodOptions.all %>

@@ -40,14 +40,12 @@ ActiveAdmin.register AuditWorkOrder do
       # Parameters should align with the main permit_params, using _id for problem type/description
       _audit_work_order_params = params.require(:audit_work_order).permit(
         :reimbursement_id, :audit_comment, # resolution & audit_date are set by system
-        :vat_verified, 
-        :problem_type_id, :problem_description_id, :remark, :processing_opinion, # Use _id
+        :problem_type_id, :problem_description_id, :remark, :processing_opinion,
         submitted_fee_detail_ids: [] 
       )
 
       @audit_work_order = AuditWorkOrder.new(_audit_work_order_params.except(:submitted_fee_detail_ids))
       @audit_work_order.creator_id = current_admin_user.id # Set creator
-      # @audit_work_order.status = 'pending' # Initial status is set by state_machine default
 
       if _audit_work_order_params[:submitted_fee_detail_ids].present?
         @audit_work_order.submitted_fee_detail_ids = _audit_work_order_params[:submitted_fee_detail_ids]
@@ -58,6 +56,8 @@ ActiveAdmin.register AuditWorkOrder do
       else
         # Re-fetch reimbursement if save fails, needed for the form on render :new
         @reimbursement = Reimbursement.find_by(id: _audit_work_order_params[:reimbursement_id])
+        # 保留已选择的费用明细
+        @audit_work_order.submitted_fee_detail_ids = _audit_work_order_params[:submitted_fee_detail_ids] if _audit_work_order_params[:submitted_fee_detail_ids].present?
         flash.now[:error] = "创建审核工单失败: #{@audit_work_order.errors.full_messages.join(', ')}"
         render :new
       end
@@ -81,13 +81,11 @@ ActiveAdmin.register AuditWorkOrder do
     # Renamed to audit_work_order_params_for_update to be specific for the update action context
     def audit_work_order_params_for_update 
       params.require(:audit_work_order).permit(
-        # reimbursement_id is typically not changed during update
         :processing_opinion,
         :problem_type_id,         # Use _id
         :problem_description_id,  # Use _id
         :audit_comment,
         :remark,
-        :vat_verified,            # If editable
         submitted_fee_detail_ids: []  # If editable
       )
     end
@@ -304,47 +302,19 @@ ActiveAdmin.register AuditWorkOrder do
              f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: f.object.reimbursement.invoice_number, readonly: true, disabled: true }
           end
           f.input :status, input_html: { readonly: true, disabled: true }, label: '工单状态' if f.object.persisted?
-          # Fields like resolution are typically not in the main edit form here, but set via member_actions
         end
 
         # Updated Fee Detail Section
         if reimbursement
-          if f.object.persisted? # EDIT MODE: Show read-only list
-            panel "已关联的费用明细" do
-              if f.object.fee_details.any?
-                table_for f.object.fee_details.order(created_at: :desc) do
-                  column(:id) { |fd| link_to fd.id, admin_fee_detail_path(fd) }
-                  column :fee_type
-                  column "金额", :amount do |fd| number_to_currency(fd.amount, unit: "¥") end
-                  column "备注", :notes
-                  column "验证状态", :verification_status do |fd| status_tag fd.verification_status end
-                end
-              else
-                para "此工单当前未关联任何费用明细。"
-              end
-            end
-          else # NEW MODE: Show checkboxes for selection
-            panel "选择关联的费用明细" do
-              available_fee_details = FeeDetail.where(document_number: reimbursement.invoice_number)
-              if available_fee_details.any?
-                selected_ids = [] # Always empty for new
-                f.input :submitted_fee_detail_ids, as: :check_boxes, 
-                        collection: available_fee_details.map { |fd| ["ID: #{fd.id} - #{fd.notes} (¥#{fd.amount})", fd.id] },
-                        selected: selected_ids,
-                        label: false
-              else
-                para "此报销单没有可供选择的费用明细。"
-              end
-            end
-          end
+          render 'admin/shared/fee_details_selection', work_order: f.object, reimbursement: reimbursement
         else
           f.inputs '费用明细' do
             para "无法加载费用明细，未关联有效的报销单。"
           end
         end
 
-        f.inputs '处理与反馈' do # New section matching CommunicationWorkOrder
-          f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '请选择处理意见', input_html: { id: 'audit_work_order_processing_opinion' } # Changed ID
+        f.inputs '处理与反馈' do
+          f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '请选择处理意见', input_html: { id: 'audit_work_order_processing_opinion' }
           
           f.input :problem_type_id, as: :select, collection: ProblemType.all.map { |pt| [pt.name, pt.id] }, include_blank: '请选择问题类型', wrapper_html: { id: 'problem_type_row', style: 'display:none;' }
           
@@ -353,20 +323,16 @@ ActiveAdmin.register AuditWorkOrder do
           f.input :audit_comment, label: "审核意见", wrapper_html: { id: 'audit_comment_row', style: 'display:none;' }
           
           f.input :remark, label: "备注", wrapper_html: { id: 'remark_row', style: 'display:none;' }
-
-          # Specific Audit fields if needed in main form (usually part of approve/reject actions)
-          f.input :vat_verified, label: '增值税发票已验证' if f.object.persisted? # Example placement
         end
       end
-      # Other tabs for AuditWorkOrder if they exist and are still relevant
     end
     f.actions
 
-    # JavaScript for conditional fields (Same logic, ensure IDs match, e.g., audit_work_order_processing_opinion)
+    # JavaScript for conditional fields
     script do
       raw """
         document.addEventListener('DOMContentLoaded', function() {
-          const processingOpinionSelect = document.getElementById('audit_work_order_processing_opinion'); // ID Updated
+          const processingOpinionSelect = document.getElementById('audit_work_order_processing_opinion');
           const problemTypeRow = document.getElementById('problem_type_row');
           const problemDescriptionRow = document.getElementById('problem_description_row');
           const auditCommentRow = document.getElementById('audit_comment_row');
@@ -399,26 +365,6 @@ ActiveAdmin.register AuditWorkOrder do
             processingOpinionSelect.addEventListener('change', toggleFields);
             toggleFields();
           }
-        });
-      """
-    end
-
-    # Additional JavaScript for conditional field requirements
-    script do
-      raw """
-        document.addEventListener('DOMContentLoaded', function() {
-          var resultSelect = document.getElementById('resolution_select');
-          var problemType = document.getElementById('problem_type_input');
-          var problemDesc = document.getElementById('problem_description_input');
-          function toggleRequired() {
-            var rejected = resultSelect.value === 'rejected';
-            problemType.required = rejected;
-            problemDesc.required = rejected;
-            problemType.parentElement.style.display = rejected ? '' : 'none';
-            problemDesc.parentElement.style.display = rejected ? '' : 'none';
-          }
-          resultSelect.addEventListener('change', toggleRequired);
-          toggleRequired();
         });
       """
     end

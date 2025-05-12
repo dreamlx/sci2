@@ -69,7 +69,6 @@
           <% if action_type == :approve %>
             <%= f.input :audit_comment, label: (label || '审核意见'), input_html: { rows: 3 }, required: true %>
             <%= f.input :audit_date, label: '审核日期', as: :date_select, input_html: { value: Date.today } %>
-            <%= f.input :vat_verified, label: '增值税发票已验证' %>
           <% else %>
             <%= f.input :audit_comment, label: (label || '拒绝原因'), input_html: { rows: 3 }, required: true %>
             <%= f.input :audit_date, label: '审核日期', as: :date_select, input_html: { value: Date.today } %>

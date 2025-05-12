@@ -24,12 +24,13 @@ class WorkOrder < ApplicationRecord
   validates :type, presence: true
   validates :status, presence: true, inclusion: { in: %w[pending processing approved rejected] }
   validates :resolution, presence: true, inclusion: { in: %w[pending approved rejected] }
-  validates :audit_date, presence: true, if: -> { status.in?(%w[approved rejected]) && respond_to?(:audit_date) }
+  validates :audit_date, presence: true, if: -> { status.in?(%w[approved rejected]) && respond_to?(:audit_date) && audit_date.blank? }
   
   # Common validation for problem_type_id and problem_description_id when resolution is rejected
   # This can now be in the base class as the associations are defined here.
   validates :problem_type_id, presence: true, if: -> { (is_a?(AuditWorkOrder) || is_a?(CommunicationWorkOrder)) && resolution == 'rejected' }
   validates :problem_description_id, presence: true, if: -> { (is_a?(AuditWorkOrder) || is_a?(CommunicationWorkOrder)) && resolution == 'rejected' }
+  validates :audit_comment, presence: true, if: -> { (is_a?(AuditWorkOrder) || is_a?(CommunicationWorkOrder)) && resolution == 'rejected' }
   
   # 添加虚拟属性以接收表单提交的fee_detail_ids
   attr_accessor :submitted_fee_detail_ids # 更清晰的命名以区分于实际关联的 fee_detail_ids
@@ -45,6 +46,7 @@ class WorkOrder < ApplicationRecord
   after_create :update_reimbursement_status_on_create
   before_save :set_status_based_on_resolution
   before_validation :ensure_resolution_is_pending_if_nil
+  before_validation :set_status_based_on_processing_opinion
   
   # 回调，在保存后处理提交的 fee_detail_ids
   after_save :process_submitted_fee_details
@@ -289,5 +291,28 @@ class WorkOrder < ApplicationRecord
 
   def self.subclass_ransackable_associations
     []
+  end
+
+  # 根据处理意见设置状态
+  def set_status_based_on_processing_opinion
+    return unless self.is_a?(AuditWorkOrder) || self.is_a?(CommunicationWorkOrder)
+    
+    case processing_opinion
+    when nil, ""
+      # 保持当前状态
+    when "可以通过", "审核通过"
+      self.status = "approved" if self.pending? || self.processing?
+      self.resolution = "approved"
+      self.audit_date = Time.current if self.respond_to?(:audit_date=)
+    when "无法通过", "否决"
+      self.status = "rejected" if self.pending? || self.processing?
+      self.resolution = "rejected"
+      self.audit_date = Time.current if self.respond_to?(:audit_date=)
+    else
+      # 任何其他非空处理意见都设为 processing
+      self.status = "processing" if self.pending?
+    end
+  rescue => e
+    Rails.logger.error "无法基于处理意见更新状态: #{e.message}"
   end
 end

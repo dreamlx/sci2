@@ -264,37 +264,9 @@ ActiveAdmin.register CommunicationWorkOrder do
           
         end
 
-        # Updated Fee Detail Section (Conditional display)
+        # Updated Fee Detail Section
         if reimbursement
-          if f.object.persisted? # EDIT MODE: Show read-only list
-            panel "已关联的费用明细" do
-              if f.object.fee_details.any?
-                table_for f.object.fee_details.order(created_at: :desc) do
-                  column(:id) { |fd| link_to fd.id, admin_fee_detail_path(fd) }
-                  column :fee_type
-                  column "金额", :amount do |fd| number_to_currency(fd.amount, unit: "¥") end
-                  column "备注", :notes # Using notes
-                  column "验证状态", :verification_status do |fd| status_tag fd.verification_status end
-                end
-              else
-                para "此工单当前未关联任何费用明细。"
-              end
-            end
-          else # NEW MODE: Show checkboxes for selection
-            panel "选择关联的费用明细" do
-              available_fee_details = FeeDetail.where(document_number: reimbursement.invoice_number)
-              if available_fee_details.any?
-                selected_ids = [] # Always empty for new
-                # Ensure this uses fd.notes or the correct field name for FeeDetail description
-                f.input :submitted_fee_detail_ids, as: :check_boxes, 
-                        collection: available_fee_details.map { |fd| ["ID: #{fd.id} - #{fd.notes} (¥#{fd.amount})", fd.id] },
-                        selected: selected_ids,
-                        label: false
-              else
-                para "此报销单没有可供选择的费用明细。"
-              end
-            end
-          end
+          render 'admin/shared/fee_details_selection', work_order: f.object, reimbursement: reimbursement
         else
           f.inputs '费用明细' do
             para "无法加载费用明细，未关联有效的报销单。"

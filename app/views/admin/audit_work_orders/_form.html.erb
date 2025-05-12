@@ -1,68 +1,91 @@
 <%= semantic_form_for [:admin, @audit_work_order] do |f| %>
-  <%= f.inputs "基本信息" do %>
-    <%= render 'admin/shared/work_order_form_fields', f: f %>
+  <%= f.inputs do %>
+    <%= f.input :reimbursement_id, as: :select, collection: Reimbursement.all.map { |r| [r.id, r.id] } %>
+    <%= f.input :status, as: :select, collection: AuditWorkOrder::STATUSES %>
+    <%= f.input :audit_result, as: :select, collection: AuditWorkOrder::AUDIT_RESULTS %>
+    <%= f.input :audit_comment, as: :text %>
+    <%= f.input :problem_type %>
+    <%= f.input :problem_description, as: :text %>
+    <%= f.input :remark, as: :text %>
+    <%= f.input :processing_opinion, as: :text %>
   <% end %>
-    <%= f.inputs "选择费用明细" do %>
-      <% if f.object.reimbursement_id.present? %>
-        <div class="fee-detail-selection">
-          <% if f.object.new_record? %>
-            <div class="select-actions">
-              <a href="#" class="select-all">全选</a>
-              |
-              <a href="#" class="deselect-all">取消全选</a>
-            </div>
-          <% end %>
-          
-          <table class="fee-details-table">
-            <thead>
+
+  <div class="panel">
+    <h3>选择关联的费用明细</h3>
+    <div class="fee-details-selection">
+      <% if @audit_work_order.reimbursement %>
+        <table class="fee-details-table">
+          <thead>
+            <tr>
+              <th>选择</th>
+              <th>ID</th>
+              <th>费用类型</th>
+              <th>金额</th>
+              <th>费用日期</th>
+              <th>验证状态</th>
+              <th>备注</th>
+              <th>创建时间</th>
+              <th>更新时间</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @audit_work_order.reimbursement.fee_details.each do |fee_detail| %>
               <tr>
-                <% if f.object.new_record? %><th class="selectable"></th><% end %>
-                <th>ID</th>
-                <th>费用类型</th>
-                <th>金额</th>
-                <th>费用日期</th>
-                <th>验证状态</th>
+                <td>
+                  <%= check_box_tag "audit_work_order[fee_detail_ids][]", 
+                                  fee_detail.id, 
+                                  @audit_work_order.fee_detail_ids.include?(fee_detail.id),
+                                  id: "fee_detail_#{fee_detail.id}" %>
+                </td>
+                <td><%= fee_detail.id %></td>
+                <td><%= fee_detail.fee_type %></td>
+                <td><%= number_to_currency(fee_detail.amount, unit: "¥") %></td>
+                <td><%= fee_detail.fee_date %></td>
+                <td><%= fee_detail.verification_status %></td>
+                <td><%= fee_detail.notes %></td>
+                <td><%= fee_detail.created_at&.strftime("%Y-%m-%d %H:%M") %></td>
+                <td><%= fee_detail.updated_at&.strftime("%Y-%m-%d %H:%M") %></td>
               </tr>
-            </thead>
-            <tbody>
-              <% f.object.reimbursement.fee_details.each do |fee_detail| %>
-                <tr>
-                  <% if f.object.new_record? %>
-                    <td>
-                      <%= check_box_tag "audit_work_order[fee_detail_ids][]", fee_detail.id,
-                                       f.object.fee_detail_ids.present? && f.object.fee_detail_ids.include?(fee_detail.id) %>
-                    </td>
-                  <% end %>
-                  <td><%= fee_detail.id %></td>
-                  <td><%= fee_detail.fee_type %></td>
-                  <td><%= number_to_currency(fee_detail.amount, unit: "¥") %></td>
-                  <td><%= fee_detail.fee_date %></td>
-                  <td><%= fee_detail.verification_status %></td>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
-          
-          <% if f.object.new_record? %>
-            <script>
-              $(document).ready(function() {
-                $('.select-all').click(function(e) {
-                  e.preventDefault();
-                  $('.fee-details-table input[type="checkbox"]').prop('checked', true);
-                });
-                
-                $('.deselect-all').click(function(e) {
-                  e.preventDefault();
-                  $('.fee-details-table input[type="checkbox"]').prop('checked', false);
-                });
-              });
-            </script>
-          <% end %>
-        </div>
+            <% end %>
+          </tbody>
+        </table>
       <% else %>
-        <p>请先选择报销单，然后才能选择费用明细。</p>
+        <p>请先选择报销单</p>
       <% end %>
-    <% end %>
-  
-  <%= f.actions %>
+    </div>
+  </div>
+
+  <%= f.actions do %>
+    <%= f.action :submit, as: :button %>
+    <%= f.action :cancel, as: :link %>
+  <% end %>
+<% end %>
+
+<% content_for :styles do %>
+  <style>
+    .fee-details-selection {
+      margin: 15px 0;
+    }
+    .fee-details-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    .fee-details-table th,
+    .fee-details-table td {
+      padding: 8px;
+      border: 1px solid #ddd;
+      text-align: left;
+    }
+    .fee-details-table th {
+      background-color: #f5f5f5;
+      font-weight: bold;
+    }
+    .fee-details-table tr:hover {
+      background-color: #f9f9f9;
+    }
+    .fee-details-table td:first-child {
+      text-align: center;
+    }
+  </style>
 <% end %>

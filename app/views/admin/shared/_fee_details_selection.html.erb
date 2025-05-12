@@ -1,0 +1,125 @@
+<%# app/views/admin/shared/_fee_details_selection.html.erb %>
+<%# 参数: work_order, reimbursement %>
+
+<div class="panel">
+  <h3>选择关联的费用明细</h3>
+  <% if work_order.persisted? %>
+    <%# 编辑模式：显示只读列表 %>
+    <table class="index_table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>费用类型</th>
+          <th>金额</th>
+          <th>费用日期</th>
+          <th>验证状态</th>
+          <th>备注</th>
+          <th>创建时间</th>
+          <th>更新时间</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% work_order.fee_details.each do |fee_detail| %>
+          <tr>
+            <td><%= link_to fee_detail.id, admin_fee_detail_path(fee_detail) %></td>
+            <td><%= fee_detail.fee_type %></td>
+            <td><%= number_to_currency(fee_detail.amount, unit: fee_detail.currency) %></td>
+            <td><%= fee_detail.fee_date %></td>
+            <td>
+              <% arbre_context = Arbre::Context.new %>
+              <%= arbre_context.status_tag(fee_detail.verification_status, class: case fee_detail.verification_status
+                                                                                when FeeDetail::VERIFICATION_STATUS_VERIFIED
+                                                                                  'ok' # green
+                                                                                when FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
+                                                                                  'error' # red
+                                                                                else
+                                                                                  'warning' # orange
+                                                                                end).to_s %>
+            </td>
+            <td><%= fee_detail.notes %></td>
+            <td><%= fee_detail.created_at %></td>
+            <td><%= fee_detail.updated_at %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% else %>
+    <%# 新建模式：显示复选框 %>
+    <div class="fee-details-selection">
+      <% reimbursement.fee_details.each do |fee_detail| %>
+        <div class="fee-detail-item">
+          <%= check_box_tag "audit_work_order[submitted_fee_detail_ids][]", 
+                          fee_detail.id, 
+                          work_order.submitted_fee_detail_ids&.include?(fee_detail.id.to_s),
+                          id: "fee_detail_#{fee_detail.id}" %>
+          <label for="fee_detail_<%= fee_detail.id %>">
+            <span class="fee-detail-id">#<%= fee_detail.id %></span>
+            <span class="fee-detail-type"><%= fee_detail.fee_type %></span>
+            <span class="fee-detail-amount"><%= number_to_currency(fee_detail.amount, unit: fee_detail.currency) %></span>
+            <span class="fee-detail-date"><%= fee_detail.fee_date %></span>
+            <span class="fee-detail-status">
+              <% arbre_context = Arbre::Context.new %>
+              <%= arbre_context.status_tag(fee_detail.verification_status, class: case fee_detail.verification_status
+                                                                              when FeeDetail::VERIFICATION_STATUS_VERIFIED
+                                                                                'ok' # green
+                                                                              when FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
+                                                                                'error' # red
+                                                                              else
+                                                                                'warning' # orange
+                                                                              end).to_s %>
+            </span>
+          </label>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</div>
+
+<style>
+.fee-details-selection {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  padding: 10px;
+  margin: 10px 0;
+}
+
+.fee-detail-item {
+  margin: 5px 0;
+  padding: 5px;
+  border-bottom: 1px solid #eee;
+}
+
+.fee-detail-item:last-child {
+  border-bottom: none;
+}
+
+.fee-detail-item label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.fee-detail-id {
+  font-weight: bold;
+  min-width: 50px;
+}
+
+.fee-detail-type {
+  min-width: 100px;
+}
+
+.fee-detail-amount {
+  min-width: 100px;
+  text-align: right;
+}
+
+.fee-detail-date {
+  min-width: 100px;
+}
+
+.fee-detail-status {
+  min-width: 80px;
+}
+</style> 

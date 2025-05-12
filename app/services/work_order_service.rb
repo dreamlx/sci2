@@ -1,4 +1,6 @@
 # app/services/work_order_service.rb
+# frozen_string_literal: true
+
 class WorkOrderService
   attr_reader :work_order, :current_admin_user
 
@@ -99,8 +101,12 @@ class WorkOrderService
       case @work_order.processing_opinion # This is the value from params or existing
       when "可以通过", "审核通过" # Added "审核通过" for AuditWorkOrder compatibility
         new_resolution = "approved"
+        @work_order.status = "approved" if @work_order.pending? || @work_order.processing?
+        @work_order.audit_date = Time.current if @work_order.respond_to?(:audit_date=)
       when "无法通过", "否决" # Added "否决" for AuditWorkOrder compatibility
         new_resolution = "rejected"
+        @work_order.status = "rejected" if @work_order.pending? || @work_order.processing?
+        @work_order.audit_date = Time.current if @work_order.respond_to?(:audit_date=)
         # Service-level checks for fields required when rejecting
         if (@work_order.is_a?(AuditWorkOrder) || @work_order.is_a?(CommunicationWorkOrder))
           # Check against current attributes which include params applied by assign_shared_attributes
@@ -125,7 +131,7 @@ class WorkOrderService
         # For now, let's assume non-final opinions don't change final resolution unless explicitly handled.
         # If status is pending, and there's an opinion, it might imply starting processing.
         if @work_order.pending? && @work_order.processing_opinion.present?
-          @work_order.start_processing! unless @work_order.processing? # Ensure it goes to processing
+          @work_order.status = "processing"
         end
       end
     end
@@ -189,27 +195,40 @@ class WorkOrderService
     # problem_type/problem_description are often ID-based.
     # remark, processing_opinion, audit_comment are direct text fields.
     # audit_date is usually set by callbacks.
-    # Ensure submitted_fee_detail_ids is handled for association.
-    
-    # Convert problem_type and problem_description to problem_type_id and problem_description_id if they are passed as objects/names
-    # This requires more context on how they are passed. Assuming IDs for now.
     
     shared_attr_keys = [
       :remark, :processing_opinion, :audit_comment, 
-      :problem_type_id, :problem_description_id, 
-      :vat_verified, # For AuditWorkOrder
-      :initiator_role, :communication_method, # For CommunicationWorkOrder
-      :submitted_fee_detail_ids # For fee detail association
+      :problem_type_id, :problem_description_id
     ]
     
     # Slice only the attributes present in params to avoid mass assignment issues with nil if not careful
     attrs_to_assign = params.slice(*shared_attr_keys.select { |key| params.key?(key) })
     
-    # Special handling for submitted_fee_detail_ids as it's an attr_accessor used by a callback
-    if attrs_to_assign.key?(:submitted_fee_detail_ids)
-        @work_order.submitted_fee_detail_ids = attrs_to_assign.delete(:submitted_fee_detail_ids)
-    end
-
     @work_order.assign_attributes(attrs_to_assign) if attrs_to_assign.present?
+  end
+
+  def process_work_order
+    case @work_order
+    when AuditWorkOrder
+      process_audit_work_order
+    when CommunicationWorkOrder
+      process_communication_work_order
+    end
+  end
+
+  def process_audit_work_order
+    # 处理审核工单
+    if @work_order.audit_result == AuditWorkOrder::AUDIT_RESULT_PASS
+      @work_order.update(status: :completed)
+    elsif @work_order.audit_result == AuditWorkOrder::AUDIT_RESULT_FAIL
+      @work_order.update(status: :rejected)
+    end
+  end
+
+  def process_communication_work_order
+    # 处理沟通工单
+    if @work_order.resolution_summary.present?
+      @work_order.update(status: :completed)
+    end
   end
 end 
