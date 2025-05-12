@@ -35,4 +35,12 @@ ActiveAdmin.register ProblemDescription do
     end
     active_admin_comments
   end
+
+  form do |f|
+    f.inputs do
+      f.input :problem_type
+      f.input :description
+    end
+    f.actions
+  end
 end

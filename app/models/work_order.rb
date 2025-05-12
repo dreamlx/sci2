@@ -47,8 +47,9 @@ class WorkOrder < ApplicationRecord
   before_validation :ensure_resolution_is_pending_if_nil
   
   # 回调，在保存后处理提交的 fee_detail_ids
-  # 使用 after_save 确保工单本身已保存，ID可用
   after_save :process_submitted_fee_details
+  # NEW CALLBACK: Sync fee detail status with work order resolution
+  after_save :sync_fee_details_status_with_resolution, if: -> { saved_change_to_resolution? && (is_a?(AuditWorkOrder) || is_a?(CommunicationWorkOrder)) }
 
   # --- 状态机 (移自 AuditWorkOrder) ---
   state_machine :status, initial: :pending do
@@ -225,52 +226,48 @@ class WorkOrder < ApplicationRecord
     self.fee_details # 直接使用新建的 has_many :fee_details 关联
   end
   
-  # update_associated_fee_details_status 方法现在可以正确工作，
-  #因为它调用的 associated_fee_details 将返回正确的 FeeDetail 集合
-  def update_associated_fee_details_status(new_status)
-    Rails.logger.info "WorkOrder ##{id}: 进入 update_associated_fee_details_status 方法，new_status = #{new_status}"
-    Rails.logger.info "WorkOrder ##{id}: 调用栈: #{caller[0..5].join("\n")}"
-    Rails.logger.info "WorkOrder ##{id}: 开始更新关联的费用明细状态为 #{new_status}"
+  def update_associated_fee_details_status(target_verification_status)
+    Rails.logger.info "WorkOrder ##{id}: Updating associated fee details to #{target_verification_status}"
     
-    # 确保状态是有效的
-    valid_statuses = ['problematic', 'verified']
-    
-    # 同时支持字符串和常量
-    unless valid_statuses.include?(new_status) || [
-      FeeDetail::VERIFICATION_STATUS_PROBLEMATIC,
-      FeeDetail::VERIFICATION_STATUS_VERIFIED
-    ].include?(new_status)
-      Rails.logger.error "WorkOrder ##{id}: 无效的状态 #{new_status}"
+    # Ensure the target status is valid
+    valid_target_statuses = [
+      FeeDetail::VERIFICATION_STATUS_PENDING,
+      FeeDetail::VERIFICATION_STATUS_VERIFIED,
+      FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
+    ]
+    unless valid_target_statuses.include?(target_verification_status)
+      Rails.logger.error "WorkOrder ##{id}: Invalid target_verification_status #{target_verification_status} for fee details."
       return
     end
     
-    # 使用辅助方法获取关联的费用明细
     details_to_update = associated_fee_details
-    Rails.logger.info "WorkOrder ##{id}: 找到 #{details_to_update.count} 个关联的费用明细来更新状态"
+    Rails.logger.info "WorkOrder ##{id}: Found #{details_to_update.count} fee details to update."
     
-    # 直接更新费用明细状态，不再使用 FeeDetailVerificationService
-    # 也不再区分测试环境和生产环境
     details_to_update.find_each do |fee_detail|
-      Rails.logger.info "WorkOrder ##{id}: 处理费用明细 ##{fee_detail.id}，当前状态: #{fee_detail.verification_status}"
-      
-      # 仅当未验证时更新（允许 problematic -> verified）
-      # 或者当状态从verified变为problematic时
-      if fee_detail.pending? ||
-         fee_detail.problematic? ||
-         (fee_detail.verified? && new_status == 'problematic')
-        Rails.logger.info "WorkOrder ##{id}: 直接更新费用明细 ##{fee_detail.id} 状态为 #{new_status}"
-        result = fee_detail.update(verification_status: new_status)
-        Rails.logger.info "WorkOrder ##{id}: 更新费用明细 ##{fee_detail.id} 结果: #{result ? '成功' : '失败'}"
-        if !result
-          Rails.logger.error "WorkOrder ##{id}: 更新费用明细 ##{fee_detail.id} 失败: #{fee_detail.errors.full_messages.join(', ')}"
+      if fee_detail.verification_status != target_verification_status
+        Rails.logger.info "WorkOrder ##{id}: Updating FeeDetail ##{fee_detail.id} from #{fee_detail.verification_status} to #{target_verification_status}"
+        unless fee_detail.update(verification_status: target_verification_status)
+          Rails.logger.error "WorkOrder ##{id}: Failed to update FeeDetail ##{fee_detail.id}: #{fee_detail.errors.full_messages.join(', ')}"
         end
       else
-        Rails.logger.info "WorkOrder ##{id}: 跳过费用明细 ##{fee_detail.id}，不符合更新条件"
+        Rails.logger.info "WorkOrder ##{id}: FeeDetail ##{fee_detail.id} already in state #{target_verification_status}. Skipping."
       end
     end
   rescue => e
-    Rails.logger.error "WorkOrder ##{id}: 更新关联的费用明细状态时出错: #{e.message}"
+    Rails.logger.error "WorkOrder ##{id}: Error in update_associated_fee_details_status: #{e.message}"
     Rails.logger.error e.backtrace.join("\n")
+  end
+
+  private # Ensure new callback method is private
+
+  def sync_fee_details_status_with_resolution
+    Rails.logger.info "WorkOrder ##{id}: Resolution changed to #{resolution}. Syncing fee detail status."
+    target_status_for_details = if resolution == 'approved'
+                                  FeeDetail::VERIFICATION_STATUS_VERIFIED
+                                else # Covers 'rejected' and 'pending' resolution for the work order
+                                  FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
+                                end
+    update_associated_fee_details_status(target_status_for_details)
   end
 
   # ActiveAdmin 配置

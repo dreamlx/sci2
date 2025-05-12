@@ -20,12 +20,6 @@ ActiveAdmin.register ProblemType do
     selectable_column
     id_column
     column :name
-    column "关联费用类型" do |pt|
-      pt.fee_types.map(&:name).join(', ')
-    end
-    column "关联补充材料" do |pt|
-      pt.materials.map(&:name).join(', ')
-    end
     actions
   end
 
@@ -33,13 +27,14 @@ ActiveAdmin.register ProblemType do
     attributes_table do
       row :id
       row :name
-      row "关联费用类型" do |pt|
-        pt.fee_types.map(&:name).join(', ')
-      end
-      row "关联补充材料" do |pt|
-        pt.materials.map(&:name).join(', ')
-      end
     end
     active_admin_comments
+  end
+
+  form do |f|
+    f.inputs do
+      f.input :name
+    end
+    f.actions
   end
 end
