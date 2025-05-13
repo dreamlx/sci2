@@ -94,7 +94,6 @@ ActiveAdmin.register AuditWorkOrder do
   # 过滤器
   filter :reimbursement_invoice_number, as: :string, label: '报销单号'
   filter :status, as: :select, collection: -> { AuditWorkOrder.state_machine(:status).states.map(&:value) }
-  filter :resolution, as: :select, collection: -> { AuditWorkOrder.state_machine(:resolution).states.map(&:value) }
   filter :creator # 过滤创建人
   filter :created_at
 
@@ -118,14 +117,22 @@ ActiveAdmin.register AuditWorkOrder do
   scope :rejected
 
   # 操作按钮 - 更新为支持直接通过路径
-  action_item :start_processing, only: :show, if: proc { resource.pending? } do
+  action_item :start_processing, only: :show, if: proc { resource.pending? && !resource.completed? } do
     link_to "开始处理", start_processing_admin_audit_work_order_path(resource), method: :post, data: { confirm: "确定要开始处理此工单吗?" }
   end
-  action_item :approve, only: :show, if: proc { resource.pending? || resource.processing? } do
+  action_item :approve, only: :show, if: proc { (resource.pending? || resource.processing?) && !resource.completed? } do
     link_to "审核通过", approve_admin_audit_work_order_path(resource)
   end
-  action_item :reject, only: :show, if: proc { resource.processing? } do
+  action_item :reject, only: :show, if: proc { resource.processing? && !resource.completed? } do
     link_to "审核拒绝", reject_admin_audit_work_order_path(resource)
+  end
+  action_item :mark_as_complete, only: :show, if: proc { (resource.status == 'approved' || resource.status == 'rejected') && !resource.completed? } do
+    link_to "审核完成", mark_as_complete_admin_audit_work_order_path(resource), method: :post, data: { confirm: "确定要将此工单标记为完成吗？此操作将锁定工单。" }
+  end
+  action_item :delete_reimbursement, only: :show, priority: 3, if: proc { !resource.completed? } do
+    link_to "删除报销单", admin_reimbursement_path(resource.reimbursement),
+            method: :delete,
+            data: { confirm: "确定要删除此报销单吗？此操作将删除所有相关联的工单。" }
   end
 
   # 成员操作
@@ -139,6 +146,7 @@ ActiveAdmin.register AuditWorkOrder do
   end
 
   member_action :approve, method: :get do
+    redirect_to admin_audit_work_order_path(resource), alert: "工单已完成，无法操作。" if resource.completed?
     @audit_work_order = resource
     render :approve # 渲染 app/views/admin/audit_work_orders/approve.html.erb
   end
@@ -158,6 +166,7 @@ ActiveAdmin.register AuditWorkOrder do
   end
 
   member_action :reject, method: :get do
+    redirect_to admin_audit_work_order_path(resource), alert: "工单已完成，无法操作。" if resource.completed?
     @audit_work_order = resource
     render :reject # 渲染 app/views/admin/audit_work_orders/reject.html.erb
   end
@@ -181,7 +190,6 @@ ActiveAdmin.register AuditWorkOrder do
     end
   end
 
-  # 费用明细验证操作
   member_action :verify_fee_detail, method: :get do
      @work_order = resource
      # 使用新的关联查找 fee_detail
@@ -218,17 +226,36 @@ ActiveAdmin.register AuditWorkOrder do
     end
   end
 
+  member_action :mark_as_complete, method: :post do
+    if resource.completed?
+      redirect_to admin_audit_work_order_path(resource), alert: "此工单已标记为完成。"
+    elsif resource.status == 'approved' || resource.status == 'rejected'
+      if resource.update(completed: true)
+        redirect_to admin_audit_work_order_path(resource), notice: "工单已成功标记为完成。"
+      else
+        redirect_to admin_audit_work_order_path(resource), alert: "标记完成失败: #{resource.errors.full_messages.join(', ')}"
+      end
+    else
+      redirect_to admin_audit_work_order_path(resource), alert: "只有状态为 Approved 或 Rejected 的工单才能标记为完成。"
+    end
+  end
+
   # 列表页
   index do
     selectable_column
     id_column
     column :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
     column :status do |wo| status_tag wo.status end
-    column :resolution do |wo| status_tag wo.resolution if wo.resolution.present? end
     column :problem_type
     column :creator
     column :created_at
-    actions
+    actions do |work_order|
+      item "查看", admin_audit_work_order_path(work_order)
+      unless work_order.completed?
+        item "编辑", edit_admin_audit_work_order_path(work_order), class: "member_link edit_link"
+        item "删除", admin_audit_work_order_path(work_order), method: :delete, data: { confirm: "确定要删除吗?" }, class: "member_link delete_link"
+      end
+    end
   end
 
   # 详情页
@@ -245,7 +272,9 @@ ActiveAdmin.register AuditWorkOrder do
         row :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
         row :type
         row :status do |wo| status_tag wo.status end
-        row :resolution do |wo| status_tag wo.resolution if wo.resolution.present? end
+        row :completed do |wo|
+          status_tag wo.completed? ? '是' : '否', class: (wo.completed? ? :ok : :warn)
+        end
         row :audit_comment
         row :audit_date
         row :vat_verified
@@ -279,86 +308,92 @@ ActiveAdmin.register AuditWorkOrder do
   end
 
   # 表单使用 partial
-  form title: proc { |wo| wo.new_record? ? "新建审核工单" : "编辑审核工单 ##{wo.id}" } do |f|
-    f.semantic_errors
+  form title: proc { |wo| wo.new_record? ? "新建审核工单" : (wo.completed? ? "查看已完成审核工单 ##{wo.id}" : "编辑审核工单 ##{wo.id}") } do |f|
+    if f.object.completed?
+      panel "工单已完成" do
+        para "此工单已标记为完成，无法编辑。"
+      end
+    else
+      f.semantic_errors
 
-    reimbursement = f.object.reimbursement || (params[:reimbursement_id] ? Reimbursement.find_by(id: params[:reimbursement_id]) : nil)
+      reimbursement = f.object.reimbursement || (params[:reimbursement_id] ? Reimbursement.find_by(id: params[:reimbursement_id]) : nil)
 
-    tabs do
-      tab '基本信息' do
-        f.inputs '工单详情' do
+      tabs do
+        tab '基本信息' do
+          f.inputs '工单详情' do
+            if reimbursement
+              f.input :reimbursement_id, as: :hidden, input_html: { value: reimbursement.id }
+              f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: reimbursement.invoice_number, readonly: true, disabled: true }
+            elsif f.object.reimbursement
+               f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: f.object.reimbursement.invoice_number, readonly: true, disabled: true }
+            end
+            f.input :status, input_html: { readonly: true, disabled: true }, label: '工单状态' if f.object.persisted?
+          end
+
+          # Updated Fee Detail Section
           if reimbursement
-            f.input :reimbursement_id, as: :hidden, input_html: { value: reimbursement.id }
-            f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: reimbursement.invoice_number, readonly: true, disabled: true }
-          elsif f.object.reimbursement
-             f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: f.object.reimbursement.invoice_number, readonly: true, disabled: true }
+            render 'admin/shared/fee_details_selection', work_order: f.object, reimbursement: reimbursement
+          else
+            f.inputs '费用明细' do
+              para "无法加载费用明细，未关联有效的报销单。"
+            end
           end
-          f.input :status, input_html: { readonly: true, disabled: true }, label: '工单状态' if f.object.persisted?
-        end
 
-        # Updated Fee Detail Section
-        if reimbursement
-          render 'admin/shared/fee_details_selection', work_order: f.object, reimbursement: reimbursement
-        else
-          f.inputs '费用明细' do
-            para "无法加载费用明细，未关联有效的报销单。"
+          f.inputs '处理与反馈' do
+            f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '请选择处理意见', input_html: { id: 'audit_work_order_processing_opinion' }
+            
+            f.input :problem_type_id, as: :select, collection: ProblemType.all.map { |pt| [pt.name, pt.id] }, include_blank: '请选择问题类型', wrapper_html: { id: 'problem_type_row', style: 'display:none;' }
+            
+            f.input :problem_description_id, as: :select, collection: ProblemDescription.all.map { |pd| [pd.description, pd.id] }, include_blank: '请选择问题描述', wrapper_html: { id: 'problem_description_row', style: 'display:none;' }
+            
+            f.input :audit_comment, label: "审核意见", wrapper_html: { id: 'audit_comment_row', style: 'display:none;' }
+            
+            f.input :remark, label: "备注", wrapper_html: { id: 'remark_row', style: 'display:none;' }
           end
-        end
-
-        f.inputs '处理与反馈' do
-          f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '请选择处理意见', input_html: { id: 'audit_work_order_processing_opinion' }
-          
-          f.input :problem_type_id, as: :select, collection: ProblemType.all.map { |pt| [pt.name, pt.id] }, include_blank: '请选择问题类型', wrapper_html: { id: 'problem_type_row', style: 'display:none;' }
-          
-          f.input :problem_description_id, as: :select, collection: ProblemDescription.all.map { |pd| [pd.description, pd.id] }, include_blank: '请选择问题描述', wrapper_html: { id: 'problem_description_row', style: 'display:none;' }
-          
-          f.input :audit_comment, label: "审核意见", wrapper_html: { id: 'audit_comment_row', style: 'display:none;' }
-          
-          f.input :remark, label: "备注", wrapper_html: { id: 'remark_row', style: 'display:none;' }
         end
       end
-    end
-    f.actions
+      f.actions
 
-    # JavaScript for conditional fields
-    script do
-      raw """
-        document.addEventListener('DOMContentLoaded', function() {
-          const processingOpinionSelect = document.getElementById('audit_work_order_processing_opinion');
-          const problemTypeRow = document.getElementById('problem_type_row');
-          const problemDescriptionRow = document.getElementById('problem_description_row');
-          const auditCommentRow = document.getElementById('audit_comment_row');
-          const remarkRow = document.getElementById('remark_row');
+      # JavaScript for conditional fields
+      script do
+        raw """
+          document.addEventListener('DOMContentLoaded', function() {
+            const processingOpinionSelect = document.getElementById('audit_work_order_processing_opinion');
+            const problemTypeRow = document.getElementById('problem_type_row');
+            const problemDescriptionRow = document.getElementById('problem_description_row');
+            const auditCommentRow = document.getElementById('audit_comment_row');
+            const remarkRow = document.getElementById('remark_row');
 
-          function toggleFields() {
-            if (!processingOpinionSelect || !problemTypeRow || !problemDescriptionRow || !auditCommentRow || !remarkRow) {
-              return;
+            function toggleFields() {
+              if (!processingOpinionSelect || !problemTypeRow || !problemDescriptionRow || !auditCommentRow || !remarkRow) {
+                return;
+              }
+              const selectedValue = processingOpinionSelect.value;
+
+              problemTypeRow.style.display = 'none';
+              problemDescriptionRow.style.display = 'none';
+              auditCommentRow.style.display = 'none';
+              remarkRow.style.display = 'none';
+
+              if (selectedValue === '无法通过') {
+                problemTypeRow.style.display = 'list-item';
+                problemDescriptionRow.style.display = 'list-item';
+                auditCommentRow.style.display = 'list-item';
+                remarkRow.style.display = 'list-item';
+              } else if (selectedValue === '可以通过') {
+                auditCommentRow.style.display = 'list-item';
+              } else { // Blank
+                auditCommentRow.style.display = 'list-item';
+              }
             }
-            const selectedValue = processingOpinionSelect.value;
 
-            problemTypeRow.style.display = 'none';
-            problemDescriptionRow.style.display = 'none';
-            auditCommentRow.style.display = 'none';
-            remarkRow.style.display = 'none';
-
-            if (selectedValue === '无法通过') {
-              problemTypeRow.style.display = 'list-item';
-              problemDescriptionRow.style.display = 'list-item';
-              auditCommentRow.style.display = 'list-item';
-              remarkRow.style.display = 'list-item';
-            } else if (selectedValue === '可以通过') {
-              auditCommentRow.style.display = 'list-item';
-            } else { // Blank
-              auditCommentRow.style.display = 'list-item';
+            if (processingOpinionSelect) {
+              processingOpinionSelect.addEventListener('change', toggleFields);
+              toggleFields();
             }
-          }
-
-          if (processingOpinionSelect) {
-            processingOpinionSelect.addEventListener('change', toggleFields);
-            toggleFields();
-          }
-        });
-      """
+          });
+        """
+      end
     end
   end
   

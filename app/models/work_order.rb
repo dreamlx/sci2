@@ -23,14 +23,12 @@ class WorkOrder < ApplicationRecord
   validates :reimbursement_id, presence: true
   validates :type, presence: true
   validates :status, presence: true, inclusion: { in: %w[pending processing approved rejected] }
-  validates :resolution, presence: true, inclusion: { in: %w[pending approved rejected] }
   validates :audit_date, presence: true, if: -> { status.in?(%w[approved rejected]) && respond_to?(:audit_date) && audit_date.blank? }
   
-  # Common validation for problem_type_id and problem_description_id when resolution is rejected
-  # This can now be in the base class as the associations are defined here.
-  validates :problem_type_id, presence: true, if: -> { (is_a?(AuditWorkOrder) || is_a?(CommunicationWorkOrder)) && resolution == 'rejected' }
-  validates :problem_description_id, presence: true, if: -> { (is_a?(AuditWorkOrder) || is_a?(CommunicationWorkOrder)) && resolution == 'rejected' }
-  validates :audit_comment, presence: true, if: -> { (is_a?(AuditWorkOrder) || is_a?(CommunicationWorkOrder)) && resolution == 'rejected' }
+  # Update shared validations to depend on status == 'rejected'
+  validates :problem_type_id, presence: true, if: -> { (is_a?(AuditWorkOrder) || is_a?(CommunicationWorkOrder)) && status == 'rejected' }
+  validates :problem_description_id, presence: true, if: -> { (is_a?(AuditWorkOrder) || is_a?(CommunicationWorkOrder)) && status == 'rejected' }
+  validates :audit_comment, presence: true, if: -> { (is_a?(AuditWorkOrder) || is_a?(CommunicationWorkOrder)) && status == 'rejected' }
   
   # 添加虚拟属性以接收表单提交的fee_detail_ids
   attr_accessor :submitted_fee_detail_ids # 更清晰的命名以区分于实际关联的 fee_detail_ids
@@ -41,19 +39,14 @@ class WorkOrder < ApplicationRecord
   end
   
   # 回调
-  # 使用 after_commit 确保状态变更在成功保存后记录
   after_commit :record_status_change, on: [:create, :update], if: -> { saved_change_to_status? }
   after_create :update_reimbursement_status_on_create
-  before_save :set_status_based_on_resolution
-  before_validation :ensure_resolution_is_pending_if_nil
   before_validation :set_status_based_on_processing_opinion
-  
-  # 回调，在保存后处理提交的 fee_detail_ids
   after_save :process_submitted_fee_details
-  # NEW CALLBACK: Sync fee detail status with work order resolution
-  after_save :sync_fee_details_status_with_resolution, if: -> { saved_change_to_resolution? && (is_a?(AuditWorkOrder) || is_a?(CommunicationWorkOrder)) }
+  after_save :sync_fee_details_verification_status_with_work_order_status,
+             if: -> { saved_change_to_status? && status.in?(['approved', 'rejected']) }
 
-  # --- 状态机 (移自 AuditWorkOrder) ---
+  # --- 状态机 (ONLY status) ---
   state_machine :status, initial: :pending do
     state :pending
     state :processing
@@ -73,52 +66,11 @@ class WorkOrder < ApplicationRecord
     end
   end
 
-  state_machine :resolution, initial: :pending do
-    state :pending
-    state :approved
-    state :rejected
-
-    event :approve do
-      transition [:pending, :rejected] => :approved
-    end
-
-    event :reject do
-      transition [:pending, :approved] => :rejected
-    end
-    
-    event :reset_resolution do
-        transition [:approved, :rejected] => :pending
-    end
-  end
-
-  # --- ADDED: Common scopes based on status and resolution state machines ---
+  # --- Scopes (ONLY status based) ---
   scope :pending, -> { where(status: 'pending') }
   scope :processing, -> { where(status: 'processing') }
-  # For status-based approved/rejected, if needed directly (though resolution is primary driver)
-  scope :status_approved, -> { where(status: 'approved') }
-  scope :status_rejected, -> { where(status: 'rejected') }
-  
-  # For resolution-based approved/rejected (more common for business logic)
-  scope :resolution_approved, -> { where(resolution: 'approved') }
-  scope :resolution_rejected, -> { where(resolution: 'rejected' ) }
-  scope :resolution_pending, -> { where(resolution: 'pending') } # Scope for pending resolution
-  # --- END ADDED SCOPES ---
-
-  # Scopes for ActiveAdmin and general use
-  scope :pending, -> { where(status: 'pending') }
-  scope :processing, -> { where(status: 'processing') }
-  scope :approved, -> { where(status: 'approved') } # For status 'approved'
-  scope :rejected, -> { where(status: 'rejected') } # For status 'rejected'
-
-  # More specific scopes (already existing, kept for clarity or direct use)
-  scope :status_pending, -> { where(status: 'pending') }
-  scope :status_processing, -> { where(status: 'processing') }
-  scope :status_approved, -> { where(status: 'approved') }
-  scope :status_rejected, -> { where(status: 'rejected') }
-
-  scope :resolution_pending, -> { where(resolution: 'pending') }
-  scope :resolution_approved, -> { where(resolution: 'approved') }
-  scope :resolution_rejected, -> { where(resolution: 'rejected') }
+  scope :approved, -> { where(status: 'approved') }
+  scope :rejected, -> { where(status: 'rejected') }
 
   # 类方法
   def self.sti_name
@@ -167,34 +119,6 @@ class WorkOrder < ApplicationRecord
     Rails.logger.error "Error updating reimbursement status from WorkOrder ##{id} creation: #{e.message}"
   end
   
-  def ensure_resolution_is_pending_if_nil
-    # Only set to pending if it's nil and if the work order type uses resolution
-    if (self.is_a?(AuditWorkOrder) || self.is_a?(CommunicationWorkOrder)) && resolution.nil?
-      self.resolution = 'pending'
-    end
-  end
-
-  def set_status_based_on_resolution
-    # Only apply this logic for types that use this status/resolution flow
-    return unless self.is_a?(AuditWorkOrder) || self.is_a?(CommunicationWorkOrder)
-
-    if resolution_changed? && (resolution_was != self.resolution) # Ensure resolution actually changed
-      new_status_val = case self.resolution
-                       when 'approved' then 'approved'
-                       when 'rejected' then 'rejected'
-                       else self.status # Should not happen if resolution is always one of the two
-                       end
-      
-      if new_status_val.in?(%w[approved rejected]) && self.status != new_status_val
-        self.status = new_status_val
-        self.audit_date ||= Time.current if self.respond_to?(:audit_date=)
-      elsif self.resolution == 'pending' && self.status.in?(%w[approved rejected])
-        # If resolution is reset to pending (e.g. opinion cleared), move status to processing
-        self.status = 'processing'
-      end
-    end
-  end
-
   def process_submitted_fee_details
     # 仅当 @submitted_fee_detail_ids 存在时执行 (由 controller 设置)
     return unless @submitted_fee_detail_ids 
@@ -222,13 +146,15 @@ class WorkOrder < ApplicationRecord
     @submitted_fee_detail_ids = nil 
   end
 
-  # 辅助方法，获取当前工单关联的所有费用明细
-  # set_status_based_on_processing_opinion 和 update_associated_fee_details_status 会用到
   def associated_fee_details
     self.fee_details # 直接使用新建的 has_many :fee_details 关联
   end
   
   def update_associated_fee_details_status(target_verification_status)
+    # This method was previously triggered by resolution change.
+    # We might need to trigger it differently now, perhaps when status changes to approved/rejected?
+    # Or maybe remove it if the logic is now handled elsewhere or not needed?
+    # For now, let's keep the method but remove the callback that triggers it.
     Rails.logger.info "WorkOrder ##{id}: Updating associated fee details to #{target_verification_status}"
     
     # Ensure the target status is valid
@@ -260,23 +186,11 @@ class WorkOrder < ApplicationRecord
     Rails.logger.error e.backtrace.join("\n")
   end
 
-  private # Ensure new callback method is private
-
-  def sync_fee_details_status_with_resolution
-    Rails.logger.info "WorkOrder ##{id}: Resolution changed to #{resolution}. Syncing fee detail status."
-    target_status_for_details = if resolution == 'approved'
-                                  FeeDetail::VERIFICATION_STATUS_VERIFIED
-                                else # Covers 'rejected' and 'pending' resolution for the work order
-                                  FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
-                                end
-    update_associated_fee_details_status(target_status_for_details)
-  end
-
   # ActiveAdmin 配置
   def self.ransackable_attributes(auth_object = nil)
     # Common fields + subclass-specific fields. Ensure 'resolution' and common status fields are here.
     # Added 'processing_opinion', 'audit_comment', 'audit_date' as common searchable fields.
-    %w[id reimbursement_id type status resolution processing_opinion audit_comment audit_date created_by created_at updated_at] + subclass_ransackable_attributes
+    %w[id reimbursement_id type status processing_opinion audit_comment audit_date created_by created_at updated_at] + subclass_ransackable_attributes
   end
   
   # 子类的占位方法
@@ -293,26 +207,59 @@ class WorkOrder < ApplicationRecord
     []
   end
 
-  # 根据处理意见设置状态
+  # Refactor set_status_based_on_processing_opinion
   def set_status_based_on_processing_opinion
     return unless self.is_a?(AuditWorkOrder) || self.is_a?(CommunicationWorkOrder)
-    
+    return unless processing_opinion_changed? || (new_record? && processing_opinion.present?) # Only run if opinion changed or on create
+
     case processing_opinion
     when nil, ""
-      # 保持当前状态
+      # If opinion is cleared, maybe reset status to processing if currently approved/rejected?
+      if status.in?(%w[approved rejected])
+        # self.status = "processing" # Revisit this logic based on desired behavior
+      end
     when "可以通过", "审核通过"
-      self.status = "approved" if self.pending? || self.processing?
-      self.resolution = "approved"
-      self.audit_date = Time.current if self.respond_to?(:audit_date=)
+      self.status = "approved" # Directly set status
+      self.audit_date = Time.current if self.respond_to?(:audit_date=) && self.audit_date.blank?
     when "无法通过", "否决"
-      self.status = "rejected" if self.pending? || self.processing?
-      self.resolution = "rejected"
-      self.audit_date = Time.current if self.respond_to?(:audit_date=)
+      self.status = "rejected" # Directly set status
+      self.audit_date = Time.current if self.respond_to?(:audit_date=) && self.audit_date.blank?
     else
-      # 任何其他非空处理意见都设为 processing
+      # Any other non-empty opinion likely means processing should start or continue
       self.status = "processing" if self.pending?
     end
   rescue => e
-    Rails.logger.error "无法基于处理意见更新状态: #{e.message}"
+    Rails.logger.error "无法基于处理意见更新状态 (WorkOrder ##{id}): #{e.message}"
+  end
+
+  private # Ensure this is private if it's not meant to be public API
+
+  def sync_fee_details_verification_status_with_work_order_status
+    return unless self.is_a?(AuditWorkOrder) || self.is_a?(CommunicationWorkOrder)
+
+    target_verification_status = nil
+    if status == 'approved'
+      target_verification_status = FeeDetail::VERIFICATION_STATUS_VERIFIED
+    elsif status == 'rejected'
+      target_verification_status = FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
+    end
+
+    if target_verification_status
+      Rails.logger.info "WorkOrder ##{id} (status: #{status}): Syncing fee details to #{target_verification_status}."
+      update_associated_fee_details_status(target_verification_status)
+    else
+      Rails.logger.info "WorkOrder ##{id} (status: #{status}): No fee detail status sync needed for this status."
+    end
+  rescue NameError => e
+    # Catch NameError specifically if FeeDetail constants are not loaded
+    Rails.logger.error "WorkOrder ##{id}: Error syncing fee details - FeeDetail constants not loaded? #{e.message}"
+  rescue => e
+    Rails.logger.error "WorkOrder ##{id}: Error in sync_fee_details_verification_status_with_work_order_status: #{e.message}"
+    Rails.logger.error e.backtrace.join("\n")
+  end
+
+  public
+  def completed?
+    completed == true
   end
 end

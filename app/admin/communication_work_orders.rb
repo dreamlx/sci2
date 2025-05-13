@@ -26,24 +26,41 @@ ActiveAdmin.register CommunicationWorkOrder do
     end
     
     def create
+      # Permit all attributes for communication_work_order, including potentially submitted_fee_detail_ids
+      # This aligns with the main `permit_params` definition for the resource.
       _params = params.require(:communication_work_order).permit(
         :reimbursement_id, :audit_comment,
         :problem_type_id, :problem_description_id, :remark, :processing_opinion,
-        submitted_fee_detail_ids: [] # Align with top-level permit_params
+        submitted_fee_detail_ids: [] 
       )
 
       @communication_work_order = CommunicationWorkOrder.new(_params.except(:submitted_fee_detail_ids))
       @communication_work_order.creator_id = current_admin_user.id
-      # @communication_work_order.status = 'pending' # Initial status set by state_machine default
 
-      if _params[:submitted_fee_detail_ids].present?
-        @communication_work_order.submitted_fee_detail_ids = _params[:submitted_fee_detail_ids]
+      # Attempt to load submitted_fee_detail_ids
+      # First from the correctly nested params (as permitted above)
+      current_submitted_ids = _params[:submitted_fee_detail_ids]
+
+      # If empty, check the incorrectly nested params (from audit_work_order key)
+      # Ensure params.dig(:audit_work_order, :submitted_fee_detail_ids) is not nil before calling present?
+      if current_submitted_ids.blank? && params.dig(:audit_work_order, :submitted_fee_detail_ids).present?
+        misplaced_ids = params.dig(:audit_work_order, :submitted_fee_detail_ids)
+        Rails.logger.warn "CommunicationWorkOrder create: submitted_fee_detail_ids found under 'audit_work_order' key. " \
+                          "The shared partial '_fee_details_selection.html.erb' likely needs correction to use a dynamic param key " \
+                          "instead of hardcoding 'audit_work_order'."
+        current_submitted_ids = misplaced_ids
+      end
+      
+      # Assign to the model instance variable that the callback uses
+      if current_submitted_ids.present?
+        @communication_work_order.submitted_fee_detail_ids = current_submitted_ids.reject(&:blank?)
       end
       
       if @communication_work_order.save
         redirect_to admin_communication_work_order_path(@communication_work_order), notice: "沟通工单已成功创建" # Changed label
       else
         @reimbursement = Reimbursement.find_by(id: _params[:reimbursement_id])
+        # submitted_fee_detail_ids are already set on @communication_work_order instance for form repopulation
         flash.now[:error] = "创建沟通工单失败: #{@communication_work_order.errors.full_messages.join(', ')}" # Changed label
         render :new
       end
@@ -78,7 +95,6 @@ ActiveAdmin.register CommunicationWorkOrder do
 
   filter :reimbursement_invoice_number, as: :string, label: '报销单号'
   filter :status, as: :select, collection: -> { CommunicationWorkOrder.state_machine(:status).states.map(&:value) }
-  filter :resolution, label: "处理结果", as: :select, collection: -> { CommunicationWorkOrder.state_machine(:resolution).states.map(&:value) }
   filter :audit_comment
   filter :problem_type_id, as: :select, collection: -> { ProblemType.all.map { |pt| [pt.name, pt.id] } }
   filter :creator
@@ -90,14 +106,23 @@ ActiveAdmin.register CommunicationWorkOrder do
   scope :approved
   scope :rejected
 
-  action_item :start_processing, only: :show, if: proc { resource.pending? } do
+  action_item :delete_reimbursement, only: :show, priority: 3, if: proc { !resource.completed? } do
+    link_to "删除报销单", admin_reimbursement_path(resource.reimbursement),
+            method: :delete,
+            data: { confirm: "确定要删除此报销单吗？此操作将删除所有相关联的沟通工单。" }
+  end
+
+  action_item :start_processing, only: :show, if: proc { resource.pending? && !resource.completed? } do
     link_to "开始处理", start_processing_admin_communication_work_order_path(resource), method: :post, data: { confirm: "确定要开始处理此工单吗?" }
   end
-  action_item :approve, only: :show, if: proc { resource.pending? || resource.processing? } do
+  action_item :approve, only: :show, if: proc { (resource.pending? || resource.processing?) && !resource.completed? } do
     link_to "审核通过", approve_admin_communication_work_order_path(resource)
   end
-  action_item :reject, only: :show, if: proc { resource.processing? } do
+  action_item :reject, only: :show, if: proc { resource.processing? && !resource.completed? } do
     link_to "审核拒绝", reject_admin_communication_work_order_path(resource)
+  end
+  action_item :mark_as_complete, only: :show, if: proc { (resource.status == 'approved' || resource.status == 'rejected') && !resource.completed? } do
+    link_to "审核完成", mark_as_complete_admin_communication_work_order_path(resource), method: :post, data: { confirm: "确定要将此工单标记为完成吗？此操作将锁定工单。" }
   end
 
   member_action :start_processing, method: :post do
@@ -110,6 +135,7 @@ ActiveAdmin.register CommunicationWorkOrder do
   end
 
   member_action :approve, method: :get do
+    redirect_to admin_communication_work_order_path(resource), alert: "工单已完成，无法操作。" if resource.completed?
     @communication_work_order = resource
     render :approve
   end
@@ -128,6 +154,7 @@ ActiveAdmin.register CommunicationWorkOrder do
   end
 
   member_action :reject, method: :get do
+    redirect_to admin_communication_work_order_path(resource), alert: "工单已完成，无法操作。" if resource.completed?
     @communication_work_order = resource
     render :reject
   end
@@ -183,19 +210,38 @@ ActiveAdmin.register CommunicationWorkOrder do
     end
   end
 
+  member_action :mark_as_complete, method: :post do
+    if resource.completed?
+      redirect_to admin_communication_work_order_path(resource), alert: "此工单已标记为完成。"
+    elsif resource.status == 'approved' || resource.status == 'rejected'
+      if resource.update(completed: true)
+        redirect_to admin_communication_work_order_path(resource), notice: "工单已成功标记为完成。"
+      else
+        redirect_to admin_communication_work_order_path(resource), alert: "标记完成失败: #{resource.errors.full_messages.join(', ')}"
+      end
+    else
+      redirect_to admin_communication_work_order_path(resource), alert: "只有状态为 Approved 或 Rejected 的工单才能标记为完成。"
+    end
+  end
+
   index do
     selectable_column
     id_column
     column :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
     column :status do |wo| status_tag wo.status end
-    column "处理结果", :resolution do |wo| status_tag wo.resolution if wo.resolution.present? end
     column :audit_comment
     column :problem_type_id do |wo| wo.problem_type&.name end
     column :processing_opinion
     column :creator
     column :created_at
     column :updated_at
-    actions
+    actions do |work_order|
+      item "查看", admin_communication_work_order_path(work_order)
+      unless work_order.completed?
+        item "编辑", edit_admin_communication_work_order_path(work_order), class: "member_link edit_link"
+        item "删除", admin_communication_work_order_path(work_order), method: :delete, data: { confirm: "确定要删除吗?" }, class: "member_link delete_link"
+      end
+    end
   end
 
   show do
@@ -208,7 +254,9 @@ ActiveAdmin.register CommunicationWorkOrder do
         row :id
         row :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) if wo.reimbursement end
         row :status do |wo| status_tag wo.status end
-        row "处理结果", :resolution do |wo| status_tag wo.resolution if wo.resolution.present? end
+        row :completed do |wo|
+          status_tag wo.completed? ? '是' : '否', class: (wo.completed? ? :ok : :warn)
+        end
         row :audit_comment
         row :processing_opinion
         row :problem_type_id do |wo| wo.problem_type&.name end
@@ -238,94 +286,100 @@ ActiveAdmin.register CommunicationWorkOrder do
   end
 
   form do |f|
-    f.semantic_errors
+    if f.object.completed?
+      panel "工单已完成" do
+        para "此工单已标记为完成，无法编辑。"
+      end
+    else
+      f.semantic_errors
 
-    reimbursement = f.object.reimbursement || (params[:reimbursement_id] ? Reimbursement.find_by(id: params[:reimbursement_id]) : nil)
+      reimbursement = f.object.reimbursement || (params[:reimbursement_id] ? Reimbursement.find_by(id: params[:reimbursement_id]) : nil)
 
-    tabs do
-      tab '基本信息' do
-        f.inputs '工单详情' do
-          # Order: 0. 报销单号
+      tabs do
+        tab '基本信息' do
+          f.inputs '工单详情' do
+            # Order: 0. 报销单号
+            if reimbursement
+              f.input :reimbursement_id, as: :hidden, input_html: { value: reimbursement.id }
+              f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: reimbursement.invoice_number, readonly: true, disabled: true }
+            elsif f.object.reimbursement # for edit page if already associated
+               f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: f.object.reimbursement.invoice_number, readonly: true, disabled: true }
+            end
+            f.input :status, input_html: { readonly: true, disabled: true }, label: '工单状态' if f.object.persisted?
+            
+          end
+
+          # Updated Fee Detail Section
           if reimbursement
-            f.input :reimbursement_id, as: :hidden, input_html: { value: reimbursement.id }
-            f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: reimbursement.invoice_number, readonly: true, disabled: true }
-          elsif f.object.reimbursement # for edit page if already associated
-             f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: f.object.reimbursement.invoice_number, readonly: true, disabled: true }
+            render 'admin/shared/fee_details_selection', work_order: f.object, reimbursement: reimbursement
+          else
+            f.inputs '费用明细' do
+              para "无法加载费用明细，未关联有效的报销单。"
+            end
           end
-          f.input :status, input_html: { readonly: true, disabled: true }, label: '工单状态' if f.object.persisted?
-          
-        end
 
-        # Updated Fee Detail Section
-        if reimbursement
-          render 'admin/shared/fee_details_selection', work_order: f.object, reimbursement: reimbursement
-        else
-          f.inputs '费用明细' do
-            para "无法加载费用明细，未关联有效的报销单。"
+          f.inputs '处理与反馈' do
+            # Order: 2. 处理意见
+            f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '请选择处理意见', input_html: { id: 'communication_work_order_processing_opinion' }
+            
+            # Order: 3. 问题类型 (Conditionally Visible)
+            f.input :problem_type_id, as: :select, collection: ProblemType.all.map { |pt| [pt.name, pt.id] }, include_blank: '请选择问题类型', wrapper_html: { id: 'communication_problem_type_row', style: 'display:none;' }
+            
+            # Order: 4. 问题说明 (Conditionally Visible)
+            f.input :problem_description_id, as: :select, collection: ProblemDescription.all.map { |pd| [pd.description, pd.id] }, include_blank: '请选择问题描述', wrapper_html: { id: 'communication_problem_description_row', style: 'display:none;' }
+            f.input :audit_comment, label: "审核意见", wrapper_html: { id: 'communication_audit_comment_row', style: 'display:none;' }
+            # Order: 5. 备注
+            f.input :remark, label: "备注", wrapper_html: { id: 'communication_remark_row', style: 'display:none;' }
           end
-        end
-
-        f.inputs '处理与反馈' do
-          # Order: 2. 处理意见
-          f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '请选择处理意见', input_html: { id: 'communication_work_order_processing_opinion' }
-          
-          # Order: 3. 问题类型 (Conditionally Visible)
-          f.input :problem_type_id, as: :select, collection: ProblemType.all.map { |pt| [pt.name, pt.id] }, include_blank: '请选择问题类型', wrapper_html: { id: 'communication_problem_type_row', style: 'display:none;' }
-          
-          # Order: 4. 问题说明 (Conditionally Visible)
-          f.input :problem_description_id, as: :select, collection: ProblemDescription.all.map { |pd| [pd.description, pd.id] }, include_blank: '请选择问题描述', wrapper_html: { id: 'communication_problem_description_row', style: 'display:none;' }
-          f.input :audit_comment, label: "审核意见", wrapper_html: { id: 'communication_audit_comment_row', style: 'display:none;' }
-          # Order: 5. 备注
-          f.input :remark, label: "备注", wrapper_html: { id: 'communication_remark_row', style: 'display:none;' }
         end
       end
-    end
-    f.actions
+      f.actions
 
-    # JavaScript for conditional fields (UPDATED LOGIC)
-    script do
-      raw """
-        document.addEventListener('DOMContentLoaded', function() {
-          const processingOpinionSelect = document.getElementById('communication_work_order_processing_opinion');
-          const problemTypeRow = document.getElementById('communication_problem_type_row');
-          const problemDescriptionRow = document.getElementById('communication_problem_description_row');
-          const auditCommentRow = document.getElementById('communication_audit_comment_row');
-          const remarkRow = document.getElementById('communication_remark_row');
+      # JavaScript for conditional fields (UPDATED LOGIC)
+      script do
+        raw """
+          document.addEventListener('DOMContentLoaded', function() {
+            const processingOpinionSelect = document.getElementById('communication_work_order_processing_opinion');
+            const problemTypeRow = document.getElementById('communication_problem_type_row');
+            const problemDescriptionRow = document.getElementById('communication_problem_description_row');
+            const auditCommentRow = document.getElementById('communication_audit_comment_row');
+            const remarkRow = document.getElementById('communication_remark_row');
 
-          function toggleFields() {
-            if (!processingOpinionSelect || !problemTypeRow || !problemDescriptionRow || !auditCommentRow || !remarkRow) {
-              console.warn('One or more conditional fields not found for CommunicationWorkOrder form.');
-              return;
+            function toggleFields() {
+              if (!processingOpinionSelect || !problemTypeRow || !problemDescriptionRow || !auditCommentRow || !remarkRow) {
+                console.warn('One or more conditional fields not found for CommunicationWorkOrder form.');
+                return;
+              }
+              const selectedValue = processingOpinionSelect.value;
+
+              problemTypeRow.style.display = 'none';
+              problemDescriptionRow.style.display = 'none';
+              auditCommentRow.style.display = 'none';
+              remarkRow.style.display = 'none';
+
+              if (selectedValue === '无法通过') {
+                problemTypeRow.style.display = 'list-item';
+                problemDescriptionRow.style.display = 'list-item';
+                auditCommentRow.style.display = 'list-item';
+                remarkRow.style.display = 'list-item';
+              } else if (selectedValue === '可以通过') {
+                auditCommentRow.style.display = 'list-item';
+                remarkRow.style.display = 'list-item';
+              } else {
+                auditCommentRow.style.display = 'list-item';
+                remarkRow.style.display = 'list-item';
+              }
             }
-            const selectedValue = processingOpinionSelect.value;
 
-            problemTypeRow.style.display = 'none';
-            problemDescriptionRow.style.display = 'none';
-            auditCommentRow.style.display = 'none';
-            remarkRow.style.display = 'none';
-
-            if (selectedValue === '无法通过') {
-              problemTypeRow.style.display = 'list-item';
-              problemDescriptionRow.style.display = 'list-item';
-              auditCommentRow.style.display = 'list-item';
-              remarkRow.style.display = 'list-item';
-            } else if (selectedValue === '可以通过') {
-              auditCommentRow.style.display = 'list-item';
-              remarkRow.style.display = 'list-item';
+            if (processingOpinionSelect) {
+              processingOpinionSelect.addEventListener('change', toggleFields);
+              toggleFields();
             } else {
-              auditCommentRow.style.display = 'list-item';
-              remarkRow.style.display = 'list-item';
+              console.warn('Processing opinion select not found for CommunicationWorkOrder form.');
             }
-          }
-
-          if (processingOpinionSelect) {
-            processingOpinionSelect.addEventListener('change', toggleFields);
-            toggleFields();
-          } else {
-            console.warn('Processing opinion select not found for CommunicationWorkOrder form.');
-          }
-        });
-      """
+          });
+        """
+      end
     end
   end
 end
