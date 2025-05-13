@@ -230,17 +230,9 @@ ActiveAdmin.register CommunicationWorkOrder do
           number_to_currency(fee_detail.amount, unit: fee_detail.currency)
         end
         column "费用日期", :fee_date
-        column "验证状态" do |fee_detail|
-          status_tag fee_detail.verification_status, class: case fee_detail.verification_status
-                                                            when FeeDetail::VERIFICATION_STATUS_VERIFIED
-                                                              'ok' # green
-                                                            when FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
-                                                              'error' # red
-                                                            else
-                                                              'warning' # orange
-                                                            end
-        end
         column "备注", :notes
+        column "创建时间", :created_at
+        column "更新时间", :updated_at
       end
     end
   end

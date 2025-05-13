@@ -116,30 +116,6 @@ class OperationHistoryImportService
     
     if operation_history.save
       @imported_count += 1
-      
-      # 检查此历史记录是否关闭报销单 (Req 158)
-      if operation_type == '审批' && notes == '审批通过'
-        # 只有当报销单不是已关闭状态时才尝试关闭它
-        if !reimbursement.closed?
-          begin
-            # 记录之前的状态
-            previous_status = reimbursement.status
-            
-            # 尝试关闭报销单
-            Rails.logger.info "Attempting to close reimbursement #{reimbursement.invoice_number} (ID: #{reimbursement.id}). Current status: #{reimbursement.status}"
-            reimbursement.close!
-            Rails.logger.info "Reimbursement #{reimbursement.invoice_number} status after close!: #{reimbursement.status}"
-            
-            # 只有当状态实际发生变化时才增加计数
-            if reimbursement.status != previous_status
-              @updated_reimbursement_count += 1
-              Rails.logger.info "Reimbursement #{reimbursement.invoice_number} status updated count incremented."
-            end
-          rescue StateMachines::InvalidTransition => e
-            Rails.logger.warn "Could not close Reimbursement #{reimbursement.invoice_number} (ID: #{reimbursement.id}) based on history ID #{operation_history.id}: #{e.message}"
-          end
-        end
-      end
     else
       @error_count += 1
       @errors << "行 #{row_number} (单号: #{document_number}): #{operation_history.errors.full_messages.join(', ')}"

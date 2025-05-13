@@ -19,7 +19,7 @@ class Reimbursement < ApplicationRecord
   validates :applicant_id, presence: true
   validates :company, presence: true
   validates :department, presence: true
-  validates :status, presence: true, inclusion: { in: %w[pending processing closed] }
+  validates :status, presence: true, inclusion: { in: %w[pending processing approved rejected] }
   validates :receipt_status, inclusion: { in: %w[pending received] }
   validates :is_electronic, inclusion: { in: [true, false] }
   
@@ -31,7 +31,9 @@ class Reimbursement < ApplicationRecord
   scope :non_electronic, -> { where(is_electronic: false) }
   scope :pending, -> { where(status: 'pending') }
   scope :processing, -> { where(status: 'processing') }
-  scope :closed, -> { where(status: 'closed') }
+  scope :approved, -> { where(status: 'approved') }
+  scope :rejected, -> { where(status: 'rejected') }
+  scope :closed, -> { where(external_status: 'closed') }
   
   # 可选的其他范围查询
   scope :recent, -> { order(created_at: :desc) }
@@ -39,19 +41,23 @@ class Reimbursement < ApplicationRecord
   scope :by_department, ->(department) { where(department: department) }
 
   # 状态机
-  # 注意：在实际环境中，需要确保 state_machines-activerecord gem 已正确安装和加载
   state_machine :status, initial: :pending do
+    state :pending
+    state :processing
+    state :approved
+    state :rejected
+
     event :start_processing do
-      transition [:pending] => :processing
+      transition [:pending, :approved, :rejected] => :processing
     end
     
-    event :close do
-      # 由外部触发 (如 OperationHistoryImportService)
-      transition all => :closed
+    event :approve do
+      transition [:pending, :processing] => :approved
     end
     
-    # 状态转换前检查条件
-    # before_transition on: :mark_waiting_completion, do: :check_fee_details_status
+    event :reject do
+      transition [:pending, :processing] => :rejected
+    end
     
     # 状态转换后记录日志
     after_transition do |reimbursement, transition|
@@ -68,8 +74,12 @@ class Reimbursement < ApplicationRecord
     status == 'processing'
   end
   
-  def closed?
-    status == 'closed'
+  def approved?
+    status == 'approved'
+  end
+  
+  def rejected?
+    status == 'rejected'
   end
 
   # 业务方法

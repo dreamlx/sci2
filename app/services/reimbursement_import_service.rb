@@ -80,14 +80,9 @@ class ReimbursementImportService
       document_tags: row['单据标签'] || reimbursement.document_tags
     )
 
-    # Set internal status for new records based on external status
+    # Set internal status for new records to pending always
     if is_new_record
-      # Check if external status indicates closure (adjust keywords if needed)
-      if ['已付款', '已完成'].include?(reimbursement.external_status)
-        reimbursement.status = 'closed'
-      else
-        reimbursement.status = 'pending'
-      end
+      reimbursement.status = 'pending'
     end
 
     if reimbursement.save

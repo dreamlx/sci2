@@ -19,8 +19,9 @@ ActiveAdmin.register Reimbursement do
   scope :all, default: true
   scope :pending
   scope :processing
+  scope :approved
+  scope :rejected
   scope :closed
-  scope :electronic, -> { where(is_electronic: true) }
 
   # 批量操作
   batch_action :mark_as_received do |ids|
@@ -190,6 +191,16 @@ ActiveAdmin.register Reimbursement do
             end
           end
         end
+
+        panel "操作历史记录" do
+          table_for resource.operation_histories.order(operation_time: :desc) do
+            column :id
+            column :operation_type
+            column :operator
+            column :operation_time
+            column :notes
+          end
+        end
       end
 
       tab "快递收单工单" do
@@ -240,18 +251,6 @@ ActiveAdmin.register Reimbursement do
             end
          end
       end
-
-       tab "操作历史" do
-         panel "操作历史记录" do
-           table_for resource.operation_histories.order(operation_time: :desc) do
-             column :id
-             column :operation_type
-             column :operator
-             column :operation_time
-             column :notes
-           end
-         end
-       end
     end
   end
 
