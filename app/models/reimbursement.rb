@@ -19,7 +19,7 @@ class Reimbursement < ApplicationRecord
   validates :applicant_id, presence: true
   validates :company, presence: true
   validates :department, presence: true
-  validates :status, presence: true, inclusion: { in: %w[pending processing approved rejected] }
+  validates :status, presence: true, inclusion: { in: %w[pending processing approved rejected closed] }
   validates :receipt_status, inclusion: { in: %w[pending received] }
   validates :is_electronic, inclusion: { in: [true, false] }
   
@@ -46,6 +46,7 @@ class Reimbursement < ApplicationRecord
     state :processing
     state :approved
     state :rejected
+    state :closed
 
     event :start_processing do
       transition [:pending, :approved, :rejected] => :processing
@@ -57,6 +58,14 @@ class Reimbursement < ApplicationRecord
     
     event :reject do
       transition [:pending, :processing] => :rejected
+    end
+
+    event :close_processing do
+      transition :processing => :closed
+    end
+
+    event :reopen_to_processing do
+      transition :closed => :processing
     end
     
     # 状态转换后记录日志
@@ -80,6 +89,10 @@ class Reimbursement < ApplicationRecord
   
   def rejected?
     status == 'rejected'
+  end
+
+  def closed?
+    status == 'closed'
   end
 
   # 业务方法

@@ -35,7 +35,7 @@ ActiveAdmin.register CommunicationWorkOrder do
       )
 
       @communication_work_order = CommunicationWorkOrder.new(_params.except(:submitted_fee_detail_ids))
-      @communication_work_order.creator_id = current_admin_user.id
+      @communication_work_order.created_by = current_admin_user.id
 
       # Attempt to load submitted_fee_detail_ids
       # First from the correctly nested params (as permitted above)
@@ -102,7 +102,6 @@ ActiveAdmin.register CommunicationWorkOrder do
 
   scope :all, default: true
   scope :pending
-  scope :processing
   scope :approved
   scope :rejected
 
@@ -112,70 +111,8 @@ ActiveAdmin.register CommunicationWorkOrder do
             data: { confirm: "确定要删除此报销单吗？此操作将删除所有相关联的沟通工单。" }
   end
 
-  action_item :start_processing, only: :show, if: proc { resource.pending? && !resource.completed? } do
-    link_to "开始处理", start_processing_admin_communication_work_order_path(resource), method: :post, data: { confirm: "确定要开始处理此工单吗?" }
-  end
-  action_item :approve, only: :show, if: proc { (resource.pending? || resource.processing?) && !resource.completed? } do
-    link_to "审核通过", approve_admin_communication_work_order_path(resource)
-  end
-  action_item :reject, only: :show, if: proc { resource.processing? && !resource.completed? } do
-    link_to "审核拒绝", reject_admin_communication_work_order_path(resource)
-  end
-  action_item :mark_as_complete, only: :show, if: proc { (resource.status == 'approved' || resource.status == 'rejected') && !resource.completed? } do
-    link_to "审核完成", mark_as_complete_admin_communication_work_order_path(resource), method: :post, data: { confirm: "确定要将此工单标记为完成吗？此操作将锁定工单。" }
-  end
-
-  member_action :start_processing, method: :post do
-    service = CommunicationWorkOrderService.new(resource, current_admin_user)
-    if service.start_processing
-      redirect_to admin_communication_work_order_path(resource), notice: "工单已开始处理"
-    else
-      redirect_to admin_communication_work_order_path(resource), alert: "操作失败: #{resource.errors.full_messages.join(', ')}"
-    end
-  end
-
-  member_action :approve, method: :get do
-    redirect_to admin_communication_work_order_path(resource), alert: "工单已完成，无法操作。" if resource.completed?
-    @communication_work_order = resource
-    render :approve
-  end
-
-  member_action :do_approve, method: :post do
-    service = CommunicationWorkOrderService.new(resource, current_admin_user)
-    # Align with AuditWorkOrder: primarily audit_comment, maybe processing_opinion
-    permitted_params = params.require(:communication_work_order).permit(:audit_comment, :processing_opinion)
-    if service.approve(permitted_params)
-      redirect_to admin_communication_work_order_path(resource), notice: "沟通工单已审核通过" # Changed label
-    else
-      @communication_work_order = resource
-      flash.now[:alert] = "操作失败: #{resource.errors.full_messages.join(', ')}"
-      render :approve
-    end
-  end
-
-  member_action :reject, method: :get do
-    redirect_to admin_communication_work_order_path(resource), alert: "工单已完成，无法操作。" if resource.completed?
-    @communication_work_order = resource
-    render :reject
-  end
-
-  member_action :do_reject, method: :post do
-    service = CommunicationWorkOrderService.new(resource, current_admin_user)
-    # Align with AuditWorkOrder: audit_comment, problem_type_id, problem_description_id, remark, processing_opinion
-    permitted_params = params.require(:communication_work_order).permit(
-      :audit_comment, 
-      :problem_type_id, 
-      :problem_description_id, 
-      :remark, 
-      :processing_opinion
-    )
-    if service.reject(permitted_params)
-      redirect_to admin_communication_work_order_path(resource), notice: "沟通工单已审核拒绝" # Changed label
-    else
-      @communication_work_order = resource
-      flash.now[:alert] = "操作失败: #{resource.errors.full_messages.join(', ')}"
-      render :reject
-    end
+  action_item :mark_as_complete, only: :show, if: proc { (resource.approved? || resource.rejected?) && !resource.completed? } do
+    link_to "标记完成", mark_as_complete_admin_communication_work_order_path(resource), method: :put, data: { confirm: "确定要将此工单标记为完成吗? 完成后将无法编辑。" }
   end
 
   member_action :verify_fee_detail, method: :get do
@@ -190,37 +127,35 @@ ActiveAdmin.register CommunicationWorkOrder do
   end
 
   member_action :do_verify_fee_detail, method: :post do
-    service = CommunicationWorkOrderService.new(resource, current_admin_user)
+    # Use the base WorkOrderService for fee detail verification as CommunicationWorkOrderService might be deprecated
+    service = WorkOrderService.new(resource, current_admin_user)
+    fee_detail_id = params[:fee_detail_id]
+    verification_status = params[:verification_status]
+    comment = params[:comment]
+
     # Find fee_detail for re-rendering form on failure
-    @fee_detail = resource.fee_details.find_by(id: params[:fee_detail_id])
+    @fee_detail = resource.fee_details.find_by(id: fee_detail_id)
     unless @fee_detail # Ensure @fee_detail is set before potential error rendering
-      redirect_to admin_communication_work_order_path(resource), alert: "尝试验证的费用明细 ##{params[:fee_detail_id]} 未找到或未关联。"
+      redirect_to admin_communication_work_order_path(resource), alert: "尝试验证的费用明细 ##{fee_detail_id} 未找到或未关联。"
       return
     end
 
-    if service.update_fee_detail_verification(params[:fee_detail_id], params[:verification_status], params[:comment])
-       redirect_to admin_communication_work_order_path(resource), notice: "费用明细 ##{params[:fee_detail_id]} 状态已更新"
+    if service.update_fee_detail_verification(fee_detail_id, verification_status, comment)
+       redirect_to admin_communication_work_order_path(resource), notice: "费用明细 ##{fee_detail_id} 状态已更新"
     else
-       @work_order = resource
-       @fee_detail = FeeDetail.joins(:fee_detail_selections)
-                             .where(fee_detail_selections: {work_order_id: resource.id, work_order_type: 'CommunicationWorkOrder'})
-                             .find(params[:fee_detail_id])
-       flash.now[:alert] = "费用明细 ##{params[:fee_detail_id]} 更新失败: #{@fee_detail.errors.full_messages.join(', ')}"
+       @work_order = resource # Ensure @work_order is set for the shared form
+       # @fee_detail is already set above
+       flash.now[:alert] = "费用明细 ##{fee_detail_id} 更新失败: #{ @work_order.errors.full_messages.join(', ') + @fee_detail.errors.full_messages.join(', ') }"
        render 'admin/shared/verify_fee_detail'
     end
   end
 
-  member_action :mark_as_complete, method: :post do
-    if resource.completed?
-      redirect_to admin_communication_work_order_path(resource), alert: "此工单已标记为完成。"
-    elsif resource.status == 'approved' || resource.status == 'rejected'
-      if resource.update(completed: true)
-        redirect_to admin_communication_work_order_path(resource), notice: "工单已成功标记为完成。"
-      else
-        redirect_to admin_communication_work_order_path(resource), alert: "标记完成失败: #{resource.errors.full_messages.join(', ')}"
-      end
+  member_action :mark_as_complete, method: :put do
+    service = WorkOrderService.new(resource, current_admin_user) # Changed to WorkOrderService
+    if service.mark_as_truly_completed
+      redirect_to admin_communication_work_order_path(resource), notice: "工单已标记为完成"
     else
-      redirect_to admin_communication_work_order_path(resource), alert: "只有状态为 Approved 或 Rejected 的工单才能标记为完成。"
+      redirect_to admin_communication_work_order_path(resource), alert: "标记完成失败: #{resource.errors.full_messages.join(', ')}"
     end
   end
 

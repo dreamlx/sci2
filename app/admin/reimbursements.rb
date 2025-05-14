@@ -54,22 +54,32 @@ ActiveAdmin.register Reimbursement do
   config.action_items.delete_if { |item| item.name == :edit || item.name == :destroy }
   
   # 添加自定义按钮，按照指定顺序排列
-  action_item :new_audit_work_order, only: :show, priority: 0 do
+  action_item :new_audit_work_order, only: :show, priority: 0, if: proc { !resource.closed? } do
     link_to "新建审核工单", new_admin_audit_work_order_path(reimbursement_id: resource.id)
   end
   
-  action_item :new_communication_work_order, only: :show, priority: 1 do
+  action_item :new_communication_work_order, only: :show, priority: 1, if: proc { !resource.closed? } do
     link_to "新建沟通工单", new_admin_communication_work_order_path(reimbursement_id: resource.id)
   end
   
-  action_item :edit_reimbursement, only: :show, priority: 2 do
+  action_item :edit_reimbursement, only: :show, priority: 2, if: proc { !resource.closed? } do
     link_to "编辑报销单", edit_admin_reimbursement_path(resource)
   end
   
-  action_item :delete_reimbursement, only: :show, priority: 3 do
+  action_item :delete_reimbursement, only: :show, priority: 3, if: proc { !resource.closed? } do
     link_to "删除报销单", admin_reimbursement_path(resource),
             method: :delete,
             data: { confirm: "确定要删除此报销单吗？此操作不可逆。" }
+  end
+
+  # ADDED: "处理完成" (Close) button, uses existing :close member_action
+  action_item :close_reimbursement, label: "处理完成", only: :show, priority: 4, if: proc { resource.processing? && !resource.closed? } do
+    link_to "处理完成", close_admin_reimbursement_path(resource), method: :put, data: { confirm: "确定要完成处理此报销单吗 (状态将变为 Closed)?" }
+  end
+
+  # ADDED: "取消完成" (Reopen) button
+  action_item :reopen_reimbursement, label: "取消完成", only: :show, priority: 4, if: proc { resource.closed? } do
+    link_to "取消完成", reopen_reimbursement_admin_reimbursement_path(resource), method: :put, data: { confirm: "确定要取消完成此报销单吗 (状态将变为 Processing)?" }
   end
 
   # 导入操作
@@ -120,29 +130,6 @@ ActiveAdmin.register Reimbursement do
     column :approval_date
     column :created_at
     actions
-  end
-
-  # 详情页状态操作按钮
-  action_item :start_processing, only: :show, if: proc{resource.pending?} do
-    link_to "开始处理", start_processing_admin_reimbursement_path(resource), method: :put, data: { confirm: "确定要开始处理此报销单吗?" }
-  end
-
-  member_action :start_processing, method: :put do
-    begin
-      resource.start_processing!
-      redirect_to admin_reimbursement_path(resource), notice: "报销单已开始处理"
-    rescue => e
-      redirect_to admin_reimbursement_path(resource), alert: "操作失败: #{e.message}"
-    end
-  end
-
-  member_action :close, method: :put do
-    begin
-      resource.close!
-      redirect_to admin_reimbursement_path(resource), notice: "报销单已关闭"
-    rescue => e
-      redirect_to admin_reimbursement_path(resource), alert: "操作失败: #{e.message}"
-    end
   end
 
   # 详情页
@@ -219,10 +206,10 @@ ActiveAdmin.register Reimbursement do
 
       tab "审核工单" do
         panel "审核工单信息" do
-          table_for resource.audit_work_orders.order(created_at: :desc) do
+          table_for resource.audit_work_orders.includes(:creator).order(created_at: :desc) do
             column(:id) { |wo| link_to wo.id, admin_audit_work_order_path(wo) }
             column(:status) { |wo| status_tag wo.status }
-            column("处理结果", :resolution) { |wo| status_tag wo.resolution if wo.resolution.present? }
+            column("处理结果", :audit_result) { |wo| status_tag wo.audit_result if wo.audit_result.present? }
             column :audit_date
             column :creator
             column :created_at
@@ -274,5 +261,29 @@ ActiveAdmin.register Reimbursement do
       f.input :approver_name
     end
     f.actions
+  end
+
+  # Existing member_action :close (used by "处理完成" button)
+  member_action :close, method: :put do
+    begin
+      resource.close_processing!
+      redirect_to admin_reimbursement_path(resource), notice: "报销单已关闭 (处理完成)"
+    rescue StateMachines::InvalidTransition => e
+      redirect_to admin_reimbursement_path(resource), alert: "操作失败: #{e.message}"
+    rescue => e
+      redirect_to admin_reimbursement_path(resource), alert: "发生未知错误: #{e.message}"
+    end
+  end
+
+  # ADDED: member_action :reopen_reimbursement
+  member_action :reopen_reimbursement, method: :put do
+    begin
+      resource.reopen_to_processing!
+      redirect_to admin_reimbursement_path(resource), notice: "报销单已取消完成，状态恢复为处理中。"
+    rescue StateMachines::InvalidTransition => e
+      redirect_to admin_reimbursement_path(resource), alert: "操作失败: #{e.message}"
+    rescue => e
+      redirect_to admin_reimbursement_path(resource), alert: "发生未知错误: #{e.message}"
+    end
   end
 end

@@ -11,81 +11,91 @@ class WorkOrderService
     Current.admin_user = current_admin_user # Set Current context
   end
 
-  # Start processing
-  def start_processing(params = {})
-    assign_shared_attributes(params)
-    @work_order.start_processing! # Uses the state machine event from WorkOrder model
-    true
-  rescue StateMachines::InvalidTransition => e
-    @work_order.errors.add(:base, "无法开始处理 (状态无效的转换): #{e.message}")
-    Rails.logger.error "WorkOrderService Error: #{e.message} for work order #{@work_order.id}"
-    false
-  rescue => e
-    @work_order.errors.add(:base, "无法开始处理: #{e.message}")
-    Rails.logger.error "WorkOrderService Error: #{e.message} for work order #{@work_order.id}"
-    false
-  end
+  # REMOVED: start_processing method as 'processing' state is removed.
+  # If there was other logic here besides state change, it needs to be re-evaluated.
 
-  # Approve work order (Status change handled by model callback based on processing_opinion/status)
   def approve(params = {})
-    assign_shared_attributes(params.merge(processing_opinion: '审核通过')) # Set opinion for callback
+    # Assign attributes like audit_comment. The processing_opinion might be in params.
+    # Model validations will check for audit_comment if opinion is '可以通过'
+    assign_shared_attributes(params) 
 
-    # Common comment field validation remains
-    comment = params[:audit_comment]
-    if comment.blank? && (@work_order.is_a?(AuditWorkOrder) || @work_order.is_a?(CommunicationWorkOrder))
-      @work_order.errors.add(:audit_comment, "不能为空，请填写处理意见。")
-      return false
+    if @work_order.may_mark_as_approved? 
+      @work_order.mark_as_approved!(@current_admin_user)
+      # Model's after_transition should set audit_date
+      # Model's validations for approved state should have run.
+      return true unless @work_order.errors.any? # Check for validation errors after state change
+    else
+      @work_order.errors.add(:base, "无法批准工单 (当前状态: #{@work_order.status})。") unless @work_order.errors.any?
     end
-    # audit_comment is assigned via assign_shared_attributes
-    
-    save_work_order("批准")
-  rescue => e # Keep generic rescue
-    @work_order.errors.add(:base, "无法批准: #{e.message}")
+    false
+  rescue StateMachines::InvalidTransition => e
+    @work_order.errors.add(:base, "无法批准 (状态无效的转换): #{e.message}")
+    Rails.logger.error "WorkOrderService Error: #{e.message} for work order #{@work_order.id}"
+    false
+  rescue => e 
+    @work_order.errors.add(:base, "批准工单时发生错误: #{e.message}")
+    Rails.logger.error "WorkOrderService Error: #{e.message} for work order #{@work_order.id}"
     false
   end
 
-  # Reject work order (Status change handled by model callback based on processing_opinion/status)
   def reject(params = {})
-    assign_shared_attributes(params.merge(processing_opinion: '无法通过')) # Set opinion for callback
-    
-    # comment validation remains
-    comment = params[:audit_comment]
-    if comment.blank? && (@work_order.is_a?(AuditWorkOrder) || @work_order.is_a?(CommunicationWorkOrder))
-      @work_order.errors.add(:audit_comment, "不能为空，请填写处理意见。")
-      return false
-    end 
-    # audit_comment is assigned via assign_shared_attributes
+    # Assign attributes like audit_comment, problem_type_id etc.
+    # Model validations will check for these if opinion is '无法通过'
+    assign_shared_attributes(params) 
 
-    # Ensure required fields check remains (now based on status='rejected' in model validation)
-    if @work_order.is_a?(AuditWorkOrder) || @work_order.is_a?(CommunicationWorkOrder)
-      if params[:problem_type_id].blank? && @work_order.problem_type_id.blank?
-        @work_order.errors.add(:problem_type_id, "不能为空")
-      end
-      if params[:problem_description_id].blank? && @work_order.problem_description_id.blank?
-        @work_order.errors.add(:problem_description_id, "不能为空")
-      end
-      return false if @work_order.errors.any?
+    if @work_order.may_mark_as_rejected? 
+      @work_order.mark_as_rejected!(@current_admin_user)
+      # Model's after_transition should set audit_date
+      # Model's validations for rejected state should have run.
+      return true unless @work_order.errors.any? # Check for validation errors after state change
+    else
+      @work_order.errors.add(:base, "无法拒绝工单 (当前状态: #{@work_order.status})。") unless @work_order.errors.any?
     end
-
-    save_work_order("拒绝")
-  rescue => e # Keep generic rescue
-    @work_order.errors.add(:base, "无法拒绝: #{e.message}")
+    false
+  rescue StateMachines::InvalidTransition => e
+    @work_order.errors.add(:base, "无法拒绝 (状态无效的转换): #{e.message}")
+    Rails.logger.error "WorkOrderService Error: #{e.message} for work order #{@work_order.id}"
+    false
+  rescue => e 
+    @work_order.errors.add(:base, "拒绝工单时发生错误: #{e.message}")
+    Rails.logger.error "WorkOrderService Error: #{e.message} for work order #{@work_order.id}"
     false
   end
 
-  # General update method, driven by processing_opinion which triggers status callback
+  # General update method - should not change status via processing_opinion anymore.
+  # Status changes are handled by approve/reject methods.
   def update(params = {})
+    # Ensure work_order is not completed before allowing updates
+    unless @work_order.editable?
+      @work_order.errors.add(:base, "工单已完成，无法修改。")
+      return false
+    end
+
     assign_shared_attributes(params)
+    # processing_opinion might be in params. If it changes, model validations related to it will run.
+    # However, status change is not automatically triggered by opinion change here.
     
-    # Remove resolution calculation logic
-    # The model callback `set_status_based_on_processing_opinion` handles status changes
-    
-    # Just save the work order; callbacks will handle status based on opinion
     save_work_order("更新")
   end
 
-  # Update fee detail verification status
+  # Method to mark a work order as truly completed (sets the boolean flag)
+  def mark_as_truly_completed
+    if @work_order.mark_as_truly_completed(@current_admin_user) # Call model method
+      true
+    else
+      # Errors will be on @work_order.errors from the model method
+      false
+    end
+  end
+
+  # Update fee detail verification status (remains largely the same)
   def update_fee_detail_verification(fee_detail_id, verification_status, comment = nil)
+    # Ensure work_order is not completed
+    unless @work_order.editable?
+      @work_order.errors.add(:base, "工单已完成，无法修改费用明细验证状态。")
+      return false
+    end
+
     fee_detail = @work_order.fee_details.find_by(id: fee_detail_id)
 
     unless fee_detail
@@ -94,6 +104,7 @@ class WorkOrderService
       return false
     end
 
+    # Assuming FeeDetailVerificationService is still relevant and handles its own logic
     verification_service = FeeDetailVerificationService.new(@current_admin_user)
     result = verification_service.update_verification_status(fee_detail, verification_status, comment)
 
@@ -114,27 +125,27 @@ class WorkOrderService
     if @work_order.save
       true
     else
-      # Errors are already on @work_order.errors
       Rails.logger.error "WorkOrderService: 无法#{action_name}工单 ##{@work_order.id}. 错误: #{@work_order.errors.full_messages.join(", ")}"
       false
     end
   end
   
-  # Assign shared attributes from params to the work order
   def assign_shared_attributes(params)
-    # Define attributes that are common and can be assigned directly.
-    # problem_type/problem_description are often ID-based.
-    # remark, processing_opinion, audit_comment are direct text fields.
-    # audit_date is usually set by callbacks.
-    
     shared_attr_keys = [
       :remark, :processing_opinion, :audit_comment, 
-      :problem_type_id, :problem_description_id
+      :problem_type_id, :problem_description_id,
+      # AuditWorkOrder specific fields that are now shared due to alignment
+      :vat_verified, :audit_result # audit_result if it's set directly, though status implies it
+                                   # For CommunicationWorkOrder, these would be nil or handled by model defaults if any
     ]
     
-    # Slice only the attributes present in params to avoid mass assignment issues with nil if not careful
     attrs_to_assign = params.slice(*shared_attr_keys.select { |key| params.key?(key) })
     
+    # Ensure audit_result is not directly assigned if it's purely driven by status
+    # If audit_result is a direct input field (e.g. from a form for specific cases), this is fine.
+    # But our current design: status implies audit_result ('approved'/'rejected')
+    attrs_to_assign.delete(:audit_result) # Let status dictate this, model has audit_result column for db persistence
+
     @work_order.assign_attributes(attrs_to_assign) if attrs_to_assign.present?
   end
 end 

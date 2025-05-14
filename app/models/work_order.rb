@@ -1,265 +1,206 @@
 # app/models/work_order.rb
+# frozen_string_literal: true
+
 class WorkOrder < ApplicationRecord
-  # 显式定义 STI 列
-  self.inheritance_column = :type
+  # STI 基类
+  self.table_name = 'work_orders' # 确保表名正确
   
   # 关联
   belongs_to :reimbursement
-  belongs_to :creator, class_name: 'AdminUser', foreign_key: 'creator_id', optional: true
+  belongs_to :creator, class_name: 'AdminUser', foreign_key: 'created_by'
   
   # ADDED: Common associations for problem type and description
   belongs_to :problem_type, optional: true
   belongs_to :problem_description, optional: true
   
-  # 多态关联
-  
-  has_many :work_order_status_changes, as: :work_order, dependent: :destroy
-  
-  # 新的多对多关联
-  has_many :work_order_fee_details, as: :work_order, dependent: :destroy # 'as: :work_order' 是多态的关键
+  # REVISED Associations: Using polymorphic WorkOrderFeeDetail
+  has_many :work_order_fee_details, as: :work_order, dependent: :destroy
   has_many :fee_details, through: :work_order_fee_details
+  
+  has_many :work_order_status_changes, foreign_key: 'work_order_id', dependent: :destroy
+
+  # 属性 (这些字段应存在于 work_orders 表中)
+  # :reimbursement_id
+  # :created_by
+  # :status
+  # :type (用于 STI)
+  # :problem_type (string)
+  # :problem_description (text)
+  # :remark (text)
+  # :processing_opinion (text)
+  # ... STI 子类特有的字段也在此表中，但值为 null ...
+
+  # 用于表单接收fee_detail_ids
+  attr_accessor :fee_detail_ids_attributes # 如果使用 accepts_nested_attributes_for
+                                        # 或者 attr_accessor :fee_detail_ids for manual handling
+  attr_accessor :submitted_fee_detail_ids  # For the form field
 
   # 验证
   validates :reimbursement_id, presence: true
-  validates :type, presence: true
-  validates :status, presence: true, inclusion: { in: %w[pending processing approved rejected] }
-  validates :audit_date, presence: true, if: -> { status.in?(%w[approved rejected]) && respond_to?(:audit_date) && audit_date.blank? }
-  
-  # Update shared validations to depend on status == 'rejected'
-  validates :problem_type_id, presence: true, if: -> { (is_a?(AuditWorkOrder) || is_a?(CommunicationWorkOrder)) && status == 'rejected' }
-  validates :problem_description_id, presence: true, if: -> { (is_a?(AuditWorkOrder) || is_a?(CommunicationWorkOrder)) && status == 'rejected' }
-  validates :audit_comment, presence: true, if: -> { (is_a?(AuditWorkOrder) || is_a?(CommunicationWorkOrder)) && status == 'rejected' }
-  
-  # 添加虚拟属性以接收表单提交的fee_detail_ids
-  attr_accessor :submitted_fee_detail_ids # 更清晰的命名以区分于实际关联的 fee_detail_ids
-  
-  # 初始化fee_detail_ids为空数组
-  def fee_detail_ids
-    @fee_detail_ids ||= []
-  end
-  
-  # 回调
-  after_commit :record_status_change, on: [:create, :update], if: -> { saved_change_to_status? }
-  after_create :update_reimbursement_status_on_create
-  before_validation :set_status_based_on_processing_opinion
-  after_save :process_submitted_fee_details
-  after_save :sync_fee_details_verification_status_with_work_order_status,
-             if: -> { saved_change_to_status? && status.in?(['approved', 'rejected']) }
+  validates :status, presence: true
+  # 根据实际需求添加对 problem_type, problem_description 等的验证
 
-  # --- 状态机 (ONLY status) ---
+  # 根据 processing_opinion 验证相关字段
+  with_options if: -> { processing_opinion == '无法通过' && (status == 'rejected' || new_record? || status_changed_to_rejected?) } do |rejected_wo|
+    rejected_wo.validates :problem_type_id, presence: { message: "当处理意见为\"无法通过\"时，问题类型不能为空" }
+    rejected_wo.validates :problem_description_id, presence: { message: "当处理意见为\"无法通过\"时，问题描述不能为空" }
+    rejected_wo.validates :audit_comment, presence: { message: "当处理意见为\"无法通过\"时，审核意见不能为空" }
+  end
+  with_options if: -> { processing_opinion == '可以通过' && (status == 'approved' || new_record? || status_changed_to_approved?) } do |approved_wo|
+    approved_wo.validates :audit_comment, presence: { message: "当处理意见为\"可以通过\"时，审核意见不能为空" }
+  end
+
+  # 状态机 (using state_machine gem)
   state_machine :status, initial: :pending do
     state :pending
-    state :processing
     state :approved
     state :rejected
+    # REMOVED: processing, completed (as a status), problematic, waiting_completion states
 
-    event :start_processing do
-      transition [:pending, :approved, :rejected] => :processing
+    event :mark_as_approved do
+      transition [:pending, :rejected] => :approved
+    end
+
+    event :mark_as_rejected do
+      transition [:pending, :approved] => :rejected
     end
     
-    event :force_approve do
-      transition all => :approved
-    end
+    # Optional: Event to go back to pending if opinion is cleared (if this business logic is allowed)
+    # event :mark_as_pending do
+    #   transition [:approved, :rejected] => :pending
+    # end
 
-    event :force_reject do
-      transition all => :rejected
+    after_transition do |work_order, transition|
+      changer = transition.args.first || Current.admin_user # Assumes changer is the first arg to the event
+      work_order.work_order_status_changes.create(
+        from_status: transition.from,
+        to_status: transition.to,
+        changed_at: Time.current,
+        changer: changer
+      )
+      # Set audit_date when moving to approved or rejected
+      if transition.to_name.in?([:approved, :rejected]) && work_order.audit_date.nil?
+        work_order.audit_date = Time.current
+      end
     end
   end
 
-  # --- Scopes (ONLY status based) ---
+  # Scopes for states
   scope :pending, -> { where(status: 'pending') }
-  scope :processing, -> { where(status: 'processing') }
   scope :approved, -> { where(status: 'approved') }
   scope :rejected, -> { where(status: 'rejected') }
+  # REMOVED: processing, completed scopes (completed is now a boolean field)
 
-  # 类方法
-  def self.sti_name
-    name
-  end
-  
-  # 实例方法
-  public
-  
-  def record_status_change
-    # 获取事务中的状态变更详情
-    status_change = previous_changes['status']
-    return unless status_change # 确保状态确实发生了变化
-    
-    old_status, new_status = status_change
-    
-    # 使用 build 和 save 而不是 create! 以便于调试
-    status_change = work_order_status_changes.build(
-      work_order_type: self.class.name, # 使用 class.name 而不是 sti_name
-      from_status: old_status,
-      to_status: new_status,
-      changed_at: Time.current
-    )
-    
-    # 只有在 Current.admin_user 或 creator 存在时才设置 changer
-    if Current.admin_user.present?
-      status_change.changer = Current.admin_user
-    elsif creator.present?
-      status_change.changer = creator
-    end
-    
-    # 使用 save 而不是 save! 以避免异常
-    unless status_change.save
-      Rails.logger.error "Failed to save WorkOrderStatusChange: #{status_change.errors.full_messages.join(', ')}"
-    end
-  rescue => e
-    Rails.logger.error "Error in record_status_change: #{e.message}"
-  end
-  
-  def update_reimbursement_status_on_create
-    # 当创建审核工单或沟通工单时触发报销单状态更新
-    if self.is_a?(AuditWorkOrder) || self.is_a?(CommunicationWorkOrder)
-      reimbursement.start_processing! if reimbursement.pending?
-    end
-  rescue StateMachines::InvalidTransition => e
-    Rails.logger.error "Error updating reimbursement status from WorkOrder ##{id} creation: #{e.message}"
-  end
-  
-  def process_submitted_fee_details
-    # 仅当 @submitted_fee_detail_ids 存在时执行 (由 controller 设置)
-    return unless @submitted_fee_detail_ids 
+  # Callback to handle status change based on processing_opinion
+  # It's recommended that the Service layer explicitly calls state events based on processing_opinion.
+  # This callback is commented out to enforce that responsibility on the service layer.
+  # before_save :update_status_based_on_processing_opinion, if: :processing_opinion_changed_and_not_completed?
 
-    # 将提交的 ID 转换为整数数组，并移除0或空值
-    current_ids = self.fee_detail_ids # 当前实际关联的 FeeDetail ID 列表
-    new_ids = @submitted_fee_detail_ids.map(&:to_i).reject(&:zero?).uniq
+  after_save :handle_fee_detail_selection
+  after_create :update_reimbursement_status_to_processing
 
-    # 计算需要添加和移除的关联
-    ids_to_add = new_ids - current_ids
-    ids_to_remove = current_ids - new_ids
-
-    # 添加新的关联
-    ids_to_add.each do |fee_detail_id|
-      # 可以添加 FeeDetail.exists?(fee_detail_id) 的检查
-      self.work_order_fee_details.create(fee_detail_id: fee_detail_id)
-    end
-
-    # 移除不再需要的关联
-    if ids_to_remove.any?
-      self.work_order_fee_details.where(fee_detail_id: ids_to_remove).destroy_all
-    end
-    
-    # 清理，防止下次保存时意外执行
-    @submitted_fee_detail_ids = nil 
+  def submitted_fee_detail_ids
+    @submitted_fee_detail_ids ||= self.fee_details.pluck(:id).map(&:to_s)
   end
 
-  def associated_fee_details
-    self.fee_details # 直接使用新建的 has_many :fee_details 关联
+  # Method to be called by "Complete Audit" button
+  # Note: `completed` is a boolean attribute on the work_orders table
+  def mark_as_truly_completed(admin_user) # admin_user passed for potential future use (e.g. logging who completed it)
+    return false if self.completed? # Already completed
+    if self.status.in?(['approved', 'rejected'])
+      # The actual saving of the `completed` flag and any other attributes
+      # should ideally be handled by the service layer calling this method,
+      # which then calls `update`. This ensures consistency.
+      # For now, this method directly updates. If a service calls this, it might just return true/false
+      # and the service does the update.
+      self.update(completed: true) 
+    else
+      errors.add(:base, "只有 Approved 或 Rejected 状态的工单才能标记为完成。")
+      false
+    end
+  end
+
+  def editable?
+    !self.completed?
+  end
+
+  def deletable?
+    !self.completed?
+  end
+
+  private
+
+  def processing_opinion_changed_and_not_completed?
+    processing_opinion_changed? && !self.completed?
   end
   
-  def update_associated_fee_details_status(target_verification_status)
-    # This method was previously triggered by resolution change.
-    # We might need to trigger it differently now, perhaps when status changes to approved/rejected?
-    # Or maybe remove it if the logic is now handled elsewhere or not needed?
-    # For now, let's keep the method but remove the callback that triggers it.
-    Rails.logger.info "WorkOrder ##{id}: Updating associated fee details to #{target_verification_status}"
-    
-    # Ensure the target status is valid
-    valid_target_statuses = [
-      FeeDetail::VERIFICATION_STATUS_PENDING,
-      FeeDetail::VERIFICATION_STATUS_VERIFIED,
-      FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
-    ]
-    unless valid_target_statuses.include?(target_verification_status)
-      Rails.logger.error "WorkOrder ##{id}: Invalid target_verification_status #{target_verification_status} for fee details."
-      return
-    end
-    
-    details_to_update = associated_fee_details
-    Rails.logger.info "WorkOrder ##{id}: Found #{details_to_update.count} fee details to update."
-    
-    details_to_update.find_each do |fee_detail|
-      if fee_detail.verification_status != target_verification_status
-        Rails.logger.info "WorkOrder ##{id}: Updating FeeDetail ##{fee_detail.id} from #{fee_detail.verification_status} to #{target_verification_status}"
-        unless fee_detail.update(verification_status: target_verification_status)
-          Rails.logger.error "WorkOrder ##{id}: Failed to update FeeDetail ##{fee_detail.id}: #{fee_detail.errors.full_messages.join(', ')}"
+  def status_changed_to_rejected?
+    status_changed? && status == 'rejected'
+  end
+
+  def status_changed_to_approved?
+    status_changed? && status == 'approved'
+  end
+
+  # def update_status_based_on_processing_opinion
+  #   # This method is intentionally left commented out.
+  #   # Service layer should explicitly call mark_as_approved! or mark_as_rejected!
+  #   # based on processing_opinion, passing the current_admin_user.
+  #   # If this callback were to be used, it would need a reliable way to get the 'changer'.
+  #   # Example if Current.admin_user is reliably set:
+  #   # changer = Current.admin_user
+  #   # case processing_opinion
+  #   # when '可以通过'
+  #   #   self.mark_as_approved!(changer) if self.may_mark_as_approved?
+  #   # when '无法通过'
+  #   #   self.mark_as_rejected!(changer) if self.may_mark_as_rejected?
+  #   # when nil, '' # If opinion is cleared and we want to revert to pending
+  #   #   # self.mark_as_pending!(changer) if self.may_mark_as_pending? # Add this event if needed
+  #   # end
+  # end
+
+  def handle_fee_detail_selection
+    if defined?(@submitted_fee_detail_ids_from_params) && !@submitted_fee_detail_ids_from_params.nil? 
+      current_associated_fee_ids = self.fee_details.pluck(:id).map(&:to_s)
+      ids_to_select = @submitted_fee_detail_ids_from_params.map(&:to_s).reject(&:blank?).uniq
+
+      ids_to_add = ids_to_select - current_associated_fee_ids
+      ids_to_remove_associations_for = current_associated_fee_ids - ids_to_select
+
+      if ids_to_remove_associations_for.any?
+        self.work_order_fee_details.where(fee_detail_id: ids_to_remove_associations_for).destroy_all
+      end
+      
+      ids_to_add.each do |fd_id|
+        if FeeDetail.exists?(fd_id)
+          self.work_order_fee_details.find_or_create_by(fee_detail_id: fd_id)
+        else
+          Rails.logger.warn "Attempted to associate non-existent FeeDetail ID: #{fd_id} with WorkOrder ID: #{self.id}, Type: #{self.class.name}"
         end
-      else
-        Rails.logger.info "WorkOrder ##{id}: FeeDetail ##{fee_detail.id} already in state #{target_verification_status}. Skipping."
+      end
+      @submitted_fee_detail_ids_from_params = nil 
+    end
+  end
+
+  # Controller needs to assign params[:work_order_type][:submitted_fee_detail_ids] 
+  # (e.g. params[:audit_work_order][:submitted_fee_detail_ids])
+  # to @submitted_fee_detail_ids_from_params before save.
+
+  # ADDED: Method to update reimbursement status after work order creation
+  def update_reimbursement_status_to_processing
+    if self.reimbursement.present? && self.reimbursement.pending? # Check current state of reimbursement
+      begin
+        self.reimbursement.start_processing! # Call the event to change reimbursement state
+      rescue StateMachines::InvalidTransition => e
+        Rails.logger.warn "WorkOrder after_create: Failed to transition reimbursement ID #{self.reimbursement_id} to 'processing'. Current state: #{self.reimbursement.status}. Error: #{e.message}"
+      rescue => e
+        Rails.logger.error "WorkOrder after_create: Unexpected error while transitioning reimbursement ID #{self.reimbursement_id}. Error: #{e.message}"
       end
     end
-  rescue => e
-    Rails.logger.error "WorkOrder ##{id}: Error in update_associated_fee_details_status: #{e.message}"
-    Rails.logger.error e.backtrace.join("\n")
   end
 
-  # ActiveAdmin 配置
-  def self.ransackable_attributes(auth_object = nil)
-    # Common fields + subclass-specific fields. Ensure 'resolution' and common status fields are here.
-    # Added 'processing_opinion', 'audit_comment', 'audit_date' as common searchable fields.
-    %w[id reimbursement_id type status processing_opinion audit_comment audit_date created_by created_at updated_at] + subclass_ransackable_attributes
-  end
-  
-  # 子类的占位方法
-  def self.subclass_ransackable_attributes
-    []
-  end
-  
-  def self.ransackable_associations(auth_object = nil)
-    # Common associations + subclass-specific associations
-    %w[reimbursement creator fee_details problem_type problem_description] + subclass_ransackable_associations
-  end
-
-  def self.subclass_ransackable_associations
-    []
-  end
-
-  # Refactor set_status_based_on_processing_opinion
-  def set_status_based_on_processing_opinion
-    return unless self.is_a?(AuditWorkOrder) || self.is_a?(CommunicationWorkOrder)
-    return unless processing_opinion_changed? || (new_record? && processing_opinion.present?) # Only run if opinion changed or on create
-
-    case processing_opinion
-    when nil, ""
-      # If opinion is cleared, maybe reset status to processing if currently approved/rejected?
-      if status.in?(%w[approved rejected])
-        # self.status = "processing" # Revisit this logic based on desired behavior
-      end
-    when "可以通过", "审核通过"
-      self.status = "approved" # Directly set status
-      self.audit_date = Time.current if self.respond_to?(:audit_date=) && self.audit_date.blank?
-    when "无法通过", "否决"
-      self.status = "rejected" # Directly set status
-      self.audit_date = Time.current if self.respond_to?(:audit_date=) && self.audit_date.blank?
-    else
-      # Any other non-empty opinion likely means processing should start or continue
-      self.status = "processing" if self.pending?
-    end
-  rescue => e
-    Rails.logger.error "无法基于处理意见更新状态 (WorkOrder ##{id}): #{e.message}"
-  end
-
-  private # Ensure this is private if it's not meant to be public API
-
-  def sync_fee_details_verification_status_with_work_order_status
-    return unless self.is_a?(AuditWorkOrder) || self.is_a?(CommunicationWorkOrder)
-
-    target_verification_status = nil
-    if status == 'approved'
-      target_verification_status = FeeDetail::VERIFICATION_STATUS_VERIFIED
-    elsif status == 'rejected'
-      target_verification_status = FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
-    end
-
-    if target_verification_status
-      Rails.logger.info "WorkOrder ##{id} (status: #{status}): Syncing fee details to #{target_verification_status}."
-      update_associated_fee_details_status(target_verification_status)
-    else
-      Rails.logger.info "WorkOrder ##{id} (status: #{status}): No fee detail status sync needed for this status."
-    end
-  rescue NameError => e
-    # Catch NameError specifically if FeeDetail constants are not loaded
-    Rails.logger.error "WorkOrder ##{id}: Error syncing fee details - FeeDetail constants not loaded? #{e.message}"
-  rescue => e
-    Rails.logger.error "WorkOrder ##{id}: Error in sync_fee_details_verification_status_with_work_order_status: #{e.message}"
-    Rails.logger.error e.backtrace.join("\n")
-  end
-
-  public
-  def completed?
-    completed == true
-  end
+  # 定义问题类型、描述、处理意见的常量 (如果它们是固定的选项)
+  # 例如:
+  # PROBLEM_TYPES = ["问题类型A", "问题类型B", "其他"].freeze
+  # validates :problem_type, inclusion: { in: PROBLEM_TYPES }, allow_blank: true
 end

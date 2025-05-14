@@ -45,7 +45,7 @@ ActiveAdmin.register AuditWorkOrder do
       )
 
       @audit_work_order = AuditWorkOrder.new(_audit_work_order_params.except(:submitted_fee_detail_ids))
-      @audit_work_order.creator_id = current_admin_user.id # Set creator
+      @audit_work_order.created_by = current_admin_user.id # MODIFIED: Use created_by instead of creator_id
 
       if _audit_work_order_params[:submitted_fee_detail_ids].present?
         @audit_work_order.submitted_fee_detail_ids = _audit_work_order_params[:submitted_fee_detail_ids]
@@ -98,52 +98,63 @@ ActiveAdmin.register AuditWorkOrder do
   filter :created_at
 
   # 批量操作
-  batch_action :start_processing, if: proc { params[:scope] == 'pending' || params[:q].blank? } do |ids|
-    batch_action_collection.find(ids).each do |work_order|
-      begin
-        AuditWorkOrderService.new(work_order, current_admin_user).start_processing
-      rescue => e
-         Rails.logger.warn "Batch action start_processing failed for AuditWorkOrder #{work_order.id}: #{e.message}"
-      end
-    end
-    redirect_to collection_path, notice: "已尝试将选中的工单标记为处理中"
-  end
+  # batch_action :start_processing, if: proc { params[:scope] == 'pending' || params[:q].blank? } do
+  #   batch_action_collection.find(ids).each do |work_order|
+  #     begin
+  #       # Assuming WorkOrderService can now be used for AuditWorkOrder as well
+  #       WorkOrderService.new(work_order, current_admin_user).start_processing # This method was removed
+  #     rescue => e
+  #       Rails.logger.warn "Batch action start_processing failed for AuditWorkOrder #{work_order.id}: #{e.message}"
+  #     end
+  #   end
+  #   redirect_to collection_path, notice: "已尝试将选中的工单标记为处理中"
+  # end
 
   # 范围过滤器
   scope :all, default: true
   scope :pending
-  scope :processing
+  # scope :processing # REMOVED: 'processing' state and scope were removed from WorkOrder model
   scope :approved
   scope :rejected
 
-  # 操作按钮 - 更新为支持直接通过路径
-  action_item :start_processing, only: :show, if: proc { resource.pending? && !resource.completed? } do
-    link_to "开始处理", start_processing_admin_audit_work_order_path(resource), method: :post, data: { confirm: "确定要开始处理此工单吗?" }
-  end
-  action_item :approve, only: :show, if: proc { (resource.pending? || resource.processing?) && !resource.completed? } do
-    link_to "审核通过", approve_admin_audit_work_order_path(resource)
-  end
-  action_item :reject, only: :show, if: proc { resource.processing? && !resource.completed? } do
-    link_to "审核拒绝", reject_admin_audit_work_order_path(resource)
-  end
-  action_item :mark_as_complete, only: :show, if: proc { (resource.status == 'approved' || resource.status == 'rejected') && !resource.completed? } do
-    link_to "审核完成", mark_as_complete_admin_audit_work_order_path(resource), method: :post, data: { confirm: "确定要将此工单标记为完成吗？此操作将锁定工单。" }
-  end
-  action_item :delete_reimbursement, only: :show, priority: 3, if: proc { !resource.completed? } do
-    link_to "删除报销单", admin_reimbursement_path(resource.reimbursement),
-            method: :delete,
-            data: { confirm: "确定要删除此报销单吗？此操作将删除所有相关联的工单。" }
+  # 操作按钮
+  # REMOVED: start_processing action item as 'processing' state is removed
+  # action_item :start_processing, only: :show, if: proc { resource.pending? && !resource.completed? } do
+  #   link_to "开始处理", start_processing_admin_audit_work_order_path(resource), method: :put, data: { confirm: "确定要开始处理此工单吗?" }
+  # end
+
+  action_item :approve, only: :show, if: proc { resource.pending? && !resource.completed? } do
+    link_to "审核通过", approve_admin_audit_work_order_path(resource) # Leads to a form
   end
 
-  # 成员操作
-  member_action :start_processing, method: :post do
-    service = AuditWorkOrderService.new(resource, current_admin_user)
-    if service.start_processing
-      redirect_to admin_audit_work_order_path(resource), notice: "工单已开始处理"
-    else
-      redirect_to admin_audit_work_order_path(resource), alert: "操作失败: #{resource.errors.full_messages.join(', ')}"
-    end
+  action_item :reject, only: :show, if: proc { resource.pending? && !resource.completed? } do
+    link_to "审核拒绝", reject_admin_audit_work_order_path(resource) # Leads to a form
   end
+
+  action_item :mark_as_complete, only: :show, if: proc { (resource.approved? || resource.rejected?) && !resource.completed? } do
+    link_to "标记完成", mark_as_complete_admin_audit_work_order_path(resource), method: :put, data: { confirm: "确定要将此工单标记为完成吗? 完成后将无法编辑。" }
+  end
+
+  # REMOVED: new_audit_work_order action item (already present in Reimbursement show page)
+  # action_item :new_audit_work_order, only: :show, if: proc{ !resource.reimbursement.closed? } do
+  #   link_to "新建审核工单", new_admin_audit_work_order_path(reimbursement_id: resource.reimbursement.id)
+  # end
+
+  # REMOVED: new_communication_work_order action item (should be on Reimbursement show page or based on AuditWorkOrder context if needed)
+  # action_item :new_communication_work_order, only: :show, if: proc{ !resource.reimbursement.closed? } do
+  #   link_to "新建沟通工单", new_admin_communication_work_order_path(reimbursement_id: resource.reimbursement.id)
+  # end
+
+  # 自定义操作
+  # REMOVED: start_processing member_action as 'processing' state is removed.
+  # member_action :start_processing, method: :put do
+  #   service = WorkOrderService.new(resource, current_admin_user) # Changed to WorkOrderService
+  #   if service.start_processing # This method was removed
+  #     redirect_to admin_audit_work_order_path(resource), notice: "工单已开始处理"
+  #   else
+  #     redirect_to admin_audit_work_order_path(resource), alert: "操作失败: #{resource.errors.full_messages.join(', ')}"
+  #   end
+  # end
 
   member_action :approve, method: :get do
     redirect_to admin_audit_work_order_path(resource), alert: "工单已完成，无法操作。" if resource.completed?
@@ -152,10 +163,17 @@ ActiveAdmin.register AuditWorkOrder do
   end
 
   member_action :do_approve, method: :post do
-    service = AuditWorkOrderService.new(resource, current_admin_user)
-    # Permit only relevant fields for approve action, assuming form only has audit_comment
-    # If problem_type_id etc. are on this form, add them here.
-    permitted_params = params.require(:audit_work_order).permit(:audit_comment, :processing_opinion) # processing_opinion might also be set if form allows
+    # Use the base WorkOrderService
+    service = WorkOrderService.new(resource, current_admin_user)
+    # Params should align with what WorkOrderService and WorkOrder model expect
+    # Ensure :processing_opinion is part of the permitted params for approval logic
+    permitted_params = params.require(:audit_work_order).permit(
+      :audit_comment, :processing_opinion,
+      :problem_type_id, :problem_description_id, :remark, # Shared fields
+      :vat_verified # AuditWorkOrder specific, if still needed here
+      # fee_detail_ids: [] # If fee details are managed on this form
+    ).merge(processing_opinion: '可以通过') # Explicitly set for approval
+
     if service.approve(permitted_params)
       redirect_to admin_audit_work_order_path(resource), notice: "审核已通过"
     else
@@ -172,15 +190,17 @@ ActiveAdmin.register AuditWorkOrder do
   end
 
   member_action :do_reject, method: :post do
-    service = AuditWorkOrderService.new(resource, current_admin_user)
-    # Permit relevant fields for reject action
+    # Use the base WorkOrderService
+    service = WorkOrderService.new(resource, current_admin_user)
+    # Params should align with what WorkOrderService and WorkOrder model expect
+    # Ensure :processing_opinion is part of the permitted params for rejection logic
     permitted_params = params.require(:audit_work_order).permit(
-      :audit_comment, 
-      :problem_type_id,           # Use _id
-      :problem_description_id,    # Use _id
-      :remark, 
-      :processing_opinion
-    )
+      :audit_comment, :processing_opinion,
+      :problem_type_id, :problem_description_id, :remark, # Shared fields
+      :vat_verified # AuditWorkOrder specific, if still needed here
+      # fee_detail_ids: [] # If fee details are managed on this form
+    ).merge(processing_opinion: '无法通过') # Explicitly set for rejection
+
     if service.reject(permitted_params)
       redirect_to admin_audit_work_order_path(resource), notice: "审核已拒绝"
     else
@@ -202,23 +222,19 @@ ActiveAdmin.register AuditWorkOrder do
   end
 
   member_action :do_verify_fee_detail, method: :post do
-    @work_order = resource # Assign resource to @work_order for consistency
-    service = AuditWorkOrderService.new(@work_order, current_admin_user) # Use @work_order
+    # Use the base WorkOrderService for fee detail verification
+    service = WorkOrderService.new(resource, current_admin_user)
+    fee_detail_id = params[:fee_detail_id]
+    verification_status = params[:verification_status]
+    comment = params[:comment]
 
-    # 查找 fee_detail 以便在失败时重新渲染表单
-    @fee_detail = @work_order.fee_details.find_by(id: params[:fee_detail_id])
-    unless @fee_detail
-      redirect_to admin_audit_work_order_path(@work_order), alert: "尝试验证的费用明细 ##{params[:fee_detail_id]} 未找到或未关联。"
-      return
-    end
-
-    if service.update_fee_detail_verification(params[:fee_detail_id], params[:verification_status], params[:comment])
-       redirect_to admin_audit_work_order_path(@work_order), notice: "费用明细 ##{params[:fee_detail_id]} 状态已更新"
+    if service.update_fee_detail_verification(fee_detail_id, verification_status, comment)
+      redirect_to admin_audit_work_order_path(resource), notice: "费用明细 ##{fee_detail_id} 状态已更新"
     else
        # Errors should be on @work_order.errors from the service call if it added them,
        # or on @fee_detail.errors if FeeDetailVerificationService added them.
        # Ensure verify_fee_detail.html.erb can display errors from @work_order or @fee_detail
-       flash.now[:alert] = "费用明细 ##{params[:fee_detail_id]} 更新失败。"
+       flash.now[:alert] = "费用明细 ##{fee_detail_id} 更新失败。"
        # Add specific errors to flash or ensure they are on @work_order.errors or @fee_detail.errors
        # Example: @work_order.errors.full_messages.join(', ')
        # Example: @fee_detail.errors.full_messages.join(', ')
@@ -226,17 +242,12 @@ ActiveAdmin.register AuditWorkOrder do
     end
   end
 
-  member_action :mark_as_complete, method: :post do
-    if resource.completed?
-      redirect_to admin_audit_work_order_path(resource), alert: "此工单已标记为完成。"
-    elsif resource.status == 'approved' || resource.status == 'rejected'
-      if resource.update(completed: true)
-        redirect_to admin_audit_work_order_path(resource), notice: "工单已成功标记为完成。"
-      else
-        redirect_to admin_audit_work_order_path(resource), alert: "标记完成失败: #{resource.errors.full_messages.join(', ')}"
-      end
+  member_action :mark_as_complete, method: :put do
+    service = WorkOrderService.new(resource, current_admin_user)
+    if service.mark_as_truly_completed
+      redirect_to admin_audit_work_order_path(resource), notice: "工单已标记为完成"
     else
-      redirect_to admin_audit_work_order_path(resource), alert: "只有状态为 Approved 或 Rejected 的工单才能标记为完成。"
+      redirect_to admin_audit_work_order_path(resource), alert: "标记完成失败: #{resource.errors.full_messages.join(', ')}"
     end
   end
 

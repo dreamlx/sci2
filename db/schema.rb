@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_05_13_052914) do
+ActiveRecord::Schema[7.1].define(version: 2025_05_14_054701) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -168,15 +168,13 @@ ActiveRecord::Schema[7.1].define(version: 2025_05_13_052914) do
     t.integer "reimbursement_id", null: false
     t.string "type", null: false
     t.string "status", null: false
-    t.integer "creator_id"
-    t.string "problem_type"
-    t.string "problem_description"
+    t.integer "created_by"
     t.text "remark"
     t.string "processing_opinion"
     t.string "tracking_number"
     t.datetime "received_at"
     t.string "courier_name"
-    t.string "resolution"
+    t.string "audit_result"
     t.text "audit_comment"
     t.datetime "audit_date"
     t.boolean "vat_verified"
@@ -187,7 +185,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_05_13_052914) do
     t.text "material_ids"
     t.string "initiator_role", default: "internal"
     t.boolean "completed", default: false, null: false
-    t.index ["creator_id"], name: "index_work_orders_on_creator_id"
+    t.index ["created_by"], name: "index_work_orders_on_created_by"
     t.index ["reimbursement_id", "tracking_number"], name: "index_work_orders_on_reimbursement_and_tracking", where: "type = 'ExpressReceiptWorkOrder' AND tracking_number IS NOT NULL"
     t.index ["reimbursement_id"], name: "index_work_orders_on_reimbursement_id"
     t.index ["status"], name: "index_work_orders_on_status"
@@ -201,6 +199,6 @@ ActiveRecord::Schema[7.1].define(version: 2025_05_13_052914) do
   add_foreign_key "problem_type_materials", "problem_types"
   add_foreign_key "work_order_fee_details", "fee_details"
   add_foreign_key "work_order_status_changes", "admin_users", column: "changer_id"
-  add_foreign_key "work_orders", "admin_users", column: "creator_id"
+  add_foreign_key "work_orders", "admin_users", column: "created_by"
   add_foreign_key "work_orders", "reimbursements"
 end

@@ -7,39 +7,37 @@ class AuditWorkOrderService < WorkOrderService
     @audit_work_order = audit_work_order
   end
 
-  def update(params = {})
-    # 处理处理意见
-    if params[:processing_opinion].present?
-      case params[:processing_opinion]
-      when "可以通过"
-        params[:resolution] = "approved"
-      when "无法通过"
-        params[:resolution] = "rejected"
-        # 验证必填字段
-        if params[:problem_type_id].blank?
-          @audit_work_order.errors.add(:problem_type_id, "不能为空，当处理意见为无法通过时。")
-        end
-        if params[:problem_description_id].blank?
-          @audit_work_order.errors.add(:problem_description_id, "不能为空，当处理意见为无法通过时。")
-        end
-        if params[:audit_comment].blank?
-          @audit_work_order.errors.add(:audit_comment, "不能为空，当处理意见为无法通过时。")
-        end
-        return false if @audit_work_order.errors.any?
-      end
-    end
+  # The generic WorkOrderService#approve and WorkOrderService#reject methods
+  # will now be used, which call the state machine events.
+  # Specific logic for AuditWorkOrder, if any beyond attribute assignment 
+  # (handled by assign_shared_attributes in parent), can be added here or by overriding.
 
-    super(params)
-  end
+  # The update method from WorkOrderService is now more generic.
+  # If AuditWorkOrder needs specific update logic beyond what WorkOrderService#update provides
+  # (which is assign_shared_attributes + save), it can be overridden here.
+  # For now, let's assume the parent's update is sufficient after removing opinion-based status changes.
+  
+  # We remove the specific `update` method from AuditWorkOrderService if its primary role
+  # was to set resolution/status based on processing_opinion, as this is now handled by explicit event calls
+  # in the parent service for approve/reject, and the parent update is now generic.
+  # However, if it had other specific logic, that should be preserved or re-evaluated.
+  # Based on the previous content, its main unique logic was setting :resolution and validating based on opinion.
 
-  private
+  # Let's simplify and assume for now that specific validations related to 'rejected' state
+  # (e.g., problem_type_id) are handled by model validations or can be added to WorkOrderService#reject if generic enough.
+  # The `processing_opinion` itself is still a valid attribute that can be set via params.
 
-  def process_work_order
-    case @audit_work_order.processing_opinion
-    when "可以通过"
-      @audit_work_order.update(status: :completed)
-    when "无法通过"
-      @audit_work_order.update(status: :rejected)
-    end
-  end
+  # REMOVED process_work_order method as status changes are driven by events.
+  # private
+  #
+  # def process_work_order
+  #   case @audit_work_order.processing_opinion # @work_order can be used from parent
+  #   when "可以通过"
+  #     # This should now be handled by calling self.approve or work_order.mark_as_completed!(admin_user)
+  #     # @work_order.update(status: :completed)
+  #   when "无法通过"
+  #     # This should now be handled by calling self.reject or work_order.mark_as_rejected!(admin_user)
+  #     # @work_order.update(status: :rejected)
+  #   end
+  # end
 end
