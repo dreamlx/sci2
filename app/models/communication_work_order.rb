@@ -25,7 +25,4 @@ class CommunicationWorkOrder < WorkOrder
 
   private
 
-  def processing_opinion_pass_or_cannot_pass?
-    processing_opinion.in?(['可以通过', '无法通过'])
-  end
 end

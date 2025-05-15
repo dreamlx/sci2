@@ -37,12 +37,7 @@ ActiveAdmin.register CommunicationWorkOrder do
       @communication_work_order = CommunicationWorkOrder.new(_params.except(:submitted_fee_detail_ids))
       @communication_work_order.created_by = current_admin_user.id
 
-      # Attempt to load submitted_fee_detail_ids
-      # First from the correctly nested params (as permitted above)
       current_submitted_ids = _params[:submitted_fee_detail_ids]
-
-      # If empty, check the incorrectly nested params (from audit_work_order key)
-      # Ensure params.dig(:audit_work_order, :submitted_fee_detail_ids) is not nil before calling present?
       if current_submitted_ids.blank? && params.dig(:audit_work_order, :submitted_fee_detail_ids).present?
         misplaced_ids = params.dig(:audit_work_order, :submitted_fee_detail_ids)
         Rails.logger.warn "CommunicationWorkOrder create: submitted_fee_detail_ids found under 'audit_work_order' key. " \
@@ -51,8 +46,10 @@ ActiveAdmin.register CommunicationWorkOrder do
         current_submitted_ids = misplaced_ids
       end
       
-      # Assign to the model instance variable that the callback uses
       if current_submitted_ids.present?
+        # Set the special instance variable for the callback in WorkOrder model
+        @communication_work_order.instance_variable_set(:@_direct_submitted_fee_ids, current_submitted_ids.reject(&:blank?))
+        # Also set the accessor for form repopulation if validation fails and we re-render new
         @communication_work_order.submitted_fee_detail_ids = current_submitted_ids.reject(&:blank?)
       end
       
@@ -60,7 +57,11 @@ ActiveAdmin.register CommunicationWorkOrder do
         redirect_to admin_communication_work_order_path(@communication_work_order), notice: "沟通工单已成功创建" # Changed label
       else
         @reimbursement = Reimbursement.find_by(id: _params[:reimbursement_id])
-        # submitted_fee_detail_ids are already set on @communication_work_order instance for form repopulation
+        # Ensure @_direct_submitted_fee_ids and submitted_fee_detail_ids (accessor) are set for form repopulation.
+        if current_submitted_ids.present? 
+          @communication_work_order.instance_variable_set(:@_direct_submitted_fee_ids, current_submitted_ids.reject(&:blank?))
+          @communication_work_order.submitted_fee_detail_ids = current_submitted_ids.reject(&:blank?)
+        end
         flash.now[:error] = "创建沟通工单失败: #{@communication_work_order.errors.full_messages.join(', ')}" # Changed label
         render :new
       end
@@ -68,10 +69,17 @@ ActiveAdmin.register CommunicationWorkOrder do
 
     def update
       @communication_work_order = CommunicationWorkOrder.find(params[:id])
-      service = CommunicationWorkOrderService.new(@communication_work_order, current_admin_user)
+      # Ensure to use WorkOrderService if CommunicationWorkOrderService is fully deprecated
+      service = WorkOrderService.new(@communication_work_order, current_admin_user) 
       
-      # Use the renamed strong params method
-      if service.update(communication_work_order_params_for_update)
+      update_params = communication_work_order_params_for_update
+      if update_params[:submitted_fee_detail_ids].present?
+        @communication_work_order.instance_variable_set(:@_direct_submitted_fee_ids, update_params[:submitted_fee_detail_ids])
+        # For form repopulation on error, also set the accessor if it exists
+        @communication_work_order.submitted_fee_detail_ids = update_params[:submitted_fee_detail_ids] if @communication_work_order.respond_to?(:submitted_fee_detail_ids=)
+      end
+      
+      if service.update(update_params.except(:submitted_fee_detail_ids)) # Pass params without submitted_fee_detail_ids to service
         redirect_to admin_communication_work_order_path(@communication_work_order), notice: '沟通工单已更新'
       else
         render :edit
@@ -104,16 +112,6 @@ ActiveAdmin.register CommunicationWorkOrder do
   scope :pending
   scope :approved
   scope :rejected
-
-  action_item :delete_reimbursement, only: :show, priority: 3, if: proc { !resource.completed? } do
-    link_to "删除报销单", admin_reimbursement_path(resource.reimbursement),
-            method: :delete,
-            data: { confirm: "确定要删除此报销单吗？此操作将删除所有相关联的沟通工单。" }
-  end
-
-  action_item :mark_as_complete, only: :show, if: proc { (resource.approved? || resource.rejected?) && !resource.completed? } do
-    link_to "标记完成", mark_as_complete_admin_communication_work_order_path(resource), method: :put, data: { confirm: "确定要将此工单标记为完成吗? 完成后将无法编辑。" }
-  end
 
   member_action :verify_fee_detail, method: :get do
     @work_order = resource
@@ -150,32 +148,25 @@ ActiveAdmin.register CommunicationWorkOrder do
     end
   end
 
-  member_action :mark_as_complete, method: :put do
-    service = WorkOrderService.new(resource, current_admin_user) # Changed to WorkOrderService
-    if service.mark_as_truly_completed
-      redirect_to admin_communication_work_order_path(resource), notice: "工单已标记为完成"
-    else
-      redirect_to admin_communication_work_order_path(resource), alert: "标记完成失败: #{resource.errors.full_messages.join(', ')}"
-    end
-  end
-
   index do
     selectable_column
     id_column
     column :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
     column :status do |wo| status_tag wo.status end
     column :audit_comment
-    column :problem_type_id do |wo| wo.problem_type&.name end
+    column "问题类型", :problem_type do |wo| wo.problem_type&.name end
     column :processing_opinion
     column :creator
     column :created_at
     column :updated_at
-    actions do |work_order|
-      item "查看", admin_communication_work_order_path(work_order)
-      unless work_order.completed?
-        item "编辑", edit_admin_communication_work_order_path(work_order), class: "member_link edit_link"
-        item "删除", admin_communication_work_order_path(work_order), method: :delete, data: { confirm: "确定要删除吗?" }, class: "member_link delete_link"
+    column "操作" do |work_order|
+      links = ActiveSupport::SafeBuffer.new
+      links << link_to("查看", admin_communication_work_order_path(work_order), class: "member_link view_link")
+      if work_order.editable?
+        links << link_to("编辑", edit_admin_communication_work_order_path(work_order), class: "member_link edit_link")
+        links << link_to("删除", admin_communication_work_order_path(work_order), method: :delete, data: { confirm: "确定要删除吗?" }, class: "member_link delete_link")
       end
+      links
     end
   end
 
@@ -189,9 +180,6 @@ ActiveAdmin.register CommunicationWorkOrder do
         row :id
         row :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) if wo.reimbursement end
         row :status do |wo| status_tag wo.status end
-        row :completed do |wo|
-          status_tag wo.completed? ? '是' : '否', class: (wo.completed? ? :ok : :warn)
-        end
         row :audit_comment
         row :processing_opinion
         row :problem_type_id do |wo| wo.problem_type&.name end
@@ -221,9 +209,9 @@ ActiveAdmin.register CommunicationWorkOrder do
   end
 
   form do |f|
-    if f.object.completed?
-      panel "工单已完成" do
-        para "此工单已标记为完成，无法编辑。"
+    if f.object.approved? || f.object.rejected?
+      panel "工单已处理" do
+        para "此工单已审核通过或拒绝，通常不再编辑。"
       end
     else
       f.semantic_errors

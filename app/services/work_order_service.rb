@@ -122,11 +122,21 @@ class WorkOrderService
   private
 
   def save_work_order(action_name = "保存")
-    if @work_order.save
-      true
-    else
-      Rails.logger.error "WorkOrderService: 无法#{action_name}工单 ##{@work_order.id}. 错误: #{@work_order.errors.full_messages.join(", ")}"
-      false
+    begin
+      if @work_order.save
+        true
+      else
+        # Errors should already be on @work_order.errors from the save failure (including validation failures)
+        Rails.logger.error "WorkOrderService: 无法#{action_name}工单 ##{@work_order.id}. 错误: #{@work_order.errors.full_messages.join(", ")}"
+        false
+      end
+    rescue StateMachines::InvalidTransition => e
+      # This exception occurs if a state transition fails due to validations within the state machine event.
+      # The errors should already be on @work_order.errors by the validation process.
+      Rails.logger.warn "WorkOrderService: State transition failed for ##{@work_order.id} during #{action_name}. Error: #{e.message}. Validation errors: #{@work_order.errors.full_messages.join(", ")}"
+      # Ensure errors from the exception message are also on the object if not already captured by validations (though they should be)
+      # Example: @work_order.errors.add(:base, e.message) unless @work_order.errors.full_messages.include?(e.message)
+      false # Indicate failure
     end
   end
   
@@ -135,7 +145,7 @@ class WorkOrderService
       :remark, :processing_opinion, :audit_comment, 
       :problem_type_id, :problem_description_id,
       # AuditWorkOrder specific fields that are now shared due to alignment
-      :vat_verified, :audit_result # audit_result if it's set directly, though status implies it
+      :audit_result # audit_result if it's set directly, though status implies it
                                    # For CommunicationWorkOrder, these would be nil or handled by model defaults if any
     ]
     

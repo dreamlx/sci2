@@ -47,7 +47,7 @@ class WorkOrder < ApplicationRecord
     rejected_wo.validates :audit_comment, presence: { message: "当处理意见为\"无法通过\"时，审核意见不能为空" }
   end
   with_options if: -> { processing_opinion == '可以通过' && (status == 'approved' || new_record? || status_changed_to_approved?) } do |approved_wo|
-    approved_wo.validates :audit_comment, presence: { message: "当处理意见为\"可以通过\"时，审核意见不能为空" }
+    # approved_wo.validates :audit_comment, presence: { message: "当处理意见为\"可以通过\"时，审核意见不能为空" } # <--- 注释掉或删除此行
   end
 
   # 状态机 (using state_machine gem)
@@ -65,22 +65,33 @@ class WorkOrder < ApplicationRecord
       transition [:pending, :approved] => :rejected
     end
     
-    # Optional: Event to go back to pending if opinion is cleared (if this business logic is allowed)
-    # event :mark_as_pending do
-    #   transition [:approved, :rejected] => :pending
-    # end
-
+    before_transition to: [:approved, :rejected], if: ->(wo) { wo.audit_date.nil? } do |work_order|
+      work_order.audit_date = Time.current
+    end
+    
     after_transition do |work_order, transition|
-      changer = transition.args.first || Current.admin_user # Assumes changer is the first arg to the event
-      work_order.work_order_status_changes.create(
-        from_status: transition.from,
-        to_status: transition.to,
-        changed_at: Time.current,
-        changer: changer
-      )
-      # Set audit_date when moving to approved or rejected
-      if transition.to_name.in?([:approved, :rejected]) && work_order.audit_date.nil?
-        work_order.audit_date = Time.current
+      event_changer = transition.args.first 
+      resolved_changer = event_changer
+      if !resolved_changer.is_a?(AdminUser) && Current.admin_user.is_a?(AdminUser)
+        # Rails.logger.warn "WorkOrder##{work_order.id} after_transition: Changer from event args was not an AdminUser..." # Keep if still useful
+        resolved_changer = Current.admin_user
+      elsif !resolved_changer.is_a?(AdminUser)
+        # Rails.logger.error "WorkOrder##{work_order.id} after_transition: Changer from event args was not an AdminUser and Current.admin_user is also not valid..." # Keep if still useful
+      end
+
+      if resolved_changer.is_a?(AdminUser) || !WorkOrderStatusChange.validators_on(:changer).any? { |v| v.is_a?(ActiveRecord::Validations::PresenceValidator) }
+        status_change = work_order.work_order_status_changes.build(
+          from_status: transition.from,
+          to_status: transition.to,
+          changed_at: Time.current,
+          changer: resolved_changer, 
+          work_order_type: work_order.class.name
+        )
+        unless status_change.save
+          Rails.logger.error "WorkOrder##{work_order.id} after_transition: Failed to save WorkOrderStatusChange. Errors: #{status_change.errors.full_messages.join(', ')}"
+        end
+      else
+        Rails.logger.error "WorkOrder##{work_order.id} after_transition: Skipped creating WorkOrderStatusChange because no valid changer was found."
       end
     end
   end
@@ -92,47 +103,39 @@ class WorkOrder < ApplicationRecord
   # REMOVED: processing, completed scopes (completed is now a boolean field)
 
   # Callback to handle status change based on processing_opinion
-  # It's recommended that the Service layer explicitly calls state events based on processing_opinion.
-  # This callback is commented out to enforce that responsibility on the service layer.
-  # before_save :update_status_based_on_processing_opinion, if: :processing_opinion_changed_and_not_completed?
+  before_save :update_status_based_on_processing_opinion,
+              if: -> { will_save_change_to_processing_opinion? && processing_opinion.present? }
 
   after_save :handle_fee_detail_selection
   after_create :update_reimbursement_status_to_processing
 
+  after_commit :sync_fee_details_verification_status, on: [:create, :update], 
+                if: -> { approved? || rejected? } # This condition works
+
   def submitted_fee_detail_ids
-    @submitted_fee_detail_ids ||= self.fee_details.pluck(:id).map(&:to_s)
+    @submitted_fee_detail_ids ||= self.work_order_fee_details.pluck(:fee_detail_id).map(&:to_s)
   end
 
-  # Method to be called by "Complete Audit" button
-  # Note: `completed` is a boolean attribute on the work_orders table
-  def mark_as_truly_completed(admin_user) # admin_user passed for potential future use (e.g. logging who completed it)
-    return false if self.completed? # Already completed
-    if self.status.in?(['approved', 'rejected'])
-      # The actual saving of the `completed` flag and any other attributes
-      # should ideally be handled by the service layer calling this method,
-      # which then calls `update`. This ensures consistency.
-      # For now, this method directly updates. If a service calls this, it might just return true/false
-      # and the service does the update.
-      self.update(completed: true) 
-    else
-      errors.add(:base, "只有 Approved 或 Rejected 状态的工单才能标记为完成。")
-      false
-    end
-  end
+  # REMOVED: mark_as_truly_completed method
+  # def mark_as_truly_completed(admin_user)
+  #   ...
+  # end
 
+  # REVISED: editable? and deletable? now depend only on status, or always true if not approved/rejected
+  # Or, if approved/rejected are final, they imply not editable/deletable.
+  # For now, let's assume if it's approved or rejected, it's no longer editable/deletable in general terms.
+  # Specific UI controls might have more nuanced logic.
   def editable?
-    !self.completed?
+    !status.in?(['approved', 'rejected'])
   end
 
   def deletable?
-    !self.completed?
+    !status.in?(['approved', 'rejected'])
   end
 
   private
 
-  def processing_opinion_changed_and_not_completed?
-    processing_opinion_changed? && !self.completed?
-  end
+  # REMOVED the recursive custom method: processing_opinion_changed?
   
   def status_changed_to_rejected?
     status_changed? && status == 'rejected'
@@ -142,27 +145,39 @@ class WorkOrder < ApplicationRecord
     status_changed? && status == 'approved'
   end
 
-  # def update_status_based_on_processing_opinion
-  #   # This method is intentionally left commented out.
-  #   # Service layer should explicitly call mark_as_approved! or mark_as_rejected!
-  #   # based on processing_opinion, passing the current_admin_user.
-  #   # If this callback were to be used, it would need a reliable way to get the 'changer'.
-  #   # Example if Current.admin_user is reliably set:
-  #   # changer = Current.admin_user
-  #   # case processing_opinion
-  #   # when '可以通过'
-  #   #   self.mark_as_approved!(changer) if self.may_mark_as_approved?
-  #   # when '无法通过'
-  #   #   self.mark_as_rejected!(changer) if self.may_mark_as_rejected?
-  #   # when nil, '' # If opinion is cleared and we want to revert to pending
-  #   #   # self.mark_as_pending!(changer) if self.may_mark_as_pending? # Add this event if needed
-  #   # end
-  # end
+  def update_status_based_on_processing_opinion
+    changer_object = Current.admin_user # This should be an AdminUser object
+    unless changer_object.is_a?(AdminUser) # More robust check
+      Rails.logger.error "WorkOrder##{id}: Current.admin_user is not a valid AdminUser object during update_status_based_on_processing_opinion. Value: #{changer_object.inspect}"
+      # Fallback or error handling if changer is critical and not available
+      # For WorkOrderStatusChange to be valid, changer usually needs to be present.
+      # If we proceed without a valid changer_object, the after_transition callback might fail to create WorkOrderStatusChange.
+      # Consider adding an error to the model if this is a critical failure:
+      # self.errors.add(:base, "操作用户无效，无法更新状态。")
+      # return false # Prevent save if this is a hard requirement
+    end
+    
+    case processing_opinion
+    when '可以通过' # Consider using ProcessingOpinionOptions::PASS or a defined constant
+      self.mark_as_approved(changer_object) if self.can_mark_as_approved? # Use NON-BANG version
+    when '无法通过' # Consider using ProcessingOpinionOptions::FAIL or a defined constant
+      self.mark_as_rejected(changer_object) if self.can_mark_as_rejected? # Use NON-BANG version
+    end
+  end
 
   def handle_fee_detail_selection
-    if defined?(@submitted_fee_detail_ids_from_params) && !@submitted_fee_detail_ids_from_params.nil? 
-      current_associated_fee_ids = self.fee_details.pluck(:id).map(&:to_s)
-      ids_to_select = @submitted_fee_detail_ids_from_params.map(&:to_s).reject(&:blank?).uniq
+    # Use the value from the accessor `submitted_fee_detail_ids` which is set by the controller
+    # Ensure it's not the getter method pre-populating with existing values during a save
+    # We need a way to distinguish between form submission and other saves.
+    # Let's assume if the accessor has been explicitly set (not nil), it's from a form submission.
+
+    # To avoid confusion with the getter `self.submitted_fee_detail_ids` which loads existing records,
+    # let's have the controller set a specific instance variable that this callback checks.
+    # The controller should do: resource.instance_variable_set(:@_direct_submitted_fee_ids, params_value)
+
+    if defined?(@_direct_submitted_fee_ids) && !@_direct_submitted_fee_ids.nil? 
+      current_associated_fee_ids = self.work_order_fee_details.pluck(:fee_detail_id).map(&:to_s)
+      ids_to_select = @_direct_submitted_fee_ids.map(&:to_s).reject(&:blank?).uniq
 
       ids_to_add = ids_to_select - current_associated_fee_ids
       ids_to_remove_associations_for = current_associated_fee_ids - ids_to_select
@@ -173,18 +188,21 @@ class WorkOrder < ApplicationRecord
       
       ids_to_add.each do |fd_id|
         if FeeDetail.exists?(fd_id)
-          self.work_order_fee_details.find_or_create_by(fee_detail_id: fd_id)
+          # Ensure no duplicates are created if somehow find_or_create_by has issues with composite key (though less likely here)
+          unless self.work_order_fee_details.exists?(fee_detail_id: fd_id)
+            self.work_order_fee_details.create(fee_detail_id: fd_id)
+          end
         else
           Rails.logger.warn "Attempted to associate non-existent FeeDetail ID: #{fd_id} with WorkOrder ID: #{self.id}, Type: #{self.class.name}"
         end
       end
-      @submitted_fee_detail_ids_from_params = nil 
+      remove_instance_variable(:@_direct_submitted_fee_ids) # Clear after use
     end
   end
 
   # Controller needs to assign params[:work_order_type][:submitted_fee_detail_ids] 
   # (e.g. params[:audit_work_order][:submitted_fee_detail_ids])
-  # to @submitted_fee_detail_ids_from_params before save.
+  # to @work_order.instance_variable_set(:@_direct_submitted_fee_ids, ...) before save.
 
   # ADDED: Method to update reimbursement status after work order creation
   def update_reimbursement_status_to_processing
@@ -196,6 +214,27 @@ class WorkOrder < ApplicationRecord
       rescue => e
         Rails.logger.error "WorkOrder after_create: Unexpected error while transitioning reimbursement ID #{self.reimbursement_id}. Error: #{e.message}"
       end
+    end
+  end
+
+  def sync_fee_details_verification_status
+    return unless approved? || rejected?
+
+    new_verification_status = approved? ? FeeDetail::VERIFICATION_STATUS_VERIFIED : FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
+    associated_fee_detail_ids = self.fee_detail_ids
+
+    if associated_fee_detail_ids.any?
+      begin
+        updated_count = FeeDetail.where(id: associated_fee_detail_ids).update_all(
+          verification_status: new_verification_status,
+          updated_at: Time.current
+        )
+        Rails.logger.info "WorkOrder##{id} sync_fee_details_verification_status: Updated #{updated_count}/#{associated_fee_detail_ids.count} fee details to #{new_verification_status}."
+      rescue => e
+        Rails.logger.error "WorkOrder##{id} sync_fee_details_verification_status: Error during FeeDetail.update_all: #{e.message}"
+      end
+    # else # No need to log if there are no details, it's a common case
+      # Rails.logger.info "WorkOrder##{id} sync_fee_details_verification_status: No associated fee details to update for status #{self.status}."
     end
   end
 

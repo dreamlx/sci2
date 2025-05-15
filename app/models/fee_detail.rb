@@ -33,7 +33,7 @@ class FeeDetail < ApplicationRecord
   
   # 回调
   # 使用 after_commit 确保事务完成后再触发报销单状态更新
-  after_commit :update_reimbursement_status, on: [:create, :update], if: :saved_change_to_verification_status?
+  # after_commit :update_reimbursement_status, on: [:create, :update], if: :saved_change_to_verification_status? # TEMPORARILY DISABLED
   
   # 状态检查方法
   def verified?
@@ -108,47 +108,47 @@ class FeeDetail < ApplicationRecord
   
   private
   
-  def update_reimbursement_status
-    return unless reimbursement.present?
-    
-    reimbursement.reload
-    
-    # If verification_status changed to VERIFIED
-    if verification_status == VERIFICATION_STATUS_VERIFIED
-      # If all fee details for the reimbursement are now verified
-      if reimbursement.all_fee_details_verified?
-        # What should happen to reimbursement status? 
-        # Previously, it tried to set to 'waiting_completion'.
-        # For now, let's assume it remains 'processing' or is handled by WorkOrder logic.
-        # No direct status update here to prevent errors, unless a new valid state is defined.
-        Rails.logger.info "FeeDetail ##{id}: All fee details for Reimbursement ##{reimbursement.id} are now verified."
-        # reimbursement.update(status: 'new_approved_state') # If there was a new target state
-      else
-        # If some details are verified but not all, ensure reimbursement is at least processing if it was pending.
-        reimbursement.update(status: 'processing') if reimbursement.pending?
-      end
-    # If verification_status changed FROM VERIFIED to something else
-    elsif verification_status_before_last_save == VERIFICATION_STATUS_VERIFIED
-      # If a fee detail that was verified is no longer verified, 
-      # reimbursement should be in 'processing' if it wasn't already pending.
-      # We need to know what state it would have been in if waiting_completion was valid.
-      # Assuming it implies it was effectively 'processing' or a precursor to 'closed'.
-      # If it's not pending, ensure it is processing.
-      if reimbursement.status != 'pending' && reimbursement.status != 'processing'
-         # This case means it might have been 'closed' or some other state and a verified detail became unverified.
-         # This typically implies it should go back to 'processing'.
-         reimbursement.update(status: 'processing')
-         Rails.logger.info "FeeDetail ##{id}: Reimbursement ##{reimbursement.id} status moved to 'processing' because a verified detail was un-verified."
-      elsif reimbursement.pending?
-        # If it's pending, it should stay pending or move to processing by other logic, not revert from a higher state.
-      else 
-        # It's already processing, no change needed in this specific path.
-      end
-    end
-  rescue ActiveRecord::RecordNotFound
-    Rails.logger.error "Reimbursement not found for FeeDetail ##{id} during status update callback."
-  rescue => e # Catch other potential errors like NoMethodError if status methods are missing
-    Rails.logger.error "Error in FeeDetail#update_reimbursement_status for FeeDetail ##{id}: #{e.message}"
-    Rails.logger.error e.backtrace.join("\n")
-  end
+  # def update_reimbursement_status
+  #   return unless reimbursement.present?
+  #   
+  #   reimbursement.reload
+  #   
+  #   # If verification_status changed to VERIFIED
+  #   if verification_status == VERIFICATION_STATUS_VERIFIED
+  #     # If all fee details for the reimbursement are now verified
+  #     if reimbursement.all_fee_details_verified?
+  #       # What should happen to reimbursement status? 
+  #       # Previously, it tried to set to 'waiting_completion'.
+  #       # For now, let's assume it remains 'processing' or is handled by WorkOrder logic.
+  #       # No direct status update here to prevent errors, unless a new valid state is defined.
+  #       Rails.logger.info "FeeDetail ##{id}: All fee details for Reimbursement ##{reimbursement.id} are now verified."
+  #       # reimbursement.update(status: 'new_approved_state') # If there was a new target state
+  #     else
+  #       # If some details are verified but not all, ensure reimbursement is at least processing if it was pending.
+  #       reimbursement.update(status: 'processing') if reimbursement.pending?
+  #     end
+  #   # If verification_status changed FROM VERIFIED to something else
+  #   elsif verification_status_before_last_save == VERIFICATION_STATUS_VERIFIED
+  #     # If a fee detail that was verified is no longer verified, 
+  #     # reimbursement should be in 'processing' if it wasn't already pending.
+  #     # We need to know what state it would have been in if waiting_completion was valid.
+  #     # Assuming it implies it was effectively 'processing' or a precursor to 'closed'.
+  #     # If it's not pending, ensure it is processing.
+  #     if reimbursement.status != 'pending' && reimbursement.status != 'processing'
+  #        # This case means it might have been 'closed' or some other state and a verified detail became unverified.
+  #        # This typically implies it should go back to 'processing'.
+  #        reimbursement.update(status: 'processing')
+  #        Rails.logger.info "FeeDetail ##{id}: Reimbursement ##{reimbursement.id} status moved to 'processing' because a verified detail was un-verified."
+  #     elsif reimbursement.pending?
+  #       # If it's pending, it should stay pending or move to processing by other logic, not revert from a higher state.
+  #     else 
+  #       # It's already processing, no change needed in this specific path.
+  #     end
+  #   end
+  # rescue ActiveRecord::RecordNotFound
+  #   Rails.logger.error "Reimbursement not found for FeeDetail ##{id} during status update callback."
+  # rescue => e # Catch other potential errors like NoMethodError if status methods are missing
+  #   Rails.logger.error "Error in FeeDetail#update_reimbursement_status for FeeDetail ##{id}: #{e.message}"
+  #   Rails.logger.error e.backtrace.join("\n")
+  # end
 end

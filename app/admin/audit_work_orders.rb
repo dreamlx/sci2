@@ -11,6 +11,12 @@ ActiveAdmin.register AuditWorkOrder do
   config.remove_action_item :new
 
   controller do
+    before_action :set_current_admin_user_for_model
+
+    def set_current_admin_user_for_model
+      Current.admin_user = current_admin_user
+    end
+
     def scoped_collection
       AuditWorkOrder.includes(:reimbursement, :creator, :fee_details) # 预加载更多关联
     end
@@ -48,16 +54,24 @@ ActiveAdmin.register AuditWorkOrder do
       @audit_work_order.created_by = current_admin_user.id # MODIFIED: Use created_by instead of creator_id
 
       if _audit_work_order_params[:submitted_fee_detail_ids].present?
+        # Set the special instance variable for the callback in WorkOrder model
+        @audit_work_order.instance_variable_set(:@_direct_submitted_fee_ids, _audit_work_order_params[:submitted_fee_detail_ids])
+        # Also set the accessor for form repopulation if validation fails and we re-render new
         @audit_work_order.submitted_fee_detail_ids = _audit_work_order_params[:submitted_fee_detail_ids]
       end
       
       if @audit_work_order.save
         redirect_to admin_audit_work_order_path(@audit_work_order), notice: "审核工单已成功创建"
       else
+        Rails.logger.debug "AuditWorkOrder save failed. Errors: #{@audit_work_order.errors.full_messages.inspect}" # DEBUG LINE
         # Re-fetch reimbursement if save fails, needed for the form on render :new
         @reimbursement = Reimbursement.find_by(id: _audit_work_order_params[:reimbursement_id])
-        # 保留已选择的费用明细
-        @audit_work_order.submitted_fee_detail_ids = _audit_work_order_params[:submitted_fee_detail_ids] if _audit_work_order_params[:submitted_fee_detail_ids].present?
+        # Ensure @_direct_submitted_fee_ids is set for the callback if save is retried from a re-rendered form (though less likely)
+        # and submitted_fee_detail_ids (accessor) is set for form repopulation.
+        if _audit_work_order_params[:submitted_fee_detail_ids].present? 
+          @audit_work_order.instance_variable_set(:@_direct_submitted_fee_ids, _audit_work_order_params[:submitted_fee_detail_ids])
+          @audit_work_order.submitted_fee_detail_ids = _audit_work_order_params[:submitted_fee_detail_ids]
+        end
         flash.now[:error] = "创建审核工单失败: #{@audit_work_order.errors.full_messages.join(', ')}"
         render :new
       end
@@ -66,12 +80,22 @@ ActiveAdmin.register AuditWorkOrder do
     # Update action might need review if fee details were editable here before
     def update
       @audit_work_order = AuditWorkOrder.find(params[:id])
-      service = AuditWorkOrderService.new(@audit_work_order, current_admin_user)
+      service = AuditWorkOrderService.new(@audit_work_order, current_admin_user) # This service might be deprecated in favor of WorkOrderService
       
+      update_params = audit_work_order_params_for_update
+      if update_params[:submitted_fee_detail_ids].present?
+        @audit_work_order.instance_variable_set(:@_direct_submitted_fee_ids, update_params[:submitted_fee_detail_ids])
+        # For form repopulation on error, also set the accessor if it exists
+        @audit_work_order.submitted_fee_detail_ids = update_params[:submitted_fee_detail_ids] if @audit_work_order.respond_to?(:submitted_fee_detail_ids=)
+      end
+
       # Use the centrally defined audit_work_order_params method for strong parameters
-      if service.update(audit_work_order_params_for_update) # Renamed to avoid conflict if audit_work_order_params is used elsewhere by AA
+      # The service update method should ideally only take attributes for the model itself, not the fee IDs which are handled by callback
+      if service.update(update_params.except(:submitted_fee_detail_ids)) 
         redirect_to admin_audit_work_order_path(@audit_work_order), notice: '审核工单已更新'
       else
+        # If update fails, @_direct_submitted_fee_ids might need to be preserved or reset for the form
+        # For now, assume submitted_fee_detail_ids accessor helps repopulate via the form builder if re-rendering edit
         render :edit
       end
     end
@@ -123,16 +147,12 @@ ActiveAdmin.register AuditWorkOrder do
   #   link_to "开始处理", start_processing_admin_audit_work_order_path(resource), method: :put, data: { confirm: "确定要开始处理此工单吗?" }
   # end
 
-  action_item :approve, only: :show, if: proc { resource.pending? && !resource.completed? } do
+  action_item :approve, only: :show, if: proc { resource.pending? } do
     link_to "审核通过", approve_admin_audit_work_order_path(resource) # Leads to a form
   end
 
-  action_item :reject, only: :show, if: proc { resource.pending? && !resource.completed? } do
+  action_item :reject, only: :show, if: proc { resource.pending? } do
     link_to "审核拒绝", reject_admin_audit_work_order_path(resource) # Leads to a form
-  end
-
-  action_item :mark_as_complete, only: :show, if: proc { (resource.approved? || resource.rejected?) && !resource.completed? } do
-    link_to "标记完成", mark_as_complete_admin_audit_work_order_path(resource), method: :put, data: { confirm: "确定要将此工单标记为完成吗? 完成后将无法编辑。" }
   end
 
   # REMOVED: new_audit_work_order action item (already present in Reimbursement show page)
@@ -157,7 +177,7 @@ ActiveAdmin.register AuditWorkOrder do
   # end
 
   member_action :approve, method: :get do
-    redirect_to admin_audit_work_order_path(resource), alert: "工单已完成，无法操作。" if resource.completed?
+    redirect_to admin_audit_work_order_path(resource), alert: "工单已审核或已拒绝，无法再次操作。" if resource.approved? || resource.rejected?
     @audit_work_order = resource
     render :approve # 渲染 app/views/admin/audit_work_orders/approve.html.erb
   end
@@ -184,7 +204,7 @@ ActiveAdmin.register AuditWorkOrder do
   end
 
   member_action :reject, method: :get do
-    redirect_to admin_audit_work_order_path(resource), alert: "工单已完成，无法操作。" if resource.completed?
+    redirect_to admin_audit_work_order_path(resource), alert: "工单已审核或已拒绝，无法再次操作。" if resource.approved? || resource.rejected?
     @audit_work_order = resource
     render :reject # 渲染 app/views/admin/audit_work_orders/reject.html.erb
   end
@@ -242,30 +262,24 @@ ActiveAdmin.register AuditWorkOrder do
     end
   end
 
-  member_action :mark_as_complete, method: :put do
-    service = WorkOrderService.new(resource, current_admin_user)
-    if service.mark_as_truly_completed
-      redirect_to admin_audit_work_order_path(resource), notice: "工单已标记为完成"
-    else
-      redirect_to admin_audit_work_order_path(resource), alert: "标记完成失败: #{resource.errors.full_messages.join(', ')}"
-    end
-  end
-
   # 列表页
   index do
     selectable_column
     id_column
     column :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
     column :status do |wo| status_tag wo.status end
-    column :problem_type
+    column "问题类型", :problem_type do |wo| wo.problem_type&.name end # Display name of associated problem_type
     column :creator
     column :created_at
-    actions do |work_order|
-      item "查看", admin_audit_work_order_path(work_order)
-      unless work_order.completed?
-        item "编辑", edit_admin_audit_work_order_path(work_order), class: "member_link edit_link"
-        item "删除", admin_audit_work_order_path(work_order), method: :delete, data: { confirm: "确定要删除吗?" }, class: "member_link delete_link"
+    # Explicitly define the actions column to prevent defaults from potentially being added elsewhere
+    column "操作" do |work_order|
+      links = ActiveSupport::SafeBuffer.new
+      links << link_to("查看", admin_audit_work_order_path(work_order), class: "member_link view_link")
+      if work_order.editable? # Using new editable? logic from model
+        links << link_to("编辑", edit_admin_audit_work_order_path(work_order), class: "member_link edit_link")
+        links << link_to("删除", admin_audit_work_order_path(work_order), method: :delete, data: { confirm: "确定要删除吗?" }, class: "member_link delete_link")
       end
+      links
     end
   end
 
@@ -283,9 +297,6 @@ ActiveAdmin.register AuditWorkOrder do
         row :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
         row :type
         row :status do |wo| status_tag wo.status end
-        row :completed do |wo|
-          status_tag wo.completed? ? '是' : '否', class: (wo.completed? ? :ok : :warn)
-        end
         row :audit_comment
         row :audit_date
         row :vat_verified
@@ -319,10 +330,10 @@ ActiveAdmin.register AuditWorkOrder do
   end
 
   # 表单使用 partial
-  form title: proc { |wo| wo.new_record? ? "新建审核工单" : (wo.completed? ? "查看已完成审核工单 ##{wo.id}" : "编辑审核工单 ##{wo.id}") } do |f|
-    if f.object.completed?
-      panel "工单已完成" do
-        para "此工单已标记为完成，无法编辑。"
+  form title: proc { |wo| wo.new_record? ? "新建审核工单" : ((wo.approved? || wo.rejected?) ? "查看已处理审核工单 ##{wo.id}" : "编辑审核工单 ##{wo.id}") } do |f|
+    if f.object.approved? || f.object.rejected?
+      panel "工单已处理" do
+        para "此工单已审核通过或拒绝，通常不再编辑。"
       end
     else
       f.semantic_errors

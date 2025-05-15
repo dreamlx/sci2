@@ -32,14 +32,6 @@ class AuditWorkOrder < WorkOrder
 
   private
 
-  def processing_opinion_pass_or_cannot_pass?
-    processing_opinion.in?(['可以通过', '无法通过'])
-  end
-
-  def audit_result_changed?
-    resolution_changed?
-  end
-
   # 可选：特有方法
   # def vat_not_verified?
   #   !vat_verified
