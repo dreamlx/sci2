@@ -16,14 +16,21 @@ class ReimbursementImportService
       file_path = @file.respond_to?(:tempfile) ? @file.tempfile.to_path.to_s : @file.path
       extension = File.extname(file_path).delete('.').downcase.to_sym
       spreadsheet = test_spreadsheet || Roo::Spreadsheet.open(file_path, extension: extension)
-      # Handle both Excel and CSV files
       sheet = if spreadsheet.respond_to?(:sheet)
                 spreadsheet.sheet(0)
               else
-                spreadsheet # Directly use spreadsheet if it's a CSV
+                spreadsheet
               end
 
-      headers = sheet.row(1).map { |h| h.to_s.strip } # Standardize headers
+      headers = sheet.row(1).map { |h| h.to_s.strip }
+      # Validate essential headers
+      expected_headers = ['报销单单号', '单据名称', '报销单申请人', '报销金额（单据币种）', '报销单状态'] # Add other absolutely essential headers
+      missing_headers = expected_headers - headers
+      unless missing_headers.empty?
+        # Update error structure for consistency if desired, for now, simple error message
+        return { success: false, errors: ["CSV文件缺少必要的列: #{missing_headers.join(', ')}"], created: 0, updated: 0, error_details: [] }
+      end
+
       sheet.each_with_index do |row, idx|
         next if idx == 0 # Skip header row
 
@@ -32,15 +39,21 @@ class ReimbursementImportService
       end
 
       {
-        success: true,
+        success: @errors.empty?,
         created: @created_count,
         updated: @updated_count,
-        errors: @error_count,
-        error_details: @errors
+        errors: @error_count, # Or @errors.count for number of error messages
+        error_details: @errors # Array of detailed error messages
       }
+    rescue Roo::FileNotFound => e
+      Rails.logger.error "Reimbursement Import Failed: File not found - #{e.message}\n#{e.backtrace.join("\n")}"
+      { success: false, errors: ["导入文件未找到: #{e.message}"], created: 0, updated: 0, error_details: [] }
+    rescue CSV::MalformedCSVError => e # Ensure Roo re-raises this or handles it appropriately if it wraps CSV
+      Rails.logger.error "Reimbursement Import Failed: Malformed CSV - #{e.message}\n#{e.backtrace.join("\n")}"
+      { success: false, errors: ["CSV文件格式错误: #{e.message}"], created: 0, updated: 0, error_details: [] }
     rescue => e
       Rails.logger.error "Reimbursement Import Failed: #{e.message}\n#{e.backtrace.join("\n")}"
-      { success: false, errors: ["导入过程中发生错误: #{e.message}"] }
+      { success: false, errors: ["导入过程中发生未知错误: #{e.message}"], created: 0, updated: 0, error_details: [] }
     end
   end
 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_05_14_054701) do
+ActiveRecord::Schema[7.1].define(version: 2025_17_26_000003) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -49,6 +49,15 @@ ActiveRecord::Schema[7.1].define(version: 2025_05_14_054701) do
     t.index ["communication_work_order_id"], name: "index_communication_records_on_communication_work_order_id"
   end
 
+  create_table "document_categories", force: :cascade do |t|
+    t.string "name", null: false
+    t.text "keywords", default: "", null: false
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["name"], name: "index_document_categories_on_name", unique: true
+  end
+
   create_table "fee_details", force: :cascade do |t|
     t.string "document_number", null: false
     t.string "fee_type"
@@ -62,8 +71,10 @@ ActiveRecord::Schema[7.1].define(version: 2025_05_14_054701) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.text "notes"
+    t.string "external_fee_id"
     t.index ["document_number", "fee_type", "amount", "fee_date"], name: "index_fee_details_on_document_and_details", unique: true
     t.index ["document_number"], name: "index_fee_details_on_document_number"
+    t.index ["external_fee_id"], name: "index_fee_details_on_external_fee_id", unique: true
     t.index ["fee_date"], name: "index_fee_details_on_fee_date"
     t.index ["verification_status"], name: "index_fee_details_on_verification_status"
   end
@@ -94,6 +105,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_05_14_054701) do
     t.string "description"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "active", default: true, null: false
     t.index ["problem_type_id"], name: "index_problem_descriptions_on_problem_type_id"
   end
 
@@ -110,6 +122,9 @@ ActiveRecord::Schema[7.1].define(version: 2025_05_14_054701) do
     t.string "name"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "document_category_id"
+    t.boolean "active", default: true, null: false
+    t.index ["document_category_id"], name: "index_problem_types_on_document_category_id"
   end
 
   create_table "reimbursements", force: :cascade do |t|
@@ -184,7 +199,6 @@ ActiveRecord::Schema[7.1].define(version: 2025_05_14_054701) do
     t.integer "problem_description_id"
     t.text "material_ids"
     t.string "initiator_role", default: "internal"
-    t.boolean "completed", default: false, null: false
     t.index ["created_by"], name: "index_work_orders_on_created_by"
     t.index ["reimbursement_id", "tracking_number"], name: "index_work_orders_on_reimbursement_and_tracking", where: "type = 'ExpressReceiptWorkOrder' AND tracking_number IS NOT NULL"
     t.index ["reimbursement_id"], name: "index_work_orders_on_reimbursement_id"
@@ -197,6 +211,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_05_14_054701) do
   add_foreign_key "problem_descriptions", "problem_types"
   add_foreign_key "problem_type_materials", "materials"
   add_foreign_key "problem_type_materials", "problem_types"
+  add_foreign_key "problem_types", "document_categories"
   add_foreign_key "work_order_fee_details", "fee_details"
   add_foreign_key "work_order_status_changes", "admin_users", column: "changer_id"
   add_foreign_key "work_orders", "admin_users", column: "created_by"

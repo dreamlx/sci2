@@ -90,7 +90,7 @@ ActiveAdmin.register Reimbursement do
       cancel_path: admin_reimbursements_path,
       instructions: [
         "请上传CSV格式文件",
-        "文件必须包含以下列：发票号码,文档名称,申请人,申请人ID,公司,部门,金额,收单状态,状态,收单日期,提交日期,是否电子发票,外部状态,审批日期,审批人",
+        "文件必须包含以下列：发票号码,文档名称,申请人,申请人ID,公司,部门,金额,收单状态,状态,收单日期,提交日期,是否电子发票,外部状态,审批日期,审批人,关联申请单号,记账日期,单据标签",
         "如果报销单已存在（根据发票号码判断），将更新现有记录",
         "如果报销单不存在，将创建新记录"
       ]
@@ -158,13 +158,21 @@ ActiveAdmin.register Reimbursement do
         end
 
         panel "费用明细信息" do
-          table_for resource.fee_details.order(created_at: :desc) do
+          table_for resource.fee_details.includes(:work_orders).order(created_at: :desc) do
             column(:id) { |fd| link_to fd.id, admin_fee_detail_path(fd) }
             column :fee_type
             column "金额", :amount do |fd| number_to_currency(fd.amount, unit: "¥") end
             column :fee_date
             column "验证状态", :verification_status do |fd| status_tag fd.verification_status end
-            column :payment_method
+            column "支付方式", :payment_method
+            column "最新关联工单" do |fee_detail|
+              latest_wo = fee_detail.latest_associated_work_order
+              if latest_wo
+                link_to "#{latest_wo.model_name.human} ##{latest_wo.id}", [:admin, latest_wo]
+              else
+                "N/A"
+              end
+            end
             column "创建时间", :created_at
           end
         end
@@ -179,9 +187,9 @@ ActiveAdmin.register Reimbursement do
           end
         end
 
-        panel "操作历史记录" do
-          table_for resource.operation_histories.order(operation_time: :desc) do
-            column :id
+        panel "外部操作历史记录" do
+          table_for resource.operation_histories.order(created_at: :desc) do
+            column("记录ID") { |history| link_to history.id, [:admin, history] }
             column :operation_type
             column :operator
             column :operation_time
@@ -237,6 +245,18 @@ ActiveAdmin.register Reimbursement do
               link_to "新建沟通工单", new_admin_communication_work_order_path(reimbursement_id: resource.id), class: "button"
             end
          end
+      end
+
+      tab "所有关联工单" do
+        panel "所有关联工单信息" do
+          table_for resource.work_orders.includes(:creator).order(created_at: :desc) do
+            column("工单ID") { |wo| link_to wo.id, [:admin, wo] } # Links to specific work order type show page
+            column("工单类型") { |wo| wo.model_name.human } # Or wo.type if you prefer the raw type string
+            column("状态") { |wo| status_tag wo.status }
+            column "创建人", :creator
+            column "创建时间", :created_at
+          end
+        end
       end
     end
   end

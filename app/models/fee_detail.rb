@@ -93,6 +93,14 @@ class FeeDetail < ApplicationRecord
   #   work_orders.where(type: 'CommunicationWorkOrder')
   # end
 
+  # Helper method to get the most recently updated associated work order
+  # Assumes work_orders association is preloaded (e.g., using .includes(:work_orders))
+  # to avoid N+1 queries when called in a loop.
+  def latest_associated_work_order
+    return nil if work_orders.empty? # Handle cases where work_orders might not be loaded or are empty
+    work_orders.max_by(&:updated_at)
+  end
+
   # ActiveAdmin 配置
   def self.ransackable_attributes(auth_object = nil)
     %w[id document_number fee_type amount currency fee_date payment_method verification_status notes created_at updated_at]
