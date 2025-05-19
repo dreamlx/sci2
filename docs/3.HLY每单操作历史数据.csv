@@ -1,9 +1,9 @@
-﻿表单类型,单据编号,申请人,员工工号,员工公司,员工部门,员工部门路径,员工单据公司,员工单据部门,员工单据部门路径,提交人,单据名称,币种,金额,创建日期,操作节点,操作类型,操作意见 ,操作日期,操作人
-日常报销单,ER20235830,齐雁杰,20220819,SPC,IBU-Core-JN,BU-Immunology|IBU-Core|IBU-Core-JN,SPC,IBU-Core-JN,BU-Immunology|IBU-Core|IBU-Core-JN,齐雁杰,学术会议报销单,CNY,1199,2025-03-19 21:42:29,审批,删除单据,,2025-03-31 23:54:11,齐雁杰
-日常报销单,ER19842295,姜一宁,20231110,SPC,IBU-Core-SY,BU-Immunology|IBU-Core|IBU-Core-SY,SPC,IBU-Core-SY,BU-Immunology|IBU-Core|IBU-Core-SY,姜一宁,个人日常和差旅（含小沟会）报销单,CNY,783,2025-03-03 23:20:10,审批,回复,@姜一宁@Dshen Gu您好，可以帮我拍一下定额发票吗？已经邮寄。谢谢,2025-03-31 23:40:51,姜一宁
+表单类型,单据编号,申请人,员工工号,员工公司,员工部门,员工部门路径,员工单据公司,员工单据部门,员工单据部门路径,提交人,单据名称,币种,金额,创建日期,操作节点,操作类型,操作意见 ,操作日期,操作人
+日常报销单,ER14501654,齐雁杰,20220819,SPC,IBU-Core-JN,BU-Immunology|IBU-Core|IBU-Core-JN,SPC,IBU-Core-JN,BU-Immunology|IBU-Core|IBU-Core-JN,齐雁杰,学术会议报销单,CNY,1199,2025-03-19 21:42:29,审批,删除单据,,2025-03-31 23:54:11,齐雁杰
+日常报销单,ER14501654,姜一宁,20231110,SPC,IBU-Core-SY,BU-Immunology|IBU-Core|IBU-Core-SY,SPC,IBU-Core-SY,BU-Immunology|IBU-Core|IBU-Core-SY,姜一宁,个人日常和差旅（含小沟会）报销单,CNY,783,2025-03-03 23:20:10,审批,回复,@姜一宁@Dshen Gu您好，可以帮我拍一下定额发票吗？已经邮寄。谢谢,2025-03-31 23:40:51,姜一宁
 日常报销单,ER19912881,李婷婷,20230312,SPC,OBU-N2,BU-Oncology|OBU-N|OBU-N2,SPC,OBU-N2,BU-Oncology|OBU-N|OBU-N2,李婷婷,个人日常和差旅（含小沟会）报销单,CNY,3305.1,2025-03-06 12:07:59,审批,审批通过,,2025-03-31 23:36:12,董淑丹
 日常报销单,ER19875597,姜一宁,20231110,SPC,IBU-Core-SY,BU-Immunology|IBU-Core|IBU-Core-SY,SPC,IBU-Core-SY,BU-Immunology|IBU-Core|IBU-Core-SY,姜一宁,学术会议报销单,CNY,1000,2025-03-05 00:03:09,审批,添加评论,@Wendy Wei业务约定书已经补传完整，下次一定注意，谢谢老师,2025-03-31 23:35:12,姜一宁
-日常报销单,ER19875597,姜一宁,20231110,SPC,IBU-Core-SY,BU-Immunology|IBU-Core|IBU-Core-SY,SPC,IBU-Core-SY,BU-Immunology|IBU-Core|IBU-Core-SY,姜一宁,学术会议报销单,CNY,1000,2025-03-05 00:03:09,审批,添加评论,业务约定书补传完整，下次注意，谢谢,2025-03-31 23:34:14,姜一宁
+日常报销单,ER14501654,姜一宁,20231110,SPC,IBU-Core-SY,BU-Immunology|IBU-Core|IBU-Core-SY,SPC,IBU-Core-SY,BU-Immunology|IBU-Core|IBU-Core-SY,姜一宁,学术会议报销单,CNY,1000,2025-03-05 00:03:09,审批,添加评论,业务约定书补传完整，下次注意，谢谢,2025-03-31 23:34:14,姜一宁
 日常报销单,ER19242115,张富乐,20240210,SPC,IBU-JS-SZ,BU-Immunology|IBU-JS|IBU-JS-SZ,SPC,IBU-JS-SZ,BU-Immunology|IBU-JS|IBU-JS-SZ,张富乐,个人日常和差旅（含小沟会）报销单,CNY,6403,2025-02-03 16:58:36,审批,回复,SF0267331663149麻烦再帮我看一下这个单号,2025-03-31 23:20:38,张富乐
 日常报销单,ER20508912,王琴,20150409,SPC,IBU-ZJ-NB,BU-Immunology|IBU-ZJ|IBU-ZJ-NB,SPC,IBU-ZJ-NB,BU-Immunology|IBU-ZJ|IBU-ZJ-NB,王琴,学术会议报销单,CNY,5464.5,2025-03-31 21:48:22,审批,审批通过,,2025-03-31 23:19:33,孙天益
 日常报销单,ER20207607,余碧辉,20221006,SPC,IBU-GD-SZ,BU-Immunology|IBU-GD|IBU-GD-SZ,SPC,IBU-GD-SZ,BU-Immunology|IBU-GD|IBU-GD-SZ,余碧辉,学术会议报销单,CNY,3294,2025-03-18 19:56:00,审批,回复,"余碧辉是内部员工，因忙于会议跟进，滞后签到。

@@ -88,7 +88,6 @@ class FeeDetailImportService
 
     attributes = {
       document_number: document_number,
-      reimbursement_id: reimbursement.id, # Store direct association
       fee_type: fee_type,
       amount: parse_decimal(amount_str),
       fee_date: parse_date(fee_date_str),
@@ -112,7 +111,7 @@ class FeeDetailImportService
     if fee_detail.save
       if is_new_record
         @created_count += 1
-      else
+    else
         @updated_count += 1
       end
     else

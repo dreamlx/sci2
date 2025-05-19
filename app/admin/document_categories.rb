@@ -1,4 +1,5 @@
 ActiveAdmin.register DocumentCategory do
+  menu parent: '数据管理', priority: 1, label: '单据类别'
   # 添加这行参数许可
   permit_params :name, :keywords, :active
 

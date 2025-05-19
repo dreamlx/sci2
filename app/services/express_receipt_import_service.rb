@@ -104,7 +104,7 @@ class ExpressReceiptImportService
       tracking_number: tracking_number,
       received_at: received_at, # 使用 '操作时间'
       # courier_name: courier_name, # 源文件中不可用
-      creator_id: @current_admin_user.id # 使用 creator_id 而不是 created_by
+      created_by: @current_admin_user.id # MODIFIED from creator_id
     )
     
     # 使用事务确保工单创建和报销单状态更新的原子性
@@ -116,7 +116,9 @@ class ExpressReceiptImportService
         reimbursement.start_processing! if reimbursement.pending? # 更新内部状态
       else
         @error_count += 1
-        @errors << "行 #{row_number} (单号: #{document_number}, 快递: #{tracking_number}): #{work_order.errors.full_messages.join(', ')}"
+        error_messages = work_order.errors.full_messages.join(', ')
+        @errors << "行 #{row_number} (单号: #{document_number}, 快递: #{tracking_number}): #{error_messages}"
+        Rails.logger.debug "WorkOrder Save Failed for Row #{row_number} (DN: #{document_number}, TN: #{tracking_number}): #{error_messages}"
         raise ActiveRecord::Rollback # 错误时回滚事务
       end
     end
@@ -125,7 +127,7 @@ class ExpressReceiptImportService
     @error_count += 1
     @errors << "行 #{row_number} (单号: #{document_number}): 更新报销单状态失败 - #{e.message}"
     # 工单可能已保存，考虑是否需要清理或只记录
-    Rails.logger.error "Failed to update reimbursement status for WO #{work_order.id}: #{e.message}"
+    Rails.logger.error "Failed to update reimbursement status for WO on row #{row_number} (DN: #{document_number}): #{e.message}"
   end
   
   def parse_datetime(datetime_string)

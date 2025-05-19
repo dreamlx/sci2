@@ -55,7 +55,7 @@ class WorkOrder < ApplicationRecord
     state :pending
     state :approved
     state :rejected
-    # REMOVED: processing, completed (as a status), problematic, waiting_completion states
+    state :completed
 
     event :mark_as_approved do
       transition [:pending, :rejected] => :approved

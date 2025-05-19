@@ -331,6 +331,8 @@ ActiveAdmin.register AuditWorkOrder do
 
   # 表单使用 partial
   form title: proc { |wo| wo.new_record? ? "新建审核工单" : ((wo.approved? || wo.rejected?) ? "查看已处理审核工单 ##{wo.id}" : "编辑审核工单 ##{wo.id}") } do |f|
+
+
     if f.object.approved? || f.object.rejected?
       panel "工单已处理" do
         para "此工单已审核通过或拒绝，通常不再编辑。"
@@ -344,8 +346,9 @@ ActiveAdmin.register AuditWorkOrder do
         tab '基本信息' do
           f.inputs '工单详情' do
             if reimbursement
+              render 'admin/reimbursements/reimbursement_display', reimbursement: reimbursement
               f.input :reimbursement_id, as: :hidden, input_html: { value: reimbursement.id }
-              f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: reimbursement.invoice_number, readonly: true, disabled: true }
+              #f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: reimbursement.invoice_number, readonly: true, disabled: true }
             elsif f.object.reimbursement
                f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: f.object.reimbursement.invoice_number, readonly: true, disabled: true }
             end

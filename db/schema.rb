@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_17_26_000003) do
+ActiveRecord::Schema[7.1].define(version: 2025_17_26_000006) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -62,9 +62,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000003) do
     t.string "document_number", null: false
     t.string "fee_type"
     t.decimal "amount", precision: 10, scale: 2
-    t.string "currency", default: "CNY"
     t.date "fee_date"
-    t.string "payment_method"
     t.string "verification_status", default: "pending", null: false
     t.string "month_belonging"
     t.datetime "first_submission_date"
@@ -72,7 +70,11 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000003) do
     t.datetime "updated_at", null: false
     t.text "notes"
     t.string "external_fee_id"
-    t.index ["document_number", "fee_type", "amount", "fee_date"], name: "index_fee_details_on_document_and_details", unique: true
+    t.string "plan_or_pre_application"
+    t.string "product"
+    t.string "flex_field_11"
+    t.string "expense_corresponding_plan"
+    t.string "expense_associated_application"
     t.index ["document_number"], name: "index_fee_details_on_document_number"
     t.index ["external_fee_id"], name: "index_fee_details_on_external_fee_id", unique: true
     t.index ["fee_date"], name: "index_fee_details_on_fee_date"

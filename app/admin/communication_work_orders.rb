@@ -223,8 +223,9 @@ ActiveAdmin.register CommunicationWorkOrder do
           f.inputs '工单详情' do
             # Order: 0. 报销单号
             if reimbursement
+              render 'admin/reimbursements/reimbursement_display', reimbursement: reimbursement
               f.input :reimbursement_id, as: :hidden, input_html: { value: reimbursement.id }
-              f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: reimbursement.invoice_number, readonly: true, disabled: true }
+              #f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: reimbursement.invoice_number, readonly: true, disabled: true }
             elsif f.object.reimbursement # for edit page if already associated
                f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: f.object.reimbursement.invoice_number, readonly: true, disabled: true }
             end
