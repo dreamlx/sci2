@@ -64,7 +64,6 @@ id: integer (PK)
 document_number: string (FK, references reimbursements.invoice_number, 来自 "报销单单号")
 fee_type: string (来自 "费用类型")
 amount: decimal (来自 "原始金额")
-currency: string (来自 "原始币种" 或默认 'CNY')
 fee_date: date (来自 "费用发生日期")
 payment_method: string (来自 "弹性字段11", nullable)
 verification_status: string [pending, problematic, verified] (应用内部状态, default: 'pending', null: false)
@@ -226,7 +225,6 @@ class CreateFeeDetails < ActiveRecord::Migration[7.0]
       t.string :document_number, null: false, index: true
       t.string :fee_type
       t.decimal :amount, precision: 10, scale: 2
-      t.string :currency, default: 'CNY'
       t.date :fee_date
       t.string :payment_method
       t.string :verification_status, default: 'pending', null: false, index: true

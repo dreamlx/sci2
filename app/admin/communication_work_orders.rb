@@ -198,7 +198,7 @@ ActiveAdmin.register CommunicationWorkOrder do
         end
         column "费用类型", :fee_type
         column "金额" do |fee_detail|
-          number_to_currency(fee_detail.amount, unit: fee_detail.currency)
+          number_to_currency(fee_detail.amount, unit: "¥")
         end
         column "费用日期", :fee_date
         column "备注", :notes

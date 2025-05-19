@@ -312,19 +312,45 @@ ActiveAdmin.register AuditWorkOrder do
     end
 
     # panel for Fee Details (原"费用明细"Tab内容)
-    panel "关联的费用明细" do
-      table_for audit_work_order.fee_details do
-        column "ID" do |fee_detail|
-          link_to fee_detail.id, admin_fee_detail_path(fee_detail)
+    tab "关联费用明细 (#{resource.fee_details.count})" do
+      panel "费用明细" do
+        table_for resource.fee_details.order(id: :asc) do
+          column "ID", :id do |fee_detail|
+            link_to fee_detail.id, admin_fee_detail_path(fee_detail)
+          end
+          column "费用类型", :fee_type
+          column "金额" do |fee_detail|
+            number_to_currency(fee_detail.amount, unit: "¥")
+          end
+          column "费用日期", :fee_date
+          column "验证状态" do |fee_detail|
+            status_tag fee_detail.verification_status
+          end
+          column "支付方式", :payment_method
+          column "备注", :notes
         end
-        column "费用类型", :fee_type
-        column "金额" do |fee_detail|
-          number_to_currency(fee_detail.amount, unit: fee_detail.currency)
+      end
+    end
+
+    tab "费用明细选择 (#{resource.fee_detail_selections.count})" do
+      panel "已选费用明细" do
+        table_for resource.fee_detail_selections.includes(:fee_detail).order('fee_details.id ASC') do |selection|
+          column "费用明细ID" do |sel|
+            link_to sel.fee_detail.id, admin_fee_detail_path(sel.fee_detail)
+          end
+          column "费用类型" do |sel| sel.fee_detail.fee_type end
+          column "金额" do |sel|
+            number_to_currency(sel.fee_detail.amount, unit: "¥")
+          end
+          column "费用日期" do |sel| sel.fee_detail.fee_date end
+          column "全局验证状态" do |sel|
+            status_tag sel.fee_detail.verification_status
+          end
+          column "工单内验证状态" do |sel|
+            status_tag sel.verification_status
+          end
+          column "验证备注", :verification_comment
         end
-        column "费用日期", :fee_date
-        column "备注", :notes
-        column "创建时间", :created_at
-        column "更新时间", :updated_at
       end
     end
   end
