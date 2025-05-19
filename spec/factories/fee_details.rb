@@ -4,7 +4,6 @@ FactoryBot.define do
     sequence(:document_number) { |n| "R#{100000 + n}" }
     fee_type { ["交通费", "餐费", "住宿费", "办公用品"].sample }
     amount { rand(10.0..1000.0).round(2) }
-    currency { "CNY" }
     fee_date { Date.current - rand(1..30).days }
     payment_method { ["现金", "信用卡", "公司账户"].sample }
     verification_status { "pending" }

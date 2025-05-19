@@ -23,7 +23,7 @@
           <tr>
             <td><%= link_to fee_detail.id, admin_fee_detail_path(fee_detail) %></td>
             <td><%= fee_detail.fee_type %></td>
-            <td><%= number_to_currency(fee_detail.amount, unit: fee_detail.currency) %></td>
+            <td><%= number_to_currency(fee_detail.amount, unit: "¥") %></td>
             <td><%= fee_detail.fee_date %></td>
             <td>
               <% arbre_context = Arbre::Context.new %>
@@ -55,7 +55,7 @@
           <label for="fee_detail_<%= fee_detail.id %>">
             <span class="fee-detail-id">#<%= fee_detail.id %></span>
             <span class="fee-detail-type"><%= fee_detail.fee_type %></span>
-            <span class="fee-detail-amount"><%= number_to_currency(fee_detail.amount, unit: fee_detail.currency) %></span>
+            <span class="fee-detail-amount"><%= number_to_currency(fee_detail.amount, unit: "¥") %></span>
             <span class="fee-detail-date"><%= fee_detail.fee_date %></span>
             <span class="fee-detail-status">
               <% arbre_context = Arbre::Context.new %>
