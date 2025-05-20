@@ -6,17 +6,22 @@ RSpec.describe "Status Interactions", type: :model do
     let(:reimbursement) { create(:reimbursement, :processing) }
     let!(:fee_details) { create_list(:fee_detail, 3, document_number: reimbursement.invoice_number, verification_status: 'pending') }
     
-    it "updates reimbursement status when all fee details are verified" do
+    it "allows reimbursement to be marked as close when all fee details are verified" do
       # 将所有费用明细标记为已验证
       fee_details.each do |fee_detail|
         fee_detail.update(verification_status: 'verified')
-        # 模拟 FeeDetail 回调
-        reimbursement.update_status_based_on_fee_details!
       end
       
       # 重新加载报销单
       reimbursement.reload
-      expect(reimbursement.status).to eq('waiting_completion')
+      
+      # 验证所有费用明细已验证
+      expect(reimbursement.all_fee_details_verified?).to be true
+      
+      # 验证可以将报销单标记为close
+      expect(reimbursement.can_mark_as_close?).to be true
+      expect { reimbursement.mark_as_close! }.not_to raise_error
+      expect(reimbursement.reload.status).to eq('close')
     end
     
     it "keeps reimbursement in processing status when some fee details are problematic" do
@@ -25,12 +30,16 @@ RSpec.describe "Status Interactions", type: :model do
       fee_details[1].update(verification_status: 'verified')
       fee_details[2].update(verification_status: 'problematic')
       
-      # 模拟 FeeDetail 回调
-      reimbursement.update_status_based_on_fee_details!
-      
       # 重新加载报销单
       reimbursement.reload
-      expect(reimbursement.status).to eq('processing')
+      
+      # 验证不是所有费用明细都已验证
+      expect(reimbursement.all_fee_details_verified?).to be false
+      
+      # 验证不能将报销单标记为close
+      expect(reimbursement.can_mark_as_close?).to be false
+      expect { reimbursement.mark_as_close! }.to raise_error(ActiveRecord::RecordInvalid, /存在未验证的费用明细/)
+      expect(reimbursement.reload.status).to eq('processing')
     end
   end
   
@@ -80,8 +89,8 @@ RSpec.describe "Status Interactions", type: :model do
       new_audit_work_order.instance_variable_set('@fee_detail_ids_to_select', [])
       new_audit_work_order.save!
       
-      # Create a fee detail selection
-      selection = FeeDetailSelection.create!(
+      # Create a work order fee detail association
+      selection = WorkOrderFeeDetail.create!(
         work_order: new_audit_work_order,
         fee_detail: new_fee_detail
       )
@@ -92,7 +101,7 @@ RSpec.describe "Status Interactions", type: :model do
   end
   
   describe "operation history affecting reimbursement status" do
-    let(:reimbursement) { create(:reimbursement, :waiting_completion) }
+    let(:reimbursement) { create(:reimbursement, :processing) }
     
     it "closes reimbursement when operation history with approval is imported" do
       # 创建审批通过的操作历史
@@ -102,10 +111,10 @@ RSpec.describe "Status Interactions", type: :model do
              notes: '审批通过')
       
       # 模拟 OperationHistoryImportService 的行为
-      reimbursement.close!
+      reimbursement.mark_as_close!
       reimbursement.reload
       
-      expect(reimbursement.status).to eq('closed')
+      expect(reimbursement.status).to eq('close')
     end
   end
 end

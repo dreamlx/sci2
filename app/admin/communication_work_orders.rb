@@ -9,7 +9,13 @@ ActiveAdmin.register CommunicationWorkOrder do
   config.remove_action_item :new # Assuming new is not created directly, but from Reimbursement
 
   controller do
+    # Store the collection before scopes are applied
+    def collection_before_scope
+      @collection_before_scope ||= super
+    end
+    
     def scoped_collection
+      Rails.logger.debug "ActiveAdmin: Executing scoped_collection in CommunicationWorkOrders"
       CommunicationWorkOrder.includes(:reimbursement, :creator, :problem_type, :problem_description, :fee_details) # Added problem_type, problem_description, fee_details
     end
 

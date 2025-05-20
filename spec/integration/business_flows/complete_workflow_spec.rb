@@ -66,9 +66,16 @@ RSpec.describe "Complete Business Flows", type: :integration do
         expect(fd.verification_status).to eq('verified')
       end
       
-      # 验证报销单状态变为waiting_completion
+      # 验证所有费用明细已验证
       reimbursement.reload
-      expect(reimbursement.status).to eq('waiting_completion')
+      expect(reimbursement.all_fee_details_verified?).to be true
+      
+      # 验证可以将报销单标记为close
+      expect(reimbursement.can_mark_as_close?).to be true
+      
+      # 模拟用户点击"处理完成"按钮
+      reimbursement.mark_as_close!
+      expect(reimbursement.reload.status).to eq('close')
       
       # 验证审核工单状态变为approved
       audit_work_order.reload
@@ -186,9 +193,16 @@ RSpec.describe "Complete Business Flows", type: :integration do
         expect(fd.verification_status).to eq('verified')
       end
       
-      # 验证报销单状态变为waiting_completion
+      # 验证所有费用明细已验证
       reimbursement.reload
-      expect(reimbursement.status).to eq('waiting_completion')
+      expect(reimbursement.all_fee_details_verified?).to be true
+      
+      # 验证可以将报销单标记为close
+      expect(reimbursement.can_mark_as_close?).to be true
+      
+      # 模拟用户点击"处理完成"按钮
+      reimbursement.mark_as_close!
+      expect(reimbursement.reload.status).to eq('close')
     end
   end
 
@@ -251,7 +265,7 @@ RSpec.describe "Complete Business Flows", type: :integration do
   end
 
   describe "INT-005: 操作历史影响报销单状态" do
-    let!(:reimbursement) { create(:reimbursement, status: 'waiting_completion') }
+    let!(:reimbursement) { create(:reimbursement, status: 'processing') }
     
     it "updates reimbursement status based on operation history" do
       # 创建操作历史记录，应该自动触发报销单状态更新
@@ -263,9 +277,9 @@ RSpec.describe "Complete Business Flows", type: :integration do
         notes: "审批通过"
       )
       
-      # 验证报销单状态变为closed
+      # 验证报销单状态变为close
       reimbursement.reload
-      expect(reimbursement.status).to eq('closed')
+      expect(reimbursement.status).to eq('close')
       
       # 验证操作历史记录已创建
       expect(operation_history).to be_persisted

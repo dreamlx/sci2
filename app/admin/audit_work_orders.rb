@@ -16,8 +16,14 @@ ActiveAdmin.register AuditWorkOrder do
     def set_current_admin_user_for_model
       Current.admin_user = current_admin_user
     end
+    
+    # Store the collection before scopes are applied
+    def collection_before_scope
+      @collection_before_scope ||= super
+    end
 
     def scoped_collection
+      Rails.logger.debug "ActiveAdmin: Executing scoped_collection in AuditWorkOrders"
       AuditWorkOrder.includes(:reimbursement, :creator, :fee_details) # 预加载更多关联
     end
 

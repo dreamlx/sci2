@@ -37,7 +37,7 @@ RSpec.describe Reimbursement, type: :model do
       expect(reimbursement.errors[:amount]).to include("不是数字") # Updated error message
     end
 
-    it { should validate_inclusion_of(:status).in_array(%w[pending processing waiting_completion closed]) }
+    it { should validate_inclusion_of(:status).in_array(%w[pending processing close]) }
     it { should validate_inclusion_of(:is_electronic).in_array([true, false]) }
 
     # Rewrite inclusion validation for receipt_status using manual checks
@@ -79,40 +79,59 @@ RSpec.describe Reimbursement, type: :model do
     let!(:fee_detail2) { create(:fee_detail, reimbursement: reimbursement, verification_status: 'pending') }
 
     context "when all fee details are verified" do
-      it "transitions reimbursement to waiting_completion" do
-        # Ensure reimbursement is in processing state before checking waiting_completion transition
+      it "allows reimbursement to be marked as close" do
+        # 确保报销单处于processing状态
         reimbursement.update(status: 'processing')
         fee_detail1.update(verification_status: 'verified')
         expect(reimbursement.reload.status).to eq('processing') # Still processing as not all are verified
 
         fee_detail2.update(verification_status: 'verified')
-        expect(reimbursement.reload.status).to eq('waiting_completion')
+        
+        # 验证所有费用明细已验证
+        expect(reimbursement.all_fee_details_verified?).to be true
+        
+        # 验证可以将报销单标记为close
+        expect(reimbursement.can_mark_as_close?).to be true
+        expect { reimbursement.mark_as_close! }.not_to raise_error
+        expect(reimbursement.reload.status).to eq('close')
       end
     end
 
     context "when a fee detail is marked as problematic" do
-      it "transitions reimbursement back to processing if it was waiting_completion" do
-        # Set up reimbursement in waiting_completion state
+      it "prevents reimbursement from being marked as close" do
+        # 设置报销单在processing状态
         reimbursement.update(status: 'processing')
         fee_detail1.update(verification_status: 'verified')
         fee_detail2.update(verification_status: 'verified')
-        expect(reimbursement.reload.status).to eq('waiting_completion')
-
+        
+        # 将一个费用明细标记为problematic
         fee_detail1.update(verification_status: 'problematic')
-        expect(reimbursement.reload.status).to eq('processing')
+        
+        # 验证不是所有费用明细都已验证
+        expect(reimbursement.all_fee_details_verified?).to be false
+        
+        # 验证不能将报销单标记为close
+        expect(reimbursement.can_mark_as_close?).to be false
+        expect { reimbursement.mark_as_close! }.to raise_error(ActiveRecord::RecordInvalid, /存在未验证的费用明细/)
       end
     end
 
     context "when a fee detail is marked as pending" do
-      it "transitions reimbursement back to processing if it was waiting_completion" do
-        # Set up reimbursement in waiting_completion state
+      it "prevents reimbursement from being marked as close" do
+        # 设置报销单在processing状态
         reimbursement.update(status: 'processing')
         fee_detail1.update(verification_status: 'verified')
         fee_detail2.update(verification_status: 'verified')
-        expect(reimbursement.reload.status).to eq('waiting_completion')
-
+        
+        # 将一个费用明细标记为pending
         fee_detail1.update(verification_status: 'pending')
-        expect(reimbursement.reload.status).to eq('processing')
+        
+        # 验证不是所有费用明细都已验证
+        expect(reimbursement.all_fee_details_verified?).to be false
+        
+        # 验证不能将报销单标记为close
+        expect(reimbursement.can_mark_as_close?).to be false
+        expect { reimbursement.mark_as_close! }.to raise_error(ActiveRecord::RecordInvalid, /存在未验证的费用明细/)
       end
     end
   end

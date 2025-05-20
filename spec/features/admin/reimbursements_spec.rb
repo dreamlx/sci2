@@ -42,29 +42,23 @@ RSpec.describe "Admin::Reimbursements", type: :feature do
     it "根据报销单状态显示状态操作按钮" do
       # 默认 pending 状态，应该有开始处理按钮
       expect(page).to have_link("开始处理")
-      expect(page).not_to have_link("标记为等待完成")
-      expect(page).not_to have_link("关闭报销单")
+      expect(page).not_to have_link("处理完成")
 
       # 更改状态为 processing
-      reimbursement.start_processing!
+      reimbursement.update(status: 'processing')
+      
+      # 创建已验证的费用明细，以便显示"处理完成"按钮
+      create_list(:fee_detail, 3, document_number: reimbursement.invoice_number, verification_status: 'verified')
+      
       visit admin_reimbursement_path(reimbursement)
       expect(page).not_to have_link("开始处理")
-      expect(page).to have_link("标记为等待完成")
-      expect(page).not_to have_link("关闭报销单")
+      expect(page).to have_link("处理完成")
 
-      # 更改状态为 waiting_completion
-      reimbursement.mark_waiting_completion!
+      # 更改状态为 close
+      reimbursement.update(status: 'close')
       visit admin_reimbursement_path(reimbursement)
       expect(page).not_to have_link("开始处理")
-      expect(page).not_to have_link("标记为等待完成")
-      expect(page).to have_link("关闭报销单")
-
-      # 更改状态为 closed
-      reimbursement.close!
-      visit admin_reimbursement_path(reimbursement)
-      expect(page).not_to have_link("开始处理")
-      expect(page).not_to have_link("标记为等待完成")
-      expect(page).not_to have_link("关闭报销单")
+      expect(page).not_to have_link("处理完成")
     end
 
     it "显示标签页" do

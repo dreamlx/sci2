@@ -430,7 +430,7 @@ DEPENDENCIES
   puma (~> 6.1)
   rails (~> 7.1.5)
   rails-controller-testing
-  roo
+  roo (~> 2.9)
   rspec-rails
   sassc-rails
   selenium-webdriver

@@ -26,12 +26,8 @@ FactoryBot.define do
       status { "processing" }
     end
 
-    trait :waiting_completion do
-      status { "waiting_completion" }
-    end
-
-    trait :closed do
-      status { "closed" }
+    trait :close do
+      status { "close" }
       external_status { "已付款" } # 示例
       approval_date { Time.current - 2.days }
       approver_name { "测试审批人" }
