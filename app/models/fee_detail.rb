@@ -103,7 +103,7 @@ class FeeDetail < ApplicationRecord
 
   # ActiveAdmin 配置
   def self.ransackable_attributes(auth_object = nil)
-    %w[id document_number fee_type amount fee_date payment_method verification_status notes created_at updated_at]
+    %w[id document_number fee_type amount fee_date verification_status notes created_at updated_at flex_field_11 external_fee_id plan_or_pre_application product expense_corresponding_plan expense_associated_application flex_field_6 flex_field_7]
   end
   
   def self.ransackable_associations(auth_object = nil)

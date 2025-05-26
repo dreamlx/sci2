@@ -98,6 +98,8 @@ class FeeDetailImportService
       plan_or_pre_application: row['计划/预申请']&.strip,
       product: row['产品']&.strip,
       flex_field_11: row['弹性字段11']&.strip,
+      flex_field_6: row['弹性字段6']&.strip,
+      flex_field_7: row['弹性字段7']&.strip,
       expense_corresponding_plan: row['费用对应计划']&.strip,
       expense_associated_application: row['费用关联申请单']&.strip,
       # notes: fee_detail.notes # Preserve existing notes or update if CSV has notes

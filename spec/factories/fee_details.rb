@@ -5,10 +5,10 @@ FactoryBot.define do
     fee_type { ["交通费", "餐费", "住宿费", "办公用品"].sample }
     amount { rand(10.0..1000.0).round(2) }
     fee_date { Date.current - rand(1..30).days }
-    payment_method { ["现金", "信用卡", "公司账户"].sample }
     verification_status { "pending" }
     month_belonging { Date.current.strftime("%Y%m") }
     first_submission_date { Time.current - rand(1..10).days }
+    flex_field_11 { ["现金", "信用卡", "公司账户"].sample } # 使用 flex_field_11 替代 payment_method
     
     trait :verified do
       verification_status { "verified" }

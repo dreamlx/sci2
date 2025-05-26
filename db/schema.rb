@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_17_26_000006) do
+ActiveRecord::Schema[7.1].define(version: 2025_17_26_000007) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -75,6 +75,8 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000006) do
     t.string "flex_field_11"
     t.string "expense_corresponding_plan"
     t.string "expense_associated_application"
+    t.string "flex_field_6"
+    t.string "flex_field_7"
     t.index ["document_number"], name: "index_fee_details_on_document_number"
     t.index ["external_fee_id"], name: "index_fee_details_on_external_fee_id", unique: true
     t.index ["fee_date"], name: "index_fee_details_on_fee_date"
