@@ -7,7 +7,6 @@ FactoryBot.define do
     
     # 共享字段
     problem_type { nil }
-    problem_description { nil }
     remark { nil }
     processing_opinion { nil }
     
@@ -54,7 +53,7 @@ FactoryBot.define do
         audit_result { "rejected" }
         audit_date { Time.current }
         audit_comment { "测试拒绝原因" }
-        problem_type { "documentation_issue" }
+        association :problem_type, factory: :problem_type
       end
     end
     
@@ -71,11 +70,11 @@ FactoryBot.define do
         communication_work_order.instance_variable_set('@fee_detail_ids_to_select', []) unless communication_work_order.instance_variable_get('@fee_detail_ids_to_select')
       end
 
-      # Add FeeDetailSelection records after creation if fee_details are associated
+      # Add WorkOrderFeeDetail records after creation if fee_details are associated
       after(:create) do |communication_work_order, evaluator|
         if communication_work_order.fee_details.present?
           communication_work_order.fee_details.each do |fee_detail|
-            FeeDetailSelection.find_or_create_by(
+            WorkOrderFeeDetail.find_or_create_by(
               fee_detail: fee_detail,
               work_order_id: communication_work_order.id,
               work_order_type: 'CommunicationWorkOrder'
@@ -100,7 +99,7 @@ FactoryBot.define do
       trait :rejected do
         status { "rejected" }
         resolution_summary { "测试拒绝原因" }
-        problem_type { "documentation_issue" }
+        association :problem_type, factory: :problem_type
       end
     end
   end

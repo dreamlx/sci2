@@ -1,18 +1,34 @@
 class ProblemType < ApplicationRecord
-  belongs_to :document_category, optional: true
-  has_many :problem_descriptions, dependent: :destroy
+  # Associations
+  belongs_to :fee_type
   has_many :work_orders
-
-  validates :name, presence: true, uniqueness: { scope: :document_category_id, message: "should be unique within a document category" }
-  # validates :active, inclusion: { in: [true, false] } # This is handled by `null: false` in DB
-
+  
+  # Validations
+  validates :code, presence: true, uniqueness: { scope: :fee_type_id, message: "should be unique within a fee type" }
+  validates :title, presence: true
+  validates :sop_description, presence: true
+  validates :standard_handling, presence: true
+  validates :active, inclusion: { in: [true, false] }
+  
+  # Scopes
   scope :active, -> { where(active: true) }
-
-  def self.ransackable_attributes(auth_object = nil)
-    %w[id name created_at updated_at active document_category_id]
+  scope :by_fee_type, ->(fee_type_id) { where(fee_type_id: fee_type_id) }
+  
+  # Methods
+  def display_name
+    "#{code} - #{title}"
   end
-
+  
+  def full_description
+    "#{display_name}\n    #{sop_description}\n    #{standard_handling}"
+  end
+  
+  # ActiveAdmin configuration
+  def self.ransackable_attributes(auth_object = nil)
+    %w[id code title sop_description standard_handling fee_type_id active created_at updated_at]
+  end
+  
   def self.ransackable_associations(auth_object = nil)
-    ["document_category", "problem_descriptions", "work_orders"]
+    %w[fee_type work_orders]
   end
 end

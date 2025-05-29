@@ -32,5 +32,10 @@ FactoryBot.define do
       approval_date { Time.current - 2.days }
       approver_name { "测试审批人" }
     end
+    
+    # Alias for :close trait to support tests using :closed
+    trait :closed do
+      close
+    end
   end
 end

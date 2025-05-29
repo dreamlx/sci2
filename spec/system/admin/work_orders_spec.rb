@@ -43,11 +43,21 @@ RSpec.describe "Admin Work Orders", type: :system do
     
     # Create the audit work order with fee detail IDs
     let!(:audit_work_order) do
+      # Create a fee type and problem type
+      fee_type = create(:fee_type, code: "FT1", title: "测试费用类型", meeting_type: "个人")
+      problem_type = create(:problem_type,
+        code: "PT1",
+        title: "发票问题",
+        fee_type: fee_type,
+        sop_description: "测试SOP描述",
+        standard_handling: "测试标准处理方法"
+      )
+      
       # Build the audit work order
       wo = build(:audit_work_order,
         reimbursement: reimbursement,
         status: 'pending',
-        problem_type: '发票问题',
+        problem_type: problem_type,
         remark: '测试审核备注'
       )
       

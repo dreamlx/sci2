@@ -49,15 +49,6 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000007) do
     t.index ["communication_work_order_id"], name: "index_communication_records_on_communication_work_order_id"
   end
 
-  create_table "document_categories", force: :cascade do |t|
-    t.string "name", null: false
-    t.text "keywords", default: "", null: false
-    t.boolean "active", default: true, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["name"], name: "index_document_categories_on_name", unique: true
-  end
-
   create_table "fee_details", force: :cascade do |t|
     t.string "document_number", null: false
     t.string "fee_type"
@@ -83,10 +74,17 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000007) do
     t.index ["verification_status"], name: "index_fee_details_on_verification_status"
   end
 
-  create_table "materials", force: :cascade do |t|
+  create_table "fee_types", force: :cascade do |t|
     t.string "name"
+    t.string "code", null: false
+    t.string "title", null: false
+    t.string "meeting_type", null: false
+    t.boolean "active", default: true, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index ["active"], name: "index_fee_types_on_active"
+    t.index ["code"], name: "index_fee_types_on_code", unique: true
+    t.index ["meeting_type"], name: "index_fee_types_on_meeting_type"
   end
 
   create_table "operation_histories", force: :cascade do |t|
@@ -104,31 +102,18 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000007) do
     t.index ["operation_time"], name: "index_operation_histories_on_operation_time"
   end
 
-  create_table "problem_descriptions", force: :cascade do |t|
-    t.integer "problem_type_id", null: false
-    t.string "description"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.boolean "active", default: true, null: false
-    t.index ["problem_type_id"], name: "index_problem_descriptions_on_problem_type_id"
-  end
-
-  create_table "problem_type_materials", force: :cascade do |t|
-    t.integer "problem_type_id", null: false
-    t.integer "material_id", null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["material_id"], name: "index_problem_type_materials_on_material_id"
-    t.index ["problem_type_id"], name: "index_problem_type_materials_on_problem_type_id"
-  end
-
   create_table "problem_types", force: :cascade do |t|
     t.string "name"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.integer "document_category_id"
     t.boolean "active", default: true, null: false
-    t.index ["document_category_id"], name: "index_problem_types_on_document_category_id"
+    t.string "code", default: "", null: false
+    t.string "title", default: "", null: false
+    t.text "sop_description"
+    t.text "standard_handling"
+    t.integer "fee_type_id"
+    t.index ["code", "fee_type_id"], name: "index_problem_types_on_code_and_fee_type_id", unique: true
+    t.index ["fee_type_id"], name: "index_problem_types_on_fee_type_id"
   end
 
   create_table "reimbursements", force: :cascade do |t|
@@ -200,8 +185,6 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000007) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "problem_type_id"
-    t.integer "problem_description_id"
-    t.text "material_ids"
     t.string "initiator_role", default: "internal"
     t.index ["created_by"], name: "index_work_orders_on_created_by"
     t.index ["reimbursement_id", "tracking_number"], name: "index_work_orders_on_reimbursement_and_tracking", where: "type = 'ExpressReceiptWorkOrder' AND tracking_number IS NOT NULL"
@@ -212,10 +195,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000007) do
   end
 
   add_foreign_key "communication_records", "work_orders", column: "communication_work_order_id"
-  add_foreign_key "problem_descriptions", "problem_types"
-  add_foreign_key "problem_type_materials", "materials"
-  add_foreign_key "problem_type_materials", "problem_types"
-  add_foreign_key "problem_types", "document_categories"
+  add_foreign_key "problem_types", "fee_types"
   add_foreign_key "work_order_fee_details", "fee_details"
   add_foreign_key "work_order_status_changes", "admin_users", column: "changer_id"
   add_foreign_key "work_orders", "admin_users", column: "created_by"

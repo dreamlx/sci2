@@ -2,20 +2,46 @@
 require 'rails_helper'
 
 RSpec.describe FeeDetail, type: :model do
+  # 创建一个共享上下文，包含一个报销单
+  let(:reimbursement) { create(:reimbursement) }
+  
   # 验证测试（不依赖其他模型）
   describe "validations" do
-    it { should validate_presence_of(:document_number) }
+    it "validates presence of document_number" do
+      fee_detail = build(:fee_detail, document_number: nil)
+      expect(fee_detail).not_to be_valid
+      expect(fee_detail.errors[:document_number]).to include("不能为空")
+    end
     
     # 注意：fee_type 没有存在性验证
     it "allows fee_type to be nil" do
-      fee_detail = build(:fee_detail, document_number: "R123456", amount: 100, fee_type: nil)
+      fee_detail = build(:fee_detail, :with_reimbursement, document_number: "R123456", amount: 100, fee_type: nil)
       expect(fee_detail).to be_valid
     end
     
-    it { should validate_presence_of(:amount) }
-    it { should validate_numericality_of(:amount).is_greater_than(0) }
-    it { should validate_presence_of(:verification_status) }
-    it { should validate_inclusion_of(:verification_status).in_array(%w[pending problematic verified]) }
+    it "validates presence of amount" do
+      fee_detail = build(:fee_detail, :with_reimbursement, amount: nil)
+      expect(fee_detail).not_to be_valid
+      expect(fee_detail.errors[:amount]).to include("不能为空")
+    end
+    
+    it "validates amount is greater than 0" do
+      fee_detail = build(:fee_detail, :with_reimbursement, amount: 0)
+      expect(fee_detail).not_to be_valid
+      expect(fee_detail.errors[:amount]).to include("必须大于0")
+    end
+    
+    it "validates presence of verification_status" do
+      fee_detail = build(:fee_detail, :with_reimbursement, verification_status: nil)
+      expect(fee_detail).not_to be_valid
+      expect(fee_detail.errors[:verification_status]).to include("不包含于列表中")
+    end
+    
+    it "validates inclusion of verification_status" do
+      fee_detail = build(:fee_detail, :with_reimbursement, verification_status: 'invalid')
+      expect(fee_detail).not_to be_valid
+      expect(fee_detail.errors[:verification_status]).to include("不包含于列表中")
+    end
   end
   
   # 关联方法测试（使用 respond_to 而不是实际测试关联）
@@ -86,7 +112,7 @@ RSpec.describe FeeDetail, type: :model do
     end
     
     it "can be associated with work orders" do
-      fee_detail = create(:fee_detail)
+      fee_detail = create(:fee_detail, :with_reimbursement)
       
       # 验证关联方法存在
       expect(fee_detail).to respond_to(:work_orders)

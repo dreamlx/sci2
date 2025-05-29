@@ -1,162 +1,103 @@
-# app/models/fee_detail.rb
 class FeeDetail < ApplicationRecord
-  # 常量
-  VERIFICATION_STATUS_PENDING = 'pending'
-  VERIFICATION_STATUS_PROBLEMATIC = 'problematic'
-  VERIFICATION_STATUS_VERIFIED = 'verified'
-  VERIFICATION_STATUSES = [VERIFICATION_STATUS_PENDING, VERIFICATION_STATUS_PROBLEMATIC, VERIFICATION_STATUS_VERIFIED].freeze
+  # Constants
+  VERIFICATION_STATUS_PENDING = 'pending'.freeze
+  VERIFICATION_STATUS_PROBLEMATIC = 'problematic'.freeze
+  VERIFICATION_STATUS_VERIFIED = 'verified'.freeze
   
-  # 关联
-  belongs_to :reimbursement, foreign_key: 'document_number', primary_key: 'invoice_number', optional: true, inverse_of: :fee_details
+  VERIFICATION_STATUSES = [
+    VERIFICATION_STATUS_PENDING,
+    VERIFICATION_STATUS_PROBLEMATIC,
+    VERIFICATION_STATUS_VERIFIED
+  ].freeze
   
+  # Associations
+  belongs_to :reimbursement, foreign_key: 'document_number', primary_key: 'invoice_number'
+  has_many :work_order_fee_details, dependent: :destroy
+  has_many :work_orders, through: :work_order_fee_details, source: :work_order, source_type: "WorkOrder"
   
-  # 通用工单关联 - 需要自定义方法来获取所有类型的工单
-  # 由于多态关联的限制，我们不能直接使用 has_many :through 获取所有类型的工单
-
-  
-  # 特定类型工单关联
-
-  
-           # 验证
+  # Validations
   validates :document_number, presence: true
+  validates :verification_status, inclusion: { in: VERIFICATION_STATUSES }
+  validates :external_fee_id, uniqueness: true, allow_nil: true
   validates :amount, presence: true, numericality: { greater_than: 0 }
-  validates :verification_status, presence: true, inclusion: { in: VERIFICATION_STATUSES }
   
-  # 范围查询
+  # Scopes
   scope :pending, -> { where(verification_status: VERIFICATION_STATUS_PENDING) }
   scope :problematic, -> { where(verification_status: VERIFICATION_STATUS_PROBLEMATIC) }
   scope :verified, -> { where(verification_status: VERIFICATION_STATUS_VERIFIED) }
+  scope :by_document, ->(document_number) { where(document_number: document_number) }
   
-  # 可选的其他范围查询
-  scope :by_fee_type, ->(fee_type) { where(fee_type: fee_type) }
-  scope :by_date_range, ->(start_date, end_date) { where(fee_date: start_date..end_date) }
+  # ActiveAdmin configuration
+  def self.ransackable_attributes(auth_object = nil)
+    %w[id document_number fee_type amount fee_date verification_status month_belonging 
+       first_submission_date created_at updated_at notes external_fee_id 
+       plan_or_pre_application product flex_field_11 expense_corresponding_plan 
+       expense_associated_application flex_field_6 flex_field_7]
+  end
   
-  # 回调
-  # 使用 after_commit 确保事务完成后再触发报销单状态更新
-  # after_commit :update_reimbursement_status, on: [:create, :update], if: :saved_change_to_verification_status? # TEMPORARILY DISABLED
+  def self.ransackable_associations(auth_object = nil)
+    %w[reimbursement work_order_fee_details work_orders]
+  end
   
-  # 状态检查方法
+  # Instance methods
+  
+  # Get the latest work order associated with this fee detail
+  def latest_work_order
+    work_orders.order(updated_at: :desc).first
+  end
+  
+  # Alias for compatibility with existing code
+  alias_method :latest_associated_work_order, :latest_work_order
+  
+  # Get all work orders that affect this fee detail's status, ordered by recency
+  def affecting_work_orders
+    work_orders.order(updated_at: :desc)
+  end
+  
+  # Check if this fee detail is verified
   def verified?
     verification_status == VERIFICATION_STATUS_VERIFIED
   end
   
+  # Check if this fee detail has problems
   def problematic?
     verification_status == VERIFICATION_STATUS_PROBLEMATIC
   end
   
+  # Check if this fee detail is pending verification
   def pending?
     verification_status == VERIFICATION_STATUS_PENDING
   end
   
-  # 业务方法
-  def mark_as_verified(verifier = nil, comment = nil)
-    Rails.logger.info "FeeDetail ##{id}: 开始标记为已验证，验证者: #{verifier&.email}"
-    result = update(
-      verification_status: VERIFICATION_STATUS_VERIFIED,
-      notes: comment
-    )
-    if result
-      Rails.logger.info "FeeDetail ##{id}: 成功标记为已验证"
-    else
-      Rails.logger.error "FeeDetail ##{id}: 标记为已验证失败: #{errors.full_messages.join(', ')}"
-    end
-    result
+  # Update the verification status based on the latest work order
+  def update_verification_status
+    FeeDetailStatusService.new([id]).update_status
   end
   
-  def mark_as_problematic(verifier = nil, comment = nil)
-    Rails.logger.info "FeeDetail ##{id}: 开始标记为有问题，验证者: #{verifier&.email}"
-    result = update(
-      verification_status: VERIFICATION_STATUS_PROBLEMATIC,
-      notes: comment
-    )
-    if result
-      Rails.logger.info "FeeDetail ##{id}: 成功标记为有问题"
-    else
-      Rails.logger.error "FeeDetail ##{id}: 标记为有问题失败: #{errors.full_messages.join(', ')}"
-    end
-    result
+  # Mark this fee detail as verified
+  def mark_as_verified
+    update(verification_status: VERIFICATION_STATUS_VERIFIED)
   end
   
-  # 新的多对多关联
-  has_many :work_order_fee_details, dependent: :destroy
-  has_many :work_orders,
-           through: :work_order_fee_details,
-           source: :work_order,
-           source_type: 'WorkOrder'
-
-  # 如果需要根据类型快速获取工单，可以添加如下方法：
-  # def audit_work_orders
-  #   work_orders.where(type: 'AuditWorkOrder')
-  # end
-  #
-  # def communication_work_orders
-  #   work_orders.where(type: 'CommunicationWorkOrder')
-  # end
-
-  # Helper method to get the most recently updated associated work order
-  # Assumes work_orders association is preloaded (e.g., using .includes(:work_orders))
-  # to avoid N+1 queries when called in a loop.
-  def latest_associated_work_order
-    return nil if work_orders.empty? # Handle cases where work_orders might not be loaded or are empty
-    work_orders.max_by(&:updated_at)
-  end
-
-  # ActiveAdmin 配置
-  def self.ransackable_attributes(auth_object = nil)
-    %w[id document_number fee_type amount fee_date verification_status notes created_at updated_at flex_field_11 external_fee_id plan_or_pre_application product expense_corresponding_plan expense_associated_application flex_field_6 flex_field_7]
+  # Mark this fee detail as problematic
+  def mark_as_problematic
+    update(verification_status: VERIFICATION_STATUS_PROBLEMATIC)
   end
   
-  def self.ransackable_associations(auth_object = nil)
-    %w[reimbursement work_orders work_order_fee_details] # 添加了新的关联
+  # Get the meeting type context for this fee detail
+  # This is used to determine which fee types to show in the dropdown
+  def meeting_type_context
+    # Logic to determine if this is a personal or academic expense
+    # This is a simplified example - you would need more sophisticated logic based on your data
+    document_name = reimbursement&.document_name.to_s
+    
+    return "个人" if document_name.include?("个人") || document_name.include?("交通") || document_name.include?("电话")
+    return "学术论坛" if document_name.include?("学术") || document_name.include?("会议") || document_name.include?("论坛")
+    
+    # Check flex_field_7 for additional context (for academic meetings)
+    return "学术论坛" if flex_field_7.to_s.include?("学术") || flex_field_7.to_s.include?("会议")
+    
+    # Default
+    "个人"
   end
-  
-  def summary_for_selection
-    "ID: #{id} - #{fee_type} (#{amount} 元)"
-  end
-  
-  private
-  
-  # def update_reimbursement_status
-  #   return unless reimbursement.present?
-  #   
-  #   reimbursement.reload
-  #   
-  #   # If verification_status changed to VERIFIED
-  #   if verification_status == VERIFICATION_STATUS_VERIFIED
-  #     # If all fee details for the reimbursement are now verified
-  #     if reimbursement.all_fee_details_verified?
-  #       # What should happen to reimbursement status? 
-  #       # Previously, it tried to set to 'waiting_completion'.
-  #       # For now, let's assume it remains 'processing' or is handled by WorkOrder logic.
-  #       # No direct status update here to prevent errors, unless a new valid state is defined.
-  #       Rails.logger.info "FeeDetail ##{id}: All fee details for Reimbursement ##{reimbursement.id} are now verified."
-  #       # reimbursement.update(status: 'new_approved_state') # If there was a new target state
-  #     else
-  #       # If some details are verified but not all, ensure reimbursement is at least processing if it was pending.
-  #       reimbursement.update(status: 'processing') if reimbursement.pending?
-  #     end
-  #   # If verification_status changed FROM VERIFIED to something else
-  #   elsif verification_status_before_last_save == VERIFICATION_STATUS_VERIFIED
-  #     # If a fee detail that was verified is no longer verified, 
-  #     # reimbursement should be in 'processing' if it wasn't already pending.
-  #     # We need to know what state it would have been in if waiting_completion was valid.
-  #     # Assuming it implies it was effectively 'processing' or a precursor to 'closed'.
-  #     # If it's not pending, ensure it is processing.
-  #     if reimbursement.status != 'pending' && reimbursement.status != 'processing'
-  #        # This case means it might have been 'closed' or some other state and a verified detail became unverified.
-  #        # This typically implies it should go back to 'processing'.
-  #        reimbursement.update(status: 'processing')
-  #        Rails.logger.info "FeeDetail ##{id}: Reimbursement ##{reimbursement.id} status moved to 'processing' because a verified detail was un-verified."
-  #     elsif reimbursement.pending?
-  #       # If it's pending, it should stay pending or move to processing by other logic, not revert from a higher state.
-  #     else 
-  #       # It's already processing, no change needed in this specific path.
-  #     end
-  #   end
-  # rescue ActiveRecord::RecordNotFound
-  #   Rails.logger.error "Reimbursement not found for FeeDetail ##{id} during status update callback."
-  # rescue => e # Catch other potential errors like NoMethodError if status methods are missing
-  #   Rails.logger.error "Error in FeeDetail#update_reimbursement_status for FeeDetail ##{id}: #{e.message}"
-  #   Rails.logger.error e.backtrace.join("\n")
-  # end
 end

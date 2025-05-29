@@ -36,3 +36,7 @@
 
 sci2_development
 sci2_test
+
+.auto-coder/
+/actions/
+/output.txt
