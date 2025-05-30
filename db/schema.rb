@@ -186,6 +186,8 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000007) do
     t.datetime "updated_at", null: false
     t.integer "problem_type_id"
     t.string "initiator_role", default: "internal"
+    t.string "communication_method"
+    t.integer "fee_type_id"
     t.index ["created_by"], name: "index_work_orders_on_created_by"
     t.index ["reimbursement_id", "tracking_number"], name: "index_work_orders_on_reimbursement_and_tracking", where: "type = 'ExpressReceiptWorkOrder' AND tracking_number IS NOT NULL"
     t.index ["reimbursement_id"], name: "index_work_orders_on_reimbursement_id"

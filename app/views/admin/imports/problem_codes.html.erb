@@ -1,0 +1,63 @@
+<h2>导入问题代码</h2>
+
+<div class="panel">
+  <div class="panel_contents">
+    <p>通过CSV文件导入问题代码库。CSV文件应包含以下列：</p>
+    <ul>
+      <li><strong>费用类型代码</strong> - 费用类型的唯一代码</li>
+      <li><strong>费用类型名称</strong> - 费用类型的名称</li>
+      <li><strong>问题代码</strong> - 问题类型的代码（在费用类型内唯一）</li>
+      <li><strong>问题名称</strong> - 问题类型的名称</li>
+      <li><strong>SOP描述</strong> - 标准操作流程描述</li>
+      <li><strong>标准处理方法</strong> - 问题的标准处理方法</li>
+    </ul>
+    
+    <p>示例CSV格式：</p>
+    <pre>
+费用类型代码,费用类型名称,问题代码,问题名称,SOP描述,标准处理方法
+A01,交通费,001,票据不合规,检查票据是否符合财务规定,要求提供合规票据
+A01,交通费,002,金额超标,检查金额是否超过规定限额,要求说明超标原因或调整金额
+A02,住宿费,001,住宿天数与行程不符,核对住宿天数与行程安排,要求提供行程说明
+    </pre>
+  </div>
+</div>
+
+<%= form_tag import_problem_codes_admin_imports_path, multipart: true do %>
+  <fieldset class="inputs">
+    <legend><span>导入设置</span></legend>
+    <ol>
+      <li class="file input optional">
+        <label for="file">CSV文件</label>
+        <%= file_field_tag :file, accept: '.csv' %>
+      </li>
+      <li class="select input required">
+        <label for="meeting_type">会议类型<abbr title="必填">*</abbr></label>
+        <%= select_tag :meeting_type, options_for_select([['个人', '个人'], ['学术论坛', '学术论坛']]), prompt: '请选择会议类型' %>
+      </li>
+    </ol>
+  </fieldset>
+  
+  <fieldset class="actions">
+    <ol>
+      <li class="action input_action">
+        <%= submit_tag "导入", data: { disable_with: "导入中..." } %>
+      </li>
+      <li class="cancel">
+        <%= link_to "取消", admin_imports_path %>
+      </li>
+    </ol>
+  </fieldset>
+<% end %>
+
+<div class="panel">
+  <h3>注意事项</h3>
+  <div class="panel_contents">
+    <ul>
+      <li>CSV文件必须使用UTF-8编码</li>
+      <li>如果费用类型代码已存在，将更新其名称</li>
+      <li>如果问题代码在同一费用类型下已存在，将更新其信息</li>
+      <li>所有导入的费用类型和问题类型默认为激活状态</li>
+      <li>会议类型（个人/学术论坛）将应用于所有导入的费用类型</li>
+    </ul>
+  </div>
+</div>

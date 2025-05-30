@@ -19,8 +19,8 @@ class WorkOrderService
     # Model validations will check for audit_comment if opinion is '可以通过'
     assign_shared_attributes(params) 
 
-    if @work_order.may_mark_as_approved? 
-      @work_order.mark_as_approved!(@current_admin_user)
+    if @work_order.may_approve?
+      @work_order.approve
       # Model's after_transition should set audit_date
       # Model's validations for approved state should have run.
       return true unless @work_order.errors.any? # Check for validation errors after state change
@@ -43,8 +43,8 @@ class WorkOrderService
     # Model validations will check for these if opinion is '无法通过'
     assign_shared_attributes(params) 
 
-    if @work_order.may_mark_as_rejected? 
-      @work_order.mark_as_rejected!(@current_admin_user)
+    if @work_order.may_reject?
+      @work_order.reject
       # Model's after_transition should set audit_date
       # Model's validations for rejected state should have run.
       return true unless @work_order.errors.any? # Check for validation errors after state change
@@ -140,10 +140,34 @@ class WorkOrderService
     end
   end
   
+  # 处理费用明细选择
+  def process_fee_detail_selections(fee_detail_ids)
+    return if fee_detail_ids.blank?
+    
+    # 清除现有关联
+    @work_order.work_order_fee_details.destroy_all
+    
+    # 创建新关联
+    fee_detail_ids.each do |fee_detail_id|
+      fee_detail = FeeDetail.find_by(id: fee_detail_id)
+      next unless fee_detail
+      
+      # 确保费用明细属于同一个报销单
+      next unless fee_detail.document_number == @work_order.reimbursement.invoice_number
+      
+      # 创建关联
+      WorkOrderFeeDetail.create!(
+        work_order: @work_order,
+        fee_detail: fee_detail,
+        work_order_type: @work_order.type
+      )
+    end
+  end
+  
   def assign_shared_attributes(params)
     shared_attr_keys = [
-      :remark, :processing_opinion, :audit_comment, 
-      :problem_type_id, :problem_description_id,
+      :remark, :processing_opinion, :audit_comment,
+      :problem_type_id, :fee_type_id,
       # AuditWorkOrder specific fields that are now shared due to alignment
       :audit_result # audit_result if it's set directly, though status implies it
                                    # For CommunicationWorkOrder, these would be nil or handled by model defaults if any
@@ -155,7 +179,29 @@ class WorkOrderService
     # If audit_result is a direct input field (e.g. from a form for specific cases), this is fine.
     # But our current design: status implies audit_result ('approved'/'rejected')
     attrs_to_assign.delete(:audit_result) # Let status dictate this, model has audit_result column for db persistence
-
+    
+    # Handle fee_type_id separately - it's not directly stored but used to filter problem_types
+    fee_type_id = attrs_to_assign.delete(:fee_type_id)
+    submitted_fee_detail_ids = attrs_to_assign.delete(:submitted_fee_detail_ids)
+    
+    # Assign the remaining attributes
     @work_order.assign_attributes(attrs_to_assign) if attrs_to_assign.present?
+    
+    # 处理费用明细选择
+    if submitted_fee_detail_ids.present?
+      process_fee_detail_selections(submitted_fee_detail_ids)
+    end
+    
+    # 处理费用类型和问题类型关联
+    if fee_type_id.present?
+      @work_order.fee_type_id = fee_type_id
+      
+      # If problem_type_id is not set but fee_type_id is provided, try to find a default problem_type
+      if !@work_order.problem_type_id.present?
+        # Find the first active problem_type for this fee_type
+        default_problem_type = ProblemType.where(fee_type_id: fee_type_id).first
+        @work_order.problem_type_id = default_problem_type.id if default_problem_type
+      end
+    end
   end
 end 

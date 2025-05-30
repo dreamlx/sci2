@@ -45,6 +45,27 @@ class Reimbursement < ApplicationRecord
   scope :electronic, -> { where(is_electronic: true) }
   scope :non_electronic, -> { where(is_electronic: false) }
   
+  # Class methods for scopes (for shoulda-matchers compatibility)
+  def self.pending
+    where(status: STATUS_PENDING)
+  end
+  
+  def self.processing
+    where(status: STATUS_PROCESSING)
+  end
+  
+  def self.closed
+    where(status: STATUS_CLOSED)
+  end
+  
+  def self.electronic
+    where(is_electronic: true)
+  end
+  
+  def self.non_electronic
+    where(is_electronic: false)
+  end
+  
   # ActiveAdmin configuration
   def self.ransackable_attributes(auth_object = nil)
     %w[id invoice_number document_name applicant applicant_id company department 
@@ -99,6 +120,29 @@ class Reimbursement < ApplicationRecord
   def close!
     return false unless can_be_closed?
     update(status: STATUS_CLOSED)
+  end
+  
+  # Update the status based on fee details
+  def update_status_based_on_fee_details!
+    if processing?
+      # If all fee details are verified, close the reimbursement
+      if all_fee_details_verified?
+        close!
+      end
+    elsif closed?
+      # If any fee detail is problematic, reopen the reimbursement
+      if any_fee_details_problematic?
+        reopen_to_processing!
+      end
+    end
+    
+    true
+  end
+  
+  # Reopen a closed reimbursement to processing
+  def reopen_to_processing!
+    return false unless closed?
+    update(status: STATUS_PROCESSING)
   end
   
   # Check if work orders can be created for this reimbursement

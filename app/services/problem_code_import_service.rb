@@ -8,11 +8,32 @@ class ProblemCodeImportService
   end
   
   def import
-    ActiveRecord::Base.transaction do
-      CSV.foreach(@file_path, headers: true, encoding: 'UTF-8') do |row|
-        process_row(row)
+    result = {
+      success: true,
+      imported_fee_types: 0,
+      imported_problem_types: 0,
+      updated_fee_types: 0,
+      updated_problem_types: 0,
+      error: nil
+    }
+    
+    begin
+      ActiveRecord::Base.transaction do
+        CSV.foreach(@file_path, headers: true, encoding: 'UTF-8') do |row|
+          fee_type_created, fee_type_updated, problem_type_created, problem_type_updated = process_row(row)
+          
+          result[:imported_fee_types] += 1 if fee_type_created
+          result[:updated_fee_types] += 1 if fee_type_updated
+          result[:imported_problem_types] += 1 if problem_type_created
+          result[:updated_problem_types] += 1 if problem_type_updated
+        end
       end
+    rescue => e
+      result[:success] = false
+      result[:error] = e.message
     end
+    
+    result
   end
   
   private
@@ -29,18 +50,26 @@ class ProblemCodeImportService
     standard_handling = row['标准处理方法']&.strip
     
     # Skip if essential data is missing
-    return if fee_type_code.blank? || fee_type_title.blank? || problem_code.blank? || problem_title.blank?
+    return [false, false, false, false] if fee_type_code.blank? || fee_type_title.blank? || problem_code.blank? || problem_title.blank?
+    
+    # Track if records were created or updated
+    fee_type_created = false
+    fee_type_updated = false
+    problem_type_created = false
+    problem_type_updated = false
     
     # Find or create fee type
     fee_type = FeeType.find_or_create_by(code: fee_type_code) do |ft|
       ft.title = fee_type_title
       ft.meeting_type = @meeting_type
       ft.active = true
+      fee_type_created = true
     end
     
     # Update fee type if it exists but has different title
-    if fee_type.title != fee_type_title
-      fee_type.update(title: fee_type_title)
+    if !fee_type_created && (fee_type.title != fee_type_title || fee_type.meeting_type != @meeting_type)
+      fee_type.update(title: fee_type_title, meeting_type: @meeting_type)
+      fee_type_updated = true
     end
     
     # Find or create problem type
@@ -49,18 +78,23 @@ class ProblemCodeImportService
       pt.sop_description = sop_description || "标准操作流程待定"
       pt.standard_handling = standard_handling || "标准处理方法待定"
       pt.active = true
+      problem_type_created = true
     end
     
     # Update problem type if it exists but has different attributes
-    if problem_type.title != problem_title || 
-       problem_type.sop_description != sop_description ||
-       problem_type.standard_handling != standard_handling
+    if !problem_type_created &&
+       (problem_type.title != problem_title ||
+        problem_type.sop_description != sop_description ||
+        problem_type.standard_handling != standard_handling)
       
       problem_type.update(
         title: problem_title,
         sop_description: sop_description || problem_type.sop_description,
         standard_handling: standard_handling || problem_type.standard_handling
       )
+      problem_type_updated = true
     end
+    
+    [fee_type_created, fee_type_updated, problem_type_created, problem_type_updated]
   end
 end

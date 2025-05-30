@@ -1,6 +1,7 @@
 ActiveAdmin.register_page "Imports" do
-  menu false # 隐藏菜单项，仅用于API
+  menu priority: 10, label: "数据导入", parent: "数据管理"
 
+  # 操作历史导入
   page_action :operation_histories, method: :get do
     render "admin/imports/operation_histories"
   end
@@ -24,6 +25,63 @@ ActiveAdmin.register_page "Imports" do
       alert_message = "导入失败: #{result[:errors].join(', ')}"
       alert_message += " 错误详情: #{result[:error_details].join('; ')}" if result[:error_details].present?
       redirect_to operation_histories_admin_imports_path, alert: alert_message
+    end
+  end
+  
+  # 问题代码导入
+  page_action :new, method: :get do
+    @resource = params[:resource]
+    case @resource
+    when 'problem_codes'
+      render "admin/imports/problem_codes"
+    else
+      redirect_to admin_dashboard_path, alert: "未知的导入资源类型"
+    end
+  end
+  
+  page_action :import_problem_codes, method: :post do
+    unless params[:file].present?
+      redirect_to new_admin_import_path(resource: 'problem_codes'), alert: "请选择要导入的文件。"
+      return
+    end
+    
+    meeting_type = params[:meeting_type]
+    unless ['个人', '学术论坛'].include?(meeting_type)
+      redirect_to new_admin_import_path(resource: 'problem_codes'), alert: "请选择有效的会议类型（个人或学术论坛）。"
+      return
+    end
+    
+    begin
+      service = ProblemCodeImportService.new(params[:file].path, meeting_type)
+      result = service.import
+      
+      if result[:success]
+        notice_message = "导入成功: #{result[:imported_fee_types]} 费用类型, #{result[:imported_problem_types]} 问题类型."
+        notice_message += " #{result[:updated_fee_types]} 费用类型更新, #{result[:updated_problem_types]} 问题类型更新." if result[:updated_fee_types].to_i > 0 || result[:updated_problem_types].to_i > 0
+        redirect_to admin_problem_types_path, notice: notice_message
+      else
+        alert_message = "导入失败: #{result[:error]}"
+        redirect_to new_admin_import_path(resource: 'problem_codes'), alert: alert_message
+      end
+    rescue => e
+      redirect_to new_admin_import_path(resource: 'problem_codes'), alert: "导入过程中发生错误: #{e.message}"
+    end
+  end
+  
+  # 主页
+  content title: "数据导入" do
+    div class: "blank_slate_container", id: "dashboard_default_message" do
+      span class: "blank_slate" do
+        span "选择要导入的数据类型"
+        small "点击下方链接进入相应的导入页面"
+      end
+    end
+    
+    div class: "admin_imports" do
+      ul do
+        li link_to "操作历史导入", operation_histories_admin_imports_path
+        li link_to "问题代码导入", new_admin_import_path(resource: 'problem_codes')
+      end
     end
   end
 end

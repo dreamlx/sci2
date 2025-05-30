@@ -27,6 +27,23 @@ class FeeDetail < ApplicationRecord
   scope :verified, -> { where(verification_status: VERIFICATION_STATUS_VERIFIED) }
   scope :by_document, ->(document_number) { where(document_number: document_number) }
   
+  # Class methods for scopes (for shoulda-matchers compatibility)
+  def self.pending
+    where(verification_status: VERIFICATION_STATUS_PENDING)
+  end
+  
+  def self.problematic
+    where(verification_status: VERIFICATION_STATUS_PROBLEMATIC)
+  end
+  
+  def self.verified
+    where(verification_status: VERIFICATION_STATUS_VERIFIED)
+  end
+  
+  def self.by_document(document_number)
+    where(document_number: document_number)
+  end
+  
   # ActiveAdmin configuration
   def self.ransackable_attributes(auth_object = nil)
     %w[id document_number fee_type amount fee_date verification_status month_belonging 
@@ -43,7 +60,11 @@ class FeeDetail < ApplicationRecord
   
   # Get the latest work order associated with this fee detail
   def latest_work_order
-    work_orders.order(updated_at: :desc).first
+    # 获取最新的工单（按更新时间排序）
+    work_order_ids = work_order_fee_details.pluck(:work_order_id)
+    return nil if work_order_ids.empty?
+    
+    WorkOrder.where(id: work_order_ids).order(updated_at: :desc).first
   end
   
   # Alias for compatibility with existing code
@@ -72,6 +93,45 @@ class FeeDetail < ApplicationRecord
   # Update the verification status based on the latest work order
   def update_verification_status
     FeeDetailStatusService.new([id]).update_status
+  end
+  
+  # Get all work orders that have affected this fee detail, ordered by recency
+  def work_order_history
+    # 获取所有工单，按更新时间排序
+    work_order_ids = work_order_fee_details.pluck(:work_order_id)
+    WorkOrder.where(id: work_order_ids).order(updated_at: :desc)
+  end
+  
+  # Get the status of the latest work order
+  def latest_work_order_status
+    latest = latest_work_order
+    latest&.status
+  end
+  
+  # Check if this fee detail has been approved by any work order
+  def approved_by_any_work_order?
+    work_order_ids = work_order_fee_details.pluck(:work_order_id)
+    return false if work_order_ids.empty?
+    
+    WorkOrder.where(id: work_order_ids, status: WorkOrder::STATUS_APPROVED).exists?
+  end
+  
+  # Check if this fee detail has been rejected by any work order
+  def rejected_by_any_work_order?
+    work_order_ids = work_order_fee_details.pluck(:work_order_id)
+    return false if work_order_ids.empty?
+    
+    WorkOrder.where(id: work_order_ids, status: WorkOrder::STATUS_REJECTED).exists?
+  end
+  
+  # Check if this fee detail has been approved by the latest work order
+  def approved_by_latest_work_order?
+    latest_work_order_status == WorkOrder::STATUS_APPROVED
+  end
+  
+  # Check if this fee detail has been rejected by the latest work order
+  def rejected_by_latest_work_order?
+    latest_work_order_status == WorkOrder::STATUS_REJECTED
   end
   
   # Mark this fee detail as verified

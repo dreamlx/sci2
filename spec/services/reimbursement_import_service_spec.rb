@@ -155,7 +155,7 @@ RSpec.describe ReimbursementImportService do
         result = service.import
 
         expect(result[:success]).to be false
-        expect(result[:errors].first).to include('导入过程中发生错误')
+        expect(result[:error_details].first).to include('导入过程中发生错误')
       end
     end
   end

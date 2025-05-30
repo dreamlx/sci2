@@ -5,9 +5,17 @@ namespace :problem_codes do
     personal_csv_path = Rails.root.join('docs', 'user_data', '个人问题code.csv')
     if File.exist?(personal_csv_path)
       puts "Importing personal problem codes from #{personal_csv_path}..."
-      importer = ProblemCodeImportService.new(personal_csv_path, "个人")
-      importer.import
-      puts "Personal problem codes imported successfully."
+      result = ProblemCodeImportService.new(personal_csv_path, "个人").import
+      
+      if result[:success]
+        puts "Personal problem codes imported successfully:"
+        puts "  - #{result[:imported_fee_types]} fee types created"
+        puts "  - #{result[:updated_fee_types]} fee types updated"
+        puts "  - #{result[:imported_problem_types]} problem types created"
+        puts "  - #{result[:updated_problem_types]} problem types updated"
+      else
+        puts "Error importing personal problem codes: #{result[:error]}"
+      end
     else
       puts "Warning: Personal problem codes CSV file not found at #{personal_csv_path}"
     end
@@ -16,9 +24,17 @@ namespace :problem_codes do
     academic_csv_path = Rails.root.join('docs', 'user_data', '学术问题code.csv')
     if File.exist?(academic_csv_path)
       puts "Importing academic problem codes from #{academic_csv_path}..."
-      importer = ProblemCodeImportService.new(academic_csv_path, "学术论坛")
-      importer.import
-      puts "Academic problem codes imported successfully."
+      result = ProblemCodeImportService.new(academic_csv_path, "学术论坛").import
+      
+      if result[:success]
+        puts "Academic problem codes imported successfully:"
+        puts "  - #{result[:imported_fee_types]} fee types created"
+        puts "  - #{result[:updated_fee_types]} fee types updated"
+        puts "  - #{result[:imported_problem_types]} problem types created"
+        puts "  - #{result[:updated_problem_types]} problem types updated"
+      else
+        puts "Error importing academic problem codes: #{result[:error]}"
+      end
     else
       puts "Warning: Academic problem codes CSV file not found at #{academic_csv_path}"
     end

@@ -6,6 +6,7 @@ class WorkOrder < ApplicationRecord
   belongs_to :reimbursement
   belongs_to :creator, class_name: 'AdminUser', foreign_key: 'created_by', optional: true
   belongs_to :problem_type, optional: true
+  belongs_to :fee_type, optional: true
   has_many :work_order_status_changes, as: :work_order, dependent: :destroy
   has_many :work_order_fee_details, dependent: :destroy
   has_many :fee_details, through: :work_order_fee_details
@@ -18,6 +19,16 @@ class WorkOrder < ApplicationRecord
   STATUS_PENDING = 'pending'.freeze
   STATUS_APPROVED = 'approved'.freeze
   STATUS_REJECTED = 'rejected'.freeze
+  
+  # 用于表单中选择费用明细
+  def submitted_fee_detail_ids
+    fee_details.pluck(:id).map(&:to_s)
+  end
+  
+  def submitted_fee_detail_ids=(ids)
+    # 这个方法会在表单提交时被调用
+    # 实际处理在 WorkOrderService 中完成
+  end
   STATUS_COMPLETED = 'completed'.freeze
   
   # State Machine
@@ -36,6 +47,19 @@ class WorkOrder < ApplicationRecord
     
     event :reopen do
       transition :completed => :pending
+    end
+    
+    # 添加状态机方法
+    event :mark_as_approved do
+      transition [:pending, :rejected] => :approved
+    end
+    
+    event :mark_as_rejected do
+      transition [:pending, :approved] => :rejected
+    end
+    
+    event :mark_as_completed do
+      transition [:pending, :approved, :rejected] => :completed
     end
   end
   
@@ -84,6 +108,16 @@ class WorkOrder < ApplicationRecord
   # Check if the work order can be modified based on reimbursement status
   def can_be_modified?
     !reimbursement.closed?
+  end
+  
+  # Check if the work order is editable
+  def editable?
+    !completed? && can_be_modified?
+  end
+  
+  # Check if the work order is completed
+  def completed?
+    status == STATUS_COMPLETED
   end
   
   private

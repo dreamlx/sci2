@@ -40,9 +40,16 @@ RSpec.describe ProblemCodeImportService, type: :service do
       File.unlink(academic_csv_file) if File.exist?(academic_csv_file)
     end
     
-    it "imports personal problem codes correctly" do
+    it "imports personal problem codes correctly and returns proper result" do
       service = ProblemCodeImportService.new(personal_csv_file, "个人")
-      service.import
+      result = service.import
+      
+      # Check result hash
+      expect(result[:success]).to be true
+      expect(result[:imported_fee_types]).to eq(2)
+      expect(result[:imported_problem_types]).to eq(3)
+      expect(result[:updated_fee_types]).to eq(0)
+      expect(result[:updated_problem_types]).to eq(0)
       
       # Check fee types
       expect(FeeType.count).to eq(2)
@@ -84,9 +91,16 @@ RSpec.describe ProblemCodeImportService, type: :service do
       expect(phone_problem.active).to be true
     end
     
-    it "imports academic problem codes correctly" do
+    it "imports academic problem codes correctly and returns proper result" do
       service = ProblemCodeImportService.new(academic_csv_file, "学术论坛")
-      service.import
+      result = service.import
+      
+      # Check result hash
+      expect(result[:success]).to be true
+      expect(result[:imported_fee_types]).to eq(2)
+      expect(result[:imported_problem_types]).to eq(3)
+      expect(result[:updated_fee_types]).to eq(0)
+      expect(result[:updated_problem_types]).to eq(0)
       
       # Check fee types
       expect(FeeType.count).to eq(2)
@@ -128,7 +142,7 @@ RSpec.describe ProblemCodeImportService, type: :service do
       expect(dining_problem.active).to be true
     end
     
-    it "updates existing fee types and problem types" do
+    it "updates existing fee types and problem types and returns proper result" do
       # First import
       service = ProblemCodeImportService.new(personal_csv_file, "个人")
       service.import
@@ -146,7 +160,14 @@ RSpec.describe ProblemCodeImportService, type: :service do
       
       # Second import
       service = ProblemCodeImportService.new(modified_csv_file.path, "个人")
-      service.import
+      result = service.import
+      
+      # Check result hash
+      expect(result[:success]).to be true
+      expect(result[:imported_fee_types]).to eq(0)
+      expect(result[:imported_problem_types]).to eq(1)
+      expect(result[:updated_fee_types]).to eq(1)
+      expect(result[:updated_problem_types]).to eq(1)
       
       # Check updates
       traffic_fee_type = FeeType.find_by(code: "00")
@@ -168,7 +189,7 @@ RSpec.describe ProblemCodeImportService, type: :service do
       File.unlink(modified_csv_file.path) if File.exist?(modified_csv_file.path)
     end
     
-    it "handles missing or invalid data gracefully" do
+    it "handles missing or invalid data gracefully and returns proper result" do
       invalid_csv_content = <<~CSV
         费用类型代码,费用类型名称,问题代码,问题名称,SOP描述,标准处理方法
         ,月度交通费（销售/SMO/CO）,01,燃油费行程问题,检查燃油费是否与行程匹配,要求提供详细行程单
@@ -182,7 +203,14 @@ RSpec.describe ProblemCodeImportService, type: :service do
       invalid_csv_file.close
       
       service = ProblemCodeImportService.new(invalid_csv_file.path, "个人")
-      service.import
+      result = service.import
+      
+      # Check result hash
+      expect(result[:success]).to be true
+      expect(result[:imported_fee_types]).to eq(0)
+      expect(result[:imported_problem_types]).to eq(0)
+      expect(result[:updated_fee_types]).to eq(0)
+      expect(result[:updated_problem_types]).to eq(0)
       
       # No fee types or problem types should be created
       expect(FeeType.count).to eq(0)
@@ -190,6 +218,16 @@ RSpec.describe ProblemCodeImportService, type: :service do
       
       # Clean up
       File.unlink(invalid_csv_file.path) if File.exist?(invalid_csv_file.path)
+    end
+    
+    it "returns error information when an exception occurs" do
+      # Create a service with an invalid file path
+      service = ProblemCodeImportService.new("/non/existent/file.csv", "个人")
+      result = service.import
+      
+      # Check result hash
+      expect(result[:success]).to be false
+      expect(result[:error]).to be_present
     end
   end
 end

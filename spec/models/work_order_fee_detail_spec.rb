@@ -40,6 +40,14 @@ RSpec.describe WorkOrderFeeDetail, type: :model do
     it "has a scope for filtering by work_order_type" do
       expect(WorkOrderFeeDetail).to respond_to(:by_work_order_type)
     end
+    
+    it "has a scope for filtering by fee_detail" do
+      expect(WorkOrderFeeDetail).to respond_to(:by_fee_detail)
+    end
+    
+    it "has a scope for filtering by work_order" do
+      expect(WorkOrderFeeDetail).to respond_to(:by_work_order)
+    end
   end
 
   # Methods
@@ -66,6 +74,78 @@ RSpec.describe WorkOrderFeeDetail, type: :model do
       )
       
       expect(work_order_fee_detail.fee_detail).to eq(fee_detail)
+    end
+  end
+  
+  # Callbacks
+  describe "integration with fee detail status" do
+    it "creates a valid association between work order and fee detail" do
+      # Setup
+      reimbursement = create(:reimbursement, status: "processing")
+      fee_detail = create(:fee_detail, :with_reimbursement, verification_status: "pending")
+      work_order = create(:audit_work_order, reimbursement: reimbursement, status: "approved")
+      
+      # Create the association
+      work_order_fee_detail = WorkOrderFeeDetail.create!(
+        work_order_id: work_order.id,
+        work_order_type: work_order.type,
+        fee_detail_id: fee_detail.id
+      )
+      
+      # Verify the association was created
+      expect(work_order_fee_detail).to be_persisted
+      expect(work_order_fee_detail.work_order).to eq(work_order)
+      expect(work_order_fee_detail.fee_detail).to eq(fee_detail)
+    end
+    
+    it "updates fee detail status after destroy" do
+      # Setup
+      reimbursement = create(:reimbursement, status: "processing")
+      fee_detail = create(:fee_detail, :with_reimbursement, verification_status: "pending")
+      work_order = create(:audit_work_order, reimbursement: reimbursement, status: "approved")
+      
+      # Create the association
+      association = WorkOrderFeeDetail.create!(
+        work_order_id: work_order.id,
+        work_order_type: work_order.type,
+        fee_detail_id: fee_detail.id
+      )
+      
+      # Expect the FeeDetailStatusService to be called
+      expect_any_instance_of(FeeDetailStatusService).to receive(:update_status).once
+      
+      # Destroy the association
+      association.destroy
+    end
+    
+    it "allows multiple work orders to be associated with a fee detail" do
+      # Setup
+      reimbursement = create(:reimbursement, status: "processing")
+      fee_detail = create(:fee_detail, :with_reimbursement, verification_status: "pending")
+      
+      # Create work orders
+      work_order1 = create(:audit_work_order, reimbursement: reimbursement, status: "approved")
+      work_order2 = create(:audit_work_order, reimbursement: reimbursement, status: "rejected")
+      
+      # Create associations
+      work_order_fee_detail1 = WorkOrderFeeDetail.create!(
+        work_order_id: work_order1.id,
+        work_order_type: work_order1.type,
+        fee_detail_id: fee_detail.id
+      )
+      
+      work_order_fee_detail2 = WorkOrderFeeDetail.create!(
+        work_order_id: work_order2.id,
+        work_order_type: work_order2.type,
+        fee_detail_id: fee_detail.id
+      )
+      
+      # Verify the associations were created
+      expect(work_order_fee_detail1).to be_persisted
+      expect(work_order_fee_detail2).to be_persisted
+      
+      # Verify the fee detail has both work orders
+      expect(fee_detail.work_order_fee_details.count).to eq(2)
     end
   end
 end
