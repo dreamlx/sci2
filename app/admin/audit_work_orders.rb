@@ -136,12 +136,13 @@ ActiveAdmin.register AuditWorkOrder do
   #   redirect_to collection_path, notice: "已尝试将选中的工单标记为处理中"
   # end
 
-  # 范围过滤器 - Temporarily commented out to fix the "undefined local variable or method 'collection_before_scope'" error
-  # scope :all, default: true
-  # scope :pending
+  # 范围过滤器
+  scope :all, default: true
+  scope :pending
   # scope :processing # REMOVED: 'processing' state and scope were removed from WorkOrder model
-  # scope :approved
-  # scope :rejected
+  scope :approved
+  scope :rejected
+  scope :completed
 
   # 操作按钮
   # REMOVED: start_processing action item as 'processing' state is removed
@@ -191,7 +192,7 @@ ActiveAdmin.register AuditWorkOrder do
     # Ensure :processing_opinion is part of the permitted params for approval logic
     permitted_params = params.require(:audit_work_order).permit(
       :audit_comment, :processing_opinion,
-      :problem_type_id, :problem_description_id, :remark, # Shared fields
+      :problem_type_id, :remark, # Shared fields
       :vat_verified # AuditWorkOrder specific, if still needed here
       # fee_detail_ids: [] # If fee details are managed on this form
     ).merge(processing_opinion: '可以通过') # Explicitly set for approval
@@ -218,7 +219,7 @@ ActiveAdmin.register AuditWorkOrder do
     # Ensure :processing_opinion is part of the permitted params for rejection logic
     permitted_params = params.require(:audit_work_order).permit(
       :audit_comment, :processing_opinion,
-      :problem_type_id, :problem_description_id, :remark, # Shared fields
+      :problem_type_id, :remark, # Shared fields
       :vat_verified # AuditWorkOrder specific, if still needed here
       # fee_detail_ids: [] # If fee details are managed on this form
     ).merge(processing_opinion: '无法通过') # Explicitly set for rejection

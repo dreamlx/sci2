@@ -1,7 +1,7 @@
 ActiveAdmin.register CommunicationWorkOrder do
   permit_params :reimbursement_id, :audit_comment, # creator_id by controller, audit_date by system
                 # Shared fields (initiator_role & communication_method removed)
-                :problem_type_id, :problem_description_id, :remark, :processing_opinion,
+                :problem_type_id, :remark, :processing_opinion,
                 submitted_fee_detail_ids: [] # Renamed from fee_detail_ids
 
   menu priority: 5, label: "沟通工单", parent: "工单管理"
@@ -10,7 +10,7 @@ ActiveAdmin.register CommunicationWorkOrder do
 
   controller do
     def scoped_collection
-      CommunicationWorkOrder.includes(:reimbursement, :creator, :problem_type, :problem_description, :fee_details) # Added problem_type, problem_description, fee_details
+      CommunicationWorkOrder.includes(:reimbursement, :creator, :problem_type, :fee_details) # Added problem_type, fee_details
     end
 
     def build_new_resource
@@ -30,8 +30,8 @@ ActiveAdmin.register CommunicationWorkOrder do
       # This aligns with the main `permit_params` definition for the resource.
       _params = params.require(:communication_work_order).permit(
         :reimbursement_id, :audit_comment,
-        :problem_type_id, :problem_description_id, :remark, :processing_opinion,
-        submitted_fee_detail_ids: [] 
+        :problem_type_id, :remark, :processing_opinion,
+        submitted_fee_detail_ids: []
       )
 
       @communication_work_order = CommunicationWorkOrder.new(_params.except(:submitted_fee_detail_ids))
@@ -93,7 +93,6 @@ ActiveAdmin.register CommunicationWorkOrder do
       params.require(:communication_work_order).permit(
         :processing_opinion,
         :problem_type_id,
-        :problem_description_id,
         :audit_comment,
         :remark,
         submitted_fee_detail_ids: [] # If editable
@@ -112,11 +111,12 @@ ActiveAdmin.register CommunicationWorkOrder do
   # Disable filters completely
   config.filters = false
 
-  # Temporarily removing scopes to fix the "undefined local variable or method 'collection_before_scope'" error
-  # scope :all, default: true
-  # scope :pending
-  # scope :approved
-  # scope :rejected
+  # Scopes
+  scope :all, default: true
+  scope :pending
+  scope :approved
+  scope :rejected
+  scope :completed
 
   member_action :verify_fee_detail, method: :get do
     @work_order = resource
@@ -188,7 +188,6 @@ ActiveAdmin.register CommunicationWorkOrder do
         row :audit_comment
         row :processing_opinion
         row :problem_type_id do |wo| wo.problem_type&.name end
-        row :problem_description_id do |wo| wo.problem_description&.description end
         row :remark
         row :creator
         row :created_at
@@ -252,10 +251,9 @@ ActiveAdmin.register CommunicationWorkOrder do
             f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '请选择处理意见', input_html: { id: 'communication_work_order_processing_opinion' }
             
             # Order: 3. 问题类型 (Conditionally Visible)
-            f.input :problem_type_id, as: :select, collection: ProblemType.all.map { |pt| [pt.name, pt.id] }, include_blank: '请选择问题类型', wrapper_html: { id: 'communication_problem_type_row', style: 'display:none;' }
+            f.input :problem_type_id, as: :select, collection: ProblemType.all.map { |pt| [pt.display_name, pt.id] }, include_blank: '请选择问题类型', wrapper_html: { id: 'communication_problem_type_row', style: 'display:none;' }
             
-            # Order: 4. 问题说明 (Conditionally Visible)
-            f.input :problem_description_id, as: :select, collection: ProblemDescription.all.map { |pd| [pd.description, pd.id] }, include_blank: '请选择问题描述', wrapper_html: { id: 'communication_problem_description_row', style: 'display:none;' }
+            # Order: 4. 审核意见 (Conditionally Visible)
             f.input :audit_comment, label: "审核意见", wrapper_html: { id: 'communication_audit_comment_row', style: 'display:none;' }
             # Order: 5. 备注
             f.input :remark, label: "备注", wrapper_html: { id: 'communication_remark_row', style: 'display:none;' }
@@ -270,25 +268,22 @@ ActiveAdmin.register CommunicationWorkOrder do
           document.addEventListener('DOMContentLoaded', function() {
             const processingOpinionSelect = document.getElementById('communication_work_order_processing_opinion');
             const problemTypeRow = document.getElementById('communication_problem_type_row');
-            const problemDescriptionRow = document.getElementById('communication_problem_description_row');
             const auditCommentRow = document.getElementById('communication_audit_comment_row');
             const remarkRow = document.getElementById('communication_remark_row');
 
             function toggleFields() {
-              if (!processingOpinionSelect || !problemTypeRow || !problemDescriptionRow || !auditCommentRow || !remarkRow) {
+              if (!processingOpinionSelect || !problemTypeRow || !auditCommentRow || !remarkRow) {
                 console.warn('One or more conditional fields not found for CommunicationWorkOrder form.');
                 return;
               }
               const selectedValue = processingOpinionSelect.value;
 
               problemTypeRow.style.display = 'none';
-              problemDescriptionRow.style.display = 'none';
               auditCommentRow.style.display = 'none';
               remarkRow.style.display = 'none';
 
               if (selectedValue === '无法通过') {
                 problemTypeRow.style.display = 'list-item';
-                problemDescriptionRow.style.display = 'list-item';
                 auditCommentRow.style.display = 'list-item';
                 remarkRow.style.display = 'list-item';
               } else if (selectedValue === '可以通过') {

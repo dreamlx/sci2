@@ -7,27 +7,32 @@ if Rails.env.development? && AdminUser.count == 0
   AdminUser.create!(email: 'admin@example.com', password: 'password', password_confirmation: 'password')
 end
 
-# 问题类型
-problem_types = %w[发票问题 金额问题].map { |name| ProblemType.find_or_create_by!(name: name) }
-
-# 问题说明
-ProblemDescription.find_or_create_by!(problem_type: problem_types[0], description: '发票抬头错误')
-ProblemDescription.find_or_create_by!(problem_type: problem_types[0], description: '发票号码缺失')
-ProblemDescription.find_or_create_by!(problem_type: problem_types[1], description: '金额填写错误')
-
-# 保留新增的分类数据
-# 创建默认的"其他"分类
-other_category = DocumentCategory.find_or_create_by!(name: '其他类别') do |cat|
-  cat.keywords = ''
-  cat.active = true
+# 创建费用类型
+fee_type_1 = FeeType.find_or_create_by!(code: 'FT001', name: '交通费') do |ft|
+  ft.active = true
 end
 
-other_problem_type = ProblemType.find_or_create_by!(name: '其他问题') do |pt|
-  pt.document_category = other_category
+fee_type_2 = FeeType.find_or_create_by!(code: 'FT002', name: '餐饮费') do |ft|
+  ft.active = true
+end
+
+# 创建问题类型
+ProblemType.find_or_create_by!(code: 'PT001', name: '发票问题') do |pt|
+  pt.fee_type = fee_type_1
   pt.active = true
 end
 
-ProblemDescription.find_or_create_by!(description: '其他描述') do |pd|
-  pd.problem_type = other_problem_type
-  pd.active = true
+ProblemType.find_or_create_by!(code: 'PT002', name: '金额错误') do |pt|
+  pt.fee_type = fee_type_1
+  pt.active = true
+end
+
+ProblemType.find_or_create_by!(code: 'PT003', name: '费用类型错误') do |pt|
+  pt.fee_type = fee_type_2
+  pt.active = true
+end
+
+ProblemType.find_or_create_by!(code: 'PT004', name: '其他问题') do |pt|
+  pt.fee_type = fee_type_2
+  pt.active = true
 end

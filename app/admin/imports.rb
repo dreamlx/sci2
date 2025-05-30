@@ -33,7 +33,7 @@ ActiveAdmin.register_page "Imports" do
     @resource = params[:resource]
     case @resource
     when 'problem_codes'
-      render "admin/imports/problem_codes"
+      render "admin/imports/problem_codes", layout: 'active_admin'
     else
       redirect_to admin_dashboard_path, alert: "未知的导入资源类型"
     end
@@ -41,18 +41,12 @@ ActiveAdmin.register_page "Imports" do
   
   page_action :import_problem_codes, method: :post do
     unless params[:file].present?
-      redirect_to new_admin_import_path(resource: 'problem_codes'), alert: "请选择要导入的文件。"
-      return
-    end
-    
-    meeting_type = params[:meeting_type]
-    unless ['个人', '学术论坛'].include?(meeting_type)
-      redirect_to new_admin_import_path(resource: 'problem_codes'), alert: "请选择有效的会议类型（个人或学术论坛）。"
+      redirect_to '/admin/imports/new?resource=problem_codes', alert: "请选择要导入的文件。"
       return
     end
     
     begin
-      service = ProblemCodeImportService.new(params[:file].path, meeting_type)
+      service = ProblemCodeImportService.new(params[:file].path)
       result = service.import
       
       if result[:success]
@@ -61,10 +55,10 @@ ActiveAdmin.register_page "Imports" do
         redirect_to admin_problem_types_path, notice: notice_message
       else
         alert_message = "导入失败: #{result[:error]}"
-        redirect_to new_admin_import_path(resource: 'problem_codes'), alert: alert_message
+        redirect_to '/admin/imports/new?resource=problem_codes', alert: alert_message
       end
     rescue => e
-      redirect_to new_admin_import_path(resource: 'problem_codes'), alert: "导入过程中发生错误: #{e.message}"
+      redirect_to '/admin/imports/new?resource=problem_codes', alert: "导入过程中发生错误: #{e.message}"
     end
   end
   
@@ -80,7 +74,7 @@ ActiveAdmin.register_page "Imports" do
     div class: "admin_imports" do
       ul do
         li link_to "操作历史导入", operation_histories_admin_imports_path
-        li link_to "问题代码导入", new_admin_import_path(resource: 'problem_codes')
+        li link_to "问题代码导入", '/admin/imports/new?resource=problem_codes'
       end
     end
   end

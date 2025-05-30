@@ -87,6 +87,6 @@ ActiveAdmin.register FeeType do
   
   # 自定义操作
   action_item :import_problem_codes, only: :index do
-    link_to '导入问题代码', new_admin_import_path(resource: 'problem_codes')
+    link_to '导入问题代码', '/admin/imports/new?resource=problem_codes'
   end
 end

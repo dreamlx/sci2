@@ -34,7 +34,7 @@ class ProblemCodeMigrationService
   
   def self.migrate_problem_types
     ProblemType.where(code: nil).find_each.with_index do |problem_type, index|
-      # Determine fee_type based on document_category or other logic
+      # Determine fee_type based on problem_type name or other logic
       fee_type = determine_fee_type(problem_type)
       
       # Generate a unique code within the fee_type
@@ -65,16 +65,14 @@ class ProblemCodeMigrationService
   end
   
   def self.determine_fee_type(problem_type)
-    # Logic to determine fee_type based on document_category or other attributes
-    # This is a placeholder - you would need to implement based on your data
-    if problem_type.document_category.present?
-      category_name = problem_type.document_category.name.to_s
-      
-      if category_name.include?("个人") || category_name.include?("交通") || category_name.include?("电话")
-        return FeeType.find_by(meeting_type: "个人") || FeeType.first
-      elsif category_name.include?("学术") || category_name.include?("会议") || category_name.include?("论坛")
-        return FeeType.find_by(meeting_type: "学术论坛") || FeeType.first
-      end
+    # Logic to determine fee_type based on problem_type name or other attributes
+    # Since document_category is no longer available, we'll use the problem_type name
+    name = problem_type.name.to_s
+    
+    if name.include?("个人") || name.include?("交通") || name.include?("电话")
+      return FeeType.find_by(meeting_type: "个人") || FeeType.first
+    elsif name.include?("学术") || name.include?("会议") || name.include?("论坛")
+      return FeeType.find_by(meeting_type: "学术论坛") || FeeType.first
     end
     
     # Default to first fee type if no match

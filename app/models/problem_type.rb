@@ -1,10 +1,11 @@
 class ProblemType < ApplicationRecord
   # Associations
-  belongs_to :fee_type
+  belongs_to :fee_type, optional: true
   has_many :work_orders
   
   # Validations
-  validates :code, presence: true, uniqueness: { scope: :fee_type_id, message: "should be unique within a fee type" }
+  validates :code, presence: true, uniqueness: { scope: :fee_type_id, message: "should be unique within a fee type" }, if: -> { fee_type_id.present? }
+  validates :code, presence: true, uniqueness: true, unless: -> { fee_type_id.present? }
   validates :title, presence: true
   validates :sop_description, presence: true
   validates :standard_handling, presence: true
@@ -16,11 +17,13 @@ class ProblemType < ApplicationRecord
   
   # Methods
   def display_name
-    "#{code} - #{title}"
+    fee_type_prefix = fee_type.present? ? "#{fee_type.code}:" : ""
+    "#{fee_type_prefix}#{code} - #{title}"
   end
   
   def full_description
-    "#{display_name}\n    #{sop_description}\n    #{standard_handling}"
+    fee_type_info = fee_type.present? ? "#{fee_type.display_name} > " : ""
+    "#{fee_type_info}#{display_name}\n    #{sop_description}\n    #{standard_handling}"
   end
   
   # ActiveAdmin configuration

@@ -24,7 +24,7 @@ ActiveAdmin.register ProblemType do
               title: pt.title,
               display_name: pt.display_name,
               fee_type_id: pt.fee_type_id,
-              fee_type_name: pt.fee_type.display_name
+              fee_type_name: pt.fee_type&.display_name || "未关联费用类型"
             }
           }
         end
@@ -43,7 +43,11 @@ ActiveAdmin.register ProblemType do
     selectable_column
     id_column
     column :fee_type do |pt|
-      link_to pt.fee_type.display_name, admin_fee_type_path(pt.fee_type)
+      if pt.fee_type.present?
+        link_to pt.fee_type.display_name, admin_fee_type_path(pt.fee_type)
+      else
+        "未关联费用类型"
+      end
     end
     column :code
     column :title
@@ -58,7 +62,11 @@ ActiveAdmin.register ProblemType do
     attributes_table do
       row :id
       row :fee_type do |pt|
-        link_to pt.fee_type.display_name, admin_fee_type_path(pt.fee_type)
+        if pt.fee_type.present?
+          link_to pt.fee_type.display_name, admin_fee_type_path(pt.fee_type)
+        else
+          "未关联费用类型"
+        end
       end
       row :code
       row :title

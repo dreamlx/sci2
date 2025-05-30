@@ -19,8 +19,6 @@ ActiveAdmin.register Reimbursement do
   scope :all, default: true
   scope :pending
   scope :processing
-  scope :approved
-  scope :rejected
   scope :closed
 
   # 批量操作

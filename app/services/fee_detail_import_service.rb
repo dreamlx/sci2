@@ -113,9 +113,12 @@ class FeeDetailImportService
     if fee_detail.save
       if is_new_record
         @created_count += 1
-    else
+      else
         @updated_count += 1
       end
+      
+      # 更新报销单状态，确保与费用明细状态保持一致
+      reimbursement.update_status_based_on_fee_details!
     else
       @skipped_due_to_error_count += 1
       @errors << "行 #{row_number} (费用ID: #{external_id}): 保存失败 - #{fee_detail.errors.full_messages.join(', ')}"

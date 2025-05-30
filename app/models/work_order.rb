@@ -27,7 +27,8 @@ class WorkOrder < ApplicationRecord
   
   def submitted_fee_detail_ids=(ids)
     # 这个方法会在表单提交时被调用
-    # 实际处理在 WorkOrderService 中完成
+    # 保存 ID 到实例变量，在 after_save 回调中处理
+    @_direct_submitted_fee_ids = ids
   end
   STATUS_COMPLETED = 'completed'.freeze
   
@@ -65,13 +66,19 @@ class WorkOrder < ApplicationRecord
   
   # Callbacks
   after_create :update_reimbursement_status
+  before_save :set_status_based_on_processing_opinion, if: -> { processing_opinion_changed? }
   after_save :sync_fee_details_verification_status, if: -> { saved_change_to_status? }
   after_save :record_status_change, if: -> { saved_change_to_status? }
+  after_save :process_submitted_fee_detail_ids, if: -> { @_direct_submitted_fee_ids.present? }
   
   # Scopes
   scope :by_type, ->(type) { where(type: type) }
   scope :by_status, ->(status) { where(status: status) }
   scope :by_reimbursement, ->(reimbursement_id) { where(reimbursement_id: reimbursement_id) }
+  scope :pending, -> { where(status: STATUS_PENDING) }
+  scope :approved, -> { where(status: STATUS_APPROVED) }
+  scope :rejected, -> { where(status: STATUS_REJECTED) }
+  scope :completed, -> { where(status: STATUS_COMPLETED) }
   
   # Class methods
   def self.types
@@ -160,5 +167,52 @@ class WorkOrder < ApplicationRecord
   
   def updated_by=(admin_user)
     @updated_by_id = admin_user&.id
+  end
+  
+  # Process submitted fee detail IDs and create associations
+  def process_submitted_fee_detail_ids
+    return if @_direct_submitted_fee_ids.blank?
+    
+    # 清除现有关联
+    work_order_fee_details.destroy_all
+    
+    # 创建新关联
+    @_direct_submitted_fee_ids.each do |fee_detail_id|
+      fee_detail = FeeDetail.find_by(id: fee_detail_id)
+      next unless fee_detail
+      
+      # 确保费用明细属于同一个报销单
+      next unless fee_detail.document_number == reimbursement.invoice_number
+      
+      # 创建关联
+      WorkOrderFeeDetail.create!(
+        work_order: self,
+        fee_detail: fee_detail,
+        work_order_type: type
+      )
+    end
+    
+    # 清除实例变量，避免重复处理
+    @_direct_submitted_fee_ids = nil
+    
+    # 更新费用明细状态
+    sync_fee_details_verification_status
+  end
+  
+  # 根据处理意见设置工单状态
+  def set_status_based_on_processing_opinion
+    return unless processing_opinion.present?
+    
+    case processing_opinion
+    when '可以通过'
+      self.status = STATUS_APPROVED unless approved?
+    when '无法通过'
+      self.status = STATUS_REJECTED unless rejected?
+    end
+  end
+  
+  # 检查处理意见是否改变
+  def processing_opinion_changed?
+    changes.key?('processing_opinion') && processing_opinion.present?
   end
 end

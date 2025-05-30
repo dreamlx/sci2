@@ -21,6 +21,9 @@ class FeeDetail < ApplicationRecord
   validates :external_fee_id, uniqueness: true, allow_nil: true
   validates :amount, presence: true, numericality: { greater_than: 0 }
   
+  # Callbacks
+  after_save :update_reimbursement_status, if: -> { saved_change_to_verification_status? }
+  
   # Scopes
   scope :pending, -> { where(verification_status: VERIFICATION_STATUS_PENDING) }
   scope :problematic, -> { where(verification_status: VERIFICATION_STATUS_PROBLEMATIC) }
@@ -159,5 +162,15 @@ class FeeDetail < ApplicationRecord
     
     # Default
     "个人"
+  end
+  
+  private
+  
+  # Update the reimbursement status when the verification status changes
+  def update_reimbursement_status
+    # Ensure reimbursement exists and is persisted
+    if reimbursement&.persisted?
+      reimbursement.update_status_based_on_fee_details!
+    end
   end
 end

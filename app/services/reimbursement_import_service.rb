@@ -109,8 +109,13 @@ class ReimbursementImportService
       end
     else
       # 现有记录保持原状态，除非外部状态明确指示为已完成
+      # 但即使外部状态为已完成，也需要检查是否所有费用明细都已验证
       if row['报销单状态'].present? && map_external_status_to_internal(row['报销单状态']) == Reimbursement::STATUS_CLOSED
-        reimbursement.status = Reimbursement::STATUS_CLOSED
+        # 不直接设置状态，而是使用 close! 方法，它会检查是否所有费用明细都已验证
+        # 如果不能关闭，则设置为处理中状态
+        unless reimbursement.close!
+          reimbursement.status = Reimbursement::STATUS_PROCESSING
+        end
       end
     end
 

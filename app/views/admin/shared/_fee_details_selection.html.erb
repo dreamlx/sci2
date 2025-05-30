@@ -48,11 +48,23 @@
     <div class="fee-details-selection">
       <% reimbursement.fee_details.each do |fee_detail| %>
         <div class="fee-detail-item">
-          <%= check_box_tag "audit_work_order[submitted_fee_detail_ids][]", 
-                          fee_detail.id, 
-                          work_order.submitted_fee_detail_ids&.include?(fee_detail.id.to_s),
-                          id: "fee_detail_#{fee_detail.id}" %>
           <label for="fee_detail_<%= fee_detail.id %>">
+            <div class="checkbox-container">
+              <%
+                # For new work orders, determine the type from the controller name
+                if work_order.type.present?
+                  param_name = work_order.type.underscore.gsub('/', '_')
+                else
+                  # Extract from current path, e.g., /admin/audit_work_orders/new -> audit_work_order
+                  controller_path = request.path.split('/')[2]
+                  param_name = controller_path.present? ? controller_path.singularize : 'work_order'
+                end
+              %>
+              <%= check_box_tag "#{param_name}[submitted_fee_detail_ids][]",
+                              fee_detail.id,
+                              work_order.submitted_fee_detail_ids&.include?(fee_detail.id.to_s),
+                              id: "fee_detail_#{fee_detail.id}" %>
+            </div>
             <span class="fee-detail-id">#<%= fee_detail.id %></span>
             <span class="fee-detail-type"><%= fee_detail.fee_type %></span>
             <span class="fee-detail-amount"><%= number_to_currency(fee_detail.amount, unit: "¥") %></span>
@@ -122,4 +134,12 @@
 .fee-detail-status {
   min-width: 80px;
 }
-</style> 
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  margin-right: 5px;
+}
+</style>

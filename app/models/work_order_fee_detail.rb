@@ -35,5 +35,11 @@ class WorkOrderFeeDetail < ApplicationRecord
     # 这将根据最新关联的工单状态来决定费用明细的验证状态
     service = FeeDetailStatusService.new([fee_detail_id])
     service.update_status
+    
+    # 更新报销单状态
+    # 确保报销单状态与费用明细状态保持一致
+    if fee_detail&.reimbursement&.persisted?
+      fee_detail.reimbursement.update_status_based_on_fee_details!
+    end
   end
 end
