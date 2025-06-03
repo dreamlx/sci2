@@ -213,10 +213,12 @@ ActiveAdmin.setup do |config|
   # Register custom JavaScript files for work order forms
   config.register_javascript 'audit_work_order_form.js'
   config.register_javascript 'communication_work_order_form.js'
-  config.register_javascript 'https://cdn.jsdelivr.net/npm/chart.js'
+  config.register_javascript 'chartkick'
+  config.register_javascript 'Chart.bundle'
   
   # Register custom CSS files
   config.register_stylesheet 'active_admin_dashboard.css'
+  config.register_stylesheet 'active_admin_custom'
 
   # == CSV options
   #

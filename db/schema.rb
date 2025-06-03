@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_17_26_000007) do
+ActiveRecord::Schema[7.1].define(version: 2025_17_26_000008) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -116,6 +116,21 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000007) do
     t.index ["fee_type_id"], name: "index_problem_types_on_fee_type_id"
   end
 
+  create_table "reimbursement_assignments", force: :cascade do |t|
+    t.integer "reimbursement_id", null: false
+    t.integer "assignee_id", null: false
+    t.integer "assigner_id", null: false
+    t.boolean "is_active", default: true
+    t.text "notes"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["assignee_id", "is_active"], name: "index_reimbursement_assignments_on_assignee_id_and_is_active"
+    t.index ["assignee_id"], name: "index_reimbursement_assignments_on_assignee_id"
+    t.index ["assigner_id"], name: "index_reimbursement_assignments_on_assigner_id"
+    t.index ["reimbursement_id", "is_active"], name: "idx_on_reimbursement_id_is_active_7c67e0658b"
+    t.index ["reimbursement_id"], name: "index_reimbursement_assignments_on_reimbursement_id"
+  end
+
   create_table "reimbursements", force: :cascade do |t|
     t.string "invoice_number", null: false
     t.string "document_name"
@@ -213,6 +228,9 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000007) do
 
   add_foreign_key "communication_records", "work_orders", column: "communication_work_order_id"
   add_foreign_key "problem_types", "fee_types"
+  add_foreign_key "reimbursement_assignments", "admin_users", column: "assignee_id"
+  add_foreign_key "reimbursement_assignments", "admin_users", column: "assigner_id"
+  add_foreign_key "reimbursement_assignments", "reimbursements"
   add_foreign_key "work_order_fee_details", "fee_details"
   add_foreign_key "work_order_operations", "admin_users"
   add_foreign_key "work_order_operations", "work_orders"

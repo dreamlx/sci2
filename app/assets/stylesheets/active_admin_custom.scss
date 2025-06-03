@@ -1,32 +1,260 @@
-// app/assets/stylesheets/active_admin_custom.scss
+// 报销单分配相关样式
 
-// Operation styles
-.state-diff {
-  max-height: 400px;
-  overflow-y: auto;
-  background-color: #f5f5f5;
-  padding: 10px;
-  border-radius: 4px;
+// 仪表盘上的统计框样式
+.dashboard-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 15px;
   
-  pre {
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    font-family: monospace;
-    margin: 0;
+  .stat-box {
+    flex: 1;
+    min-width: 150px;
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    p {
+      margin-bottom: 10px;
+      font-weight: bold;
+      color: #5E6469;
+    }
+    
+    .fa {
+      color: #5E6469;
+      margin-bottom: 5px;
+    }
+    
+    &:hover .fa {
+      color: #1e83f6;
+    }
+  }
+}
+
+// 状态分布样式
+.status-distribution {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 15px;
+  
+  .status-box {
+    flex: 1;
+    min-width: 150px;
+    padding: 15px;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    
+    &.pending {
+      background-color: #ffeecc;
+      border-left: 4px solid #f39c12;
+    }
+    
+    &.processing {
+      background-color: #e3f2fd;
+      border-left: 4px solid #2196f3;
+    }
+    
+    &.waiting_completion {
+      background-color: #e8f5e9;
+      border-left: 4px solid #4caf50;
+    }
+    
+    &.closed {
+      background-color: #f5f5f5;
+      border-left: 4px solid #9e9e9e;
+    }
+    
+    h3:first-child {
+      margin-top: 0;
+      color: #5E6469;
+    }
+    
+    h3:last-child {
+      margin-bottom: 0;
+      font-size: 24px;
+      color: #2c3e50;
+    }
+  }
+}
+
+// 导入按钮样式
+.import-button {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  
+  .fa {
+    display: block;
+    margin: 0 auto;
+    color: #5E6469;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      color: #1e83f6;
+      transform: scale(1.1);
+    }
+    
+    &::after {
+      content: attr(data-label);
+      display: block;
+      font-size: 14px;
+      margin-top: 5px;
+      font-family: sans-serif;
+      font-weight: normal;
+    }
+  }
+}
+
+// 快速分配表单样式
+.quick-assign-form {
+  .chosen-select {
+    width: 100%;
+    max-width: 400px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #fff;
+    font-size: 14px;
   }
   
-  .diff {
-    font-family: monospace;
+  textarea {
+    width: 100%;
+    max-width: 400px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    resize: vertical;
+    font-size: 14px;
+  }
+  
+  .actions {
+    margin-top: 15px;
     
-    .del {
-      background-color: #ffecec;
-      color: #bd2c00;
-      text-decoration: line-through;
+    .button {
+      margin-right: 10px;
     }
+  }
+}
+
+// 批量分配页面样式
+.panel {
+  margin-bottom: 20px;
+  
+  h3 {
+    margin-top: 0;
+    padding: 10px 15px;
+    background-color: #f5f5f5;
+    border-bottom: 1px solid #ddd;
+    font-size: 16px;
+  }
+  
+  .panel_contents {
+    padding: 15px;
+  }
+  
+  .attributes_table {
+    width: 100%;
     
-    .ins {
-      background-color: #eaffea;
-      color: #55a532;
+    table {
+      width: 100%;
+      
+      th {
+        width: 150px;
+        padding: 8px;
+        vertical-align: top;
+        text-align: right;
+        font-weight: bold;
+      }
+      
+      td {
+        padding: 8px;
+      }
     }
+  }
+}
+
+// 表格样式
+.index_table {
+  width: 100%;
+  border-collapse: collapse;
+  
+  th, td {
+    padding: 8px;
+    border: 1px solid #ddd;
+    text-align: left;
+  }
+  
+  th {
+    background-color: #f5f5f5;
+    font-weight: bold;
+  }
+  
+  tr:nth-child(even) {
+    background-color: #f9f9f9;
+  }
+  
+  tr:hover {
+    background-color: #f0f0f0;
+  }
+}
+
+// 按钮样式
+.button {
+  display: inline-block;
+  padding: 8px 16px;
+  background-color: #5E6469;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+  
+  &:hover {
+    background-color: #1e83f6;
+  }
+}
+
+// 图表样式
+.workload-chart, .status-chart {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #fff;
+  border-radius: 5px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  
+  h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #5E6469;
+    font-size: 16px;
+    text-align: center;
+  }
+}
+
+// 响应式布局调整
+@media (max-width: 768px) {
+  .dashboard-stats, .status-distribution {
+    flex-direction: column;
+    
+    .stat-box, .status-box {
+      width: 100%;
+      margin-bottom: 10px;
+    }
+  }
+  
+  .workload-chart, .status-chart {
+    overflow-x: auto;
   }
 }

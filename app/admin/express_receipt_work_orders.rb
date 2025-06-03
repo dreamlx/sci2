@@ -68,8 +68,7 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
       notice_message += " #{result[:errors]} 错误." if result[:errors].to_i > 0
       redirect_to admin_express_receipt_work_orders_path, notice: notice_message
     else
-      alert_message = "导入失败: #{result[:errors].join(', ')}"
-      alert_message += " 错误详情: #{result[:error_details].join('; ')}" if result[:error_details].present?
+      alert_message = "导入失败: #{result[:error_details] ? result[:error_details].join(', ') : (result[:errors].is_a?(Array) ? result[:errors].join(', ') : result[:errors])}"
       redirect_to new_import_admin_express_receipt_work_orders_path, alert: alert_message
     end
   end

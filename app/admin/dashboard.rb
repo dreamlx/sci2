@@ -28,7 +28,7 @@ ActiveAdmin.register_page "Dashboard" do
           end
         end
         
-        panel "ERP数据导入" do
+        panel "系统操作" do
           div class: 'dashboard-stats' do
             div class: 'stat-box' do
               p "导入报销单"
@@ -57,6 +57,20 @@ ActiveAdmin.register_page "Dashboard" do
                 i class: 'fa fa-file-import fa-3x', 'data-label': '导入操作历史'
               end
             end
+            
+            div class: 'stat-box' do
+              p "分配报销单"
+              a href: admin_reimbursements_path(scope: 'unassigned'), class: 'import-button' do
+                i class: 'fa fa-user-plus fa-3x', 'data-label': '分配报销单'
+              end
+            end
+            
+            div class: 'stat-box' do
+              p "查看分配记录"
+              a href: admin_reimbursement_assignments_path, class: 'import-button' do
+                i class: 'fa fa-tasks fa-3x', 'data-label': '查看分配记录'
+              end
+            end
           end
         end
 
@@ -81,6 +95,18 @@ ActiveAdmin.register_page "Dashboard" do
               h3 "已关闭"
               h3 Reimbursement.where(status: 'closed').count
             end
+          end
+          
+          div class: 'status-chart' do
+            status_data = {
+              "待处理" => Reimbursement.where(status: 'pending').count,
+              "处理中" => Reimbursement.where(status: 'processing').count,
+              "等待完成" => Reimbursement.where(status: 'waiting_completion').count,
+              "已关闭" => Reimbursement.where(status: 'closed').count
+            }
+            
+            h3 "状态分布图表", style: "margin-top: 20px;"
+            pie_chart status_data, colors: ["#f39c12", "#2196f3", "#4caf50", "#9e9e9e"], donut: true, height: "250px"
           end
         end
       end
@@ -121,6 +147,101 @@ ActiveAdmin.register_page "Dashboard" do
         #     link_to "查看全部", admin_communication_work_orders_path(scope: 'needs_communication'), class: "button"
         #   end
         # end
+      end
+    end
+
+    columns do
+      column do
+        panel "我的报销单" do
+          table_for Reimbursement.joins(:active_assignment)
+                              .where(reimbursement_assignments: { assignee_id: current_admin_user.id })
+                              .order(created_at: :desc)
+                              .limit(10) do
+            column :invoice_number do |reimbursement|
+              link_to reimbursement.invoice_number, admin_reimbursement_path(reimbursement)
+            end
+            column :status do |reimbursement|
+              status_tag reimbursement.status
+            end
+            column :created_at
+          end
+          div do
+            link_to "查看所有我的报销单", admin_reimbursements_path(scope: 'my_assignments'), class: "button"
+          end
+        end
+      end
+      
+      column do
+        panel "未分配的报销单" do
+          table_for Reimbursement.left_joins(:active_assignment)
+                              .where(reimbursement_assignments: { id: nil })
+                              .order(created_at: :desc)
+                              .limit(10) do
+            column :invoice_number do |reimbursement|
+              link_to reimbursement.invoice_number, admin_reimbursement_path(reimbursement)
+            end
+            column :status do |reimbursement|
+              status_tag reimbursement.status
+            end
+            column :created_at
+          end
+          div do
+            link_to "查看所有未分配的报销单", admin_reimbursements_path(scope: 'unassigned'), class: "button"
+          end
+        end
+      end
+    end
+    
+    columns do
+      column do
+        panel "工作量统计" do
+          table_for AdminUser.all do
+            column :email
+            column "分配的报销单数量" do |admin_user|
+              ReimbursementAssignment.active.where(assignee_id: admin_user.id).count
+            end
+            column "已处理的报销单数量" do |admin_user|
+              Reimbursement.joins(:active_assignment)
+                          .where(reimbursement_assignments: { assignee_id: admin_user.id })
+                          .where(status: 'closed')
+                          .count
+            end
+            column "待处理的报销单数量" do |admin_user|
+              Reimbursement.joins(:active_assignment)
+                          .where(reimbursement_assignments: { assignee_id: admin_user.id })
+                          .where.not(status: 'closed')
+                          .count
+            end
+          end
+          
+          div class: 'workload-chart' do
+            workload_data = AdminUser.all.map do |admin_user|
+              assigned = ReimbursementAssignment.active.where(assignee_id: admin_user.id).count
+              processed = Reimbursement.joins(:active_assignment)
+                                     .where(reimbursement_assignments: { assignee_id: admin_user.id })
+                                     .where(status: 'closed')
+                                     .count
+              pending = Reimbursement.joins(:active_assignment)
+                                   .where(reimbursement_assignments: { assignee_id: admin_user.id })
+                                   .where.not(status: 'closed')
+                                   .count
+              [admin_user.email, { "已处理" => processed, "待处理" => pending }]
+            end.to_h
+            
+            h3 "工作量分布图表", style: "margin-top: 20px;"
+            bar_chart workload_data, stacked: true, colors: ["#4caf50", "#2196f3"], height: "300px"
+          end
+        end
+      end
+    end
+
+    columns do
+      column do
+        panel "快速分配报销单" do
+          div class: 'quick-assign-form' do
+            render partial: 'admin/reimbursements/quick_assign_form'
+          end
+        end
       end
     end
 

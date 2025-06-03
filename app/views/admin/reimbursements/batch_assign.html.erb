@@ -1,0 +1,81 @@
+<%= form_tag batch_assign_admin_reimbursements_path, method: :post do %>
+  <div class="panel">
+    <h3>批量分配报销单</h3>
+    
+    <div class="panel_contents">
+      <div class="attributes_table">
+        <table>
+          <tr>
+            <th>选择审核人员</th>
+            <td>
+              <%= select_tag :assignee_id, 
+                             options_from_collection_for_select(AdminUser.all, :id, :email), 
+                             prompt: "请选择审核人员", 
+                             class: "chosen-select" %>
+            </td>
+          </tr>
+          <tr>
+            <th>分配备注</th>
+            <td>
+              <%= text_area_tag :notes, nil, rows: 3, placeholder: "请输入分配备注（可选）" %>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+  
+  <div class="panel">
+    <h3>选择要分配的报销单</h3>
+    
+    <div class="panel_contents">
+      <table class="index_table">
+        <thead>
+          <tr>
+            <th class="selectable">
+              <input type="checkbox" id="select-all" />
+            </th>
+            <th>ID</th>
+            <th>发票号</th>
+            <th>申请人</th>
+            <th>金额</th>
+            <th>状态</th>
+            <th>创建时间</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @reimbursements.each do |reimbursement| %>
+            <tr>
+              <td>
+                <%= check_box_tag "reimbursement_ids[]", reimbursement.id, false, class: "reimbursement-checkbox" %>
+              </td>
+              <td><%= reimbursement.id %></td>
+              <td><%= link_to reimbursement.invoice_number, admin_reimbursement_path(reimbursement) %></td>
+              <td><%= reimbursement.applicant %></td>
+              <td><%= number_to_currency(reimbursement.amount, unit: "¥") %></td>
+              <td><%= status_tag reimbursement.status %></td>
+              <td><%= reimbursement.created_at.strftime("%Y-%m-%d %H:%M") %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  
+  <div class="actions">
+    <%= submit_tag "分配选中的报销单", class: "button", data: { confirm: "确定要分配选中的报销单吗？" } %>
+    <%= link_to "取消", admin_reimbursements_path, class: "button" %>
+  </div>
+<% end %>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // 全选/取消全选
+    document.getElementById('select-all').addEventListener('change', function() {
+      var checkboxes = document.getElementsByClassName('reimbursement-checkbox');
+      for (var i = 0; i < checkboxes.length; i++) {
+        checkboxes[i].checked = this.checked;
+      }
+    });
+  });
+</script>

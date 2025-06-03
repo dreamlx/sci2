@@ -18,6 +18,12 @@ class Reimbursement < ApplicationRecord
   has_many :express_receipt_work_orders, -> { where(type: 'ExpressReceiptWorkOrder') }, class_name: 'ExpressReceiptWorkOrder'
   has_many :operation_histories, foreign_key: 'document_number', primary_key: 'invoice_number', dependent: :destroy
   
+  # 报销单分配关联
+  has_many :assignments, class_name: 'ReimbursementAssignment', dependent: :destroy
+  has_many :assignees, through: :assignments, source: :assignee
+  has_one :active_assignment, -> { where(is_active: true) }, class_name: 'ReimbursementAssignment'
+  has_one :current_assignee, through: :active_assignment, source: :assignee
+  
   # Validations
   validates :invoice_number, presence: true, uniqueness: true
   validates :status, inclusion: { in: STATUSES }
@@ -68,15 +74,20 @@ class Reimbursement < ApplicationRecord
   
   # ActiveAdmin configuration
   def self.ransackable_attributes(auth_object = nil)
-    %w[id invoice_number document_name applicant applicant_id company department 
-       receipt_status receipt_date submission_date amount is_electronic status 
-       external_status approval_date approver_name related_application_number 
-       accounting_date document_tags created_at updated_at]
+    %w[id invoice_number document_name applicant applicant_id company department
+       receipt_status receipt_date submission_date amount is_electronic status
+       external_status approval_date approver_name related_application_number
+       accounting_date document_tags created_at updated_at current_assignee_id]
   end
   
   def self.ransackable_associations(auth_object = nil)
-    %w[fee_details work_orders audit_work_orders communication_work_orders 
-       express_receipt_work_orders operation_histories]
+    %w[fee_details work_orders audit_work_orders communication_work_orders
+       express_receipt_work_orders operation_histories active_assignment current_assignee]
+  end
+  
+  # Custom ransacker for current_assignee_id
+  ransacker :current_assignee_id do
+    Arel.sql('(SELECT assignee_id FROM reimbursement_assignments WHERE reimbursement_assignments.reimbursement_id = reimbursements.id AND reimbursement_assignments.is_active = true LIMIT 1)')
   end
   
   # Instance methods

@@ -1,0 +1,5 @@
+<%= form_tag unassign_admin_reimbursement_path(reimbursement), method: :post, style: "margin-top: 10px;" do %>
+  <div class="actions">
+    <%= submit_tag "取消分配", class: "button", data: { confirm: "确定要取消分配吗？" } %>
+  </div>
+<% end %>

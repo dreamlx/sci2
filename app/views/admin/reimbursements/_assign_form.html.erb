@@ -1,0 +1,15 @@
+<%= form_tag assign_admin_reimbursement_path(reimbursement), method: :post do %>
+  <div class="field">
+    <%= label_tag :assignee_id, "分配给" %>
+    <%= select_tag :assignee_id, options_from_collection_for_select(AdminUser.all, :id, :email) %>
+  </div>
+  
+  <div class="field">
+    <%= label_tag :notes, "备注" %>
+    <%= text_area_tag :notes, nil, rows: 3 %>
+  </div>
+  
+  <div class="actions">
+    <%= submit_tag "分配", class: "button" %>
+  </div>
+<% end %>
