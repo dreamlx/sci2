@@ -9,6 +9,7 @@ class WorkOrderService
     @work_order = work_order
     @current_admin_user = current_admin_user
     Current.admin_user = current_admin_user # Set Current context
+    @operation_service = WorkOrderOperationService.new(work_order, current_admin_user)
   end
 
   # REMOVED: start_processing method as 'processing' state is removed.
@@ -30,6 +31,9 @@ class WorkOrderService
       if result && @work_order.status == "approved"
         # 手动触发费用明细状态更新
         @work_order.send(:sync_fee_details_verification_status)
+        
+        # 记录状态变更操作
+        @operation_service.record_status_change("pending", "approved")
         
         # Model's after_transition should set audit_date
         # Model's validations for approved state should have run.
@@ -66,6 +70,9 @@ class WorkOrderService
         # 手动触发费用明细状态更新
         @work_order.send(:sync_fee_details_verification_status)
         
+        # 记录状态变更操作
+        @operation_service.record_status_change("pending", "rejected")
+        
         # Model's after_transition should set audit_date
         # Model's validations for rejected state should have run.
         return true unless @work_order.errors.any? # Check for validation errors after state change
@@ -93,11 +100,26 @@ class WorkOrderService
       return false
     end
 
+    # 保存更新前的属性
+    changed_attributes = {}
+    
+    # 分配属性
     assign_shared_attributes(params)
     # processing_opinion might be in params. If it changes, model validations related to it will run.
     # However, status change is not automatically triggered by opinion change here.
     
-    save_work_order("更新")
+    # 检查哪些属性发生了变化
+    @work_order.changed.each do |attr|
+      changed_attributes[attr] = @work_order.send("#{attr}_was")
+    end
+    
+    if save_work_order("更新")
+      # 记录更新操作
+      @operation_service.record_update(changed_attributes) if changed_attributes.any?
+      true
+    else
+      false
+    end
   end
 
   # Method to mark a work order as truly completed (sets the boolean flag)

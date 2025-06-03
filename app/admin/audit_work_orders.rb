@@ -335,6 +335,38 @@ ActiveAdmin.register AuditWorkOrder do
         column "创建时间", :created_at
         column "更新时间", :updated_at
       end
+      # 操作记录面板
+      panel "操作记录" do
+        if resource.operations.exists?
+          table_for resource.operations.recent_first do
+            column :id do |operation|
+              link_to operation.id, admin_work_order_operation_path(operation)
+            end
+            column :operation_type do |operation|
+              case operation.operation_type
+              when WorkOrderOperation::OPERATION_TYPE_CREATE
+                status_tag operation.operation_type_display, class: 'green'
+              when WorkOrderOperation::OPERATION_TYPE_UPDATE
+                status_tag operation.operation_type_display, class: 'orange'
+              when WorkOrderOperation::OPERATION_TYPE_STATUS_CHANGE
+                status_tag operation.operation_type_display, class: 'blue'
+              when WorkOrderOperation::OPERATION_TYPE_ADD_PROBLEM
+                status_tag operation.operation_type_display, class: 'green'
+              when WorkOrderOperation::OPERATION_TYPE_REMOVE_PROBLEM
+                status_tag operation.operation_type_display, class: 'red'
+              when WorkOrderOperation::OPERATION_TYPE_MODIFY_PROBLEM
+                status_tag operation.operation_type_display, class: 'orange'
+              else
+                status_tag operation.operation_type_display
+              end
+            end
+            column :admin_user
+            column :created_at
+          end
+        else
+          para "暂无操作记录"
+        end
+      end
     end
   end
 
@@ -343,7 +375,7 @@ ActiveAdmin.register AuditWorkOrder do
 
 
     if f.object.approved? || f.object.rejected?
-      panel "工单已处理" do
+      f.inputs "工单已处理" do
         para "此工单已审核通过或拒绝，通常不再编辑。"
       end
     else

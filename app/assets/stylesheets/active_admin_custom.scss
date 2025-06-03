@@ -1,0 +1,32 @@
+// app/assets/stylesheets/active_admin_custom.scss
+
+// Operation styles
+.state-diff {
+  max-height: 400px;
+  overflow-y: auto;
+  background-color: #f5f5f5;
+  padding: 10px;
+  border-radius: 4px;
+  
+  pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: monospace;
+    margin: 0;
+  }
+  
+  .diff {
+    font-family: monospace;
+    
+    .del {
+      background-color: #ffecec;
+      color: #bd2c00;
+      text-decoration: line-through;
+    }
+    
+    .ins {
+      background-color: #eaffea;
+      color: #55a532;
+    }
+  }
+}

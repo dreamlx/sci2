@@ -71,3 +71,6 @@ gem 'activeadmin'
 # Use state_machines for state management
 gem 'state_machines'
 gem 'state_machines-activerecord'
+# Charts for statistics
+gem 'chartkick'
+gem 'groupdate'

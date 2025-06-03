@@ -126,6 +126,40 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
             column :changer do |change| change.changer&.email end
           end
         end
+        
+        tab "操作记录" do
+          panel "操作记录" do
+            if resource.operations.exists?
+              table_for resource.operations.recent_first do
+                column :id do |operation|
+                  link_to operation.id, admin_work_order_operation_path(operation)
+                end
+                column :operation_type do |operation|
+                  case operation.operation_type
+                  when WorkOrderOperation::OPERATION_TYPE_CREATE
+                    status_tag operation.operation_type_display, class: 'green'
+                  when WorkOrderOperation::OPERATION_TYPE_UPDATE
+                    status_tag operation.operation_type_display, class: 'orange'
+                  when WorkOrderOperation::OPERATION_TYPE_STATUS_CHANGE
+                    status_tag operation.operation_type_display, class: 'blue'
+                  when WorkOrderOperation::OPERATION_TYPE_ADD_PROBLEM
+                    status_tag operation.operation_type_display, class: 'green'
+                  when WorkOrderOperation::OPERATION_TYPE_REMOVE_PROBLEM
+                    status_tag operation.operation_type_display, class: 'red'
+                  when WorkOrderOperation::OPERATION_TYPE_MODIFY_PROBLEM
+                    status_tag operation.operation_type_display, class: 'orange'
+                  else
+                    status_tag operation.operation_type_display
+                  end
+                end
+                column :admin_user
+                column :created_at
+              end
+            else
+              para "暂无操作记录"
+            end
+          end
+        end
       end
     end
   end

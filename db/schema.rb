@@ -154,6 +154,21 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000007) do
     t.index ["work_order_id", "work_order_type"], name: "index_work_order_fee_details_on_work_order"
   end
 
+  create_table "work_order_operations", force: :cascade do |t|
+    t.integer "work_order_id", null: false
+    t.integer "admin_user_id", null: false
+    t.string "operation_type", null: false
+    t.text "details"
+    t.text "previous_state"
+    t.text "current_state"
+    t.datetime "created_at", null: false
+    t.index ["admin_user_id", "created_at"], name: "index_work_order_operations_on_admin_user_id_and_created_at"
+    t.index ["admin_user_id"], name: "index_work_order_operations_on_admin_user_id"
+    t.index ["operation_type", "created_at"], name: "index_work_order_operations_on_operation_type_and_created_at"
+    t.index ["work_order_id", "created_at"], name: "index_work_order_operations_on_work_order_id_and_created_at"
+    t.index ["work_order_id"], name: "index_work_order_operations_on_work_order_id"
+  end
+
   create_table "work_order_status_changes", force: :cascade do |t|
     t.string "work_order_type", null: false
     t.integer "work_order_id", null: false
@@ -199,6 +214,8 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000007) do
   add_foreign_key "communication_records", "work_orders", column: "communication_work_order_id"
   add_foreign_key "problem_types", "fee_types"
   add_foreign_key "work_order_fee_details", "fee_details"
+  add_foreign_key "work_order_operations", "admin_users"
+  add_foreign_key "work_order_operations", "work_orders"
   add_foreign_key "work_order_status_changes", "admin_users", column: "changer_id"
   add_foreign_key "work_orders", "admin_users", column: "created_by"
   add_foreign_key "work_orders", "reimbursements"
