@@ -17,7 +17,25 @@ fi
 echo "=== Preparing remote directory ==="
 ssh ${REMOTE_USER}@${REMOTE_HOST} <<EOF
   mkdir -p ${REMOTE_DIR}
+  # Preserve database files by moving them to a temporary location
+  mkdir -p ${REMOTE_DIR}_db_backup
+  if [ -d "${REMOTE_DIR}/db" ]; then
+    cp -r ${REMOTE_DIR}/db/*.sqlite3 ${REMOTE_DIR}_db_backup/ 2>/dev/null || true
+    cp -r ${REMOTE_DIR}/config/database.yml ${REMOTE_DIR}_db_backup/ 2>/dev/null || true
+  fi
+  
+  # Remove all files except database files
   rm -rf ${REMOTE_DIR}/*
+  
+  # Create db directory if it doesn't exist
+  mkdir -p ${REMOTE_DIR}/db
+  mkdir -p ${REMOTE_DIR}/config
+  
+  # Restore database files
+  if [ -d "${REMOTE_DIR}_db_backup" ]; then
+    cp -r ${REMOTE_DIR}_db_backup/*.sqlite3 ${REMOTE_DIR}/db/ 2>/dev/null || true
+    cp -r ${REMOTE_DIR}_db_backup/database.yml ${REMOTE_DIR}/config/ 2>/dev/null || true
+  fi
 EOF
 
 # Step 2: Copy files (excluding .git, node_modules, etc.)
@@ -65,9 +83,9 @@ ssh ${REMOTE_USER}@${REMOTE_HOST} <<EOF
     npm install
   fi
 
-  # Setup database
-  echo "Setting up database..."
-  bundle exec rails db:create db:migrate
+  # Setup database (only run migrations, don't create or reset)
+  echo "Setting up database (running migrations only)..."
+  bundle exec rails db:migrate
 
   # Start development server
   echo "Starting development server..."
