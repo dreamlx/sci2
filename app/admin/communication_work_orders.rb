@@ -1,7 +1,7 @@
 ActiveAdmin.register CommunicationWorkOrder do
   permit_params :reimbursement_id, :audit_comment, # creator_id by controller, audit_date by system
                 # Shared fields (initiator_role & communication_method removed)
-                :problem_type_id, :remark, :processing_opinion,
+                :fee_type_id, :problem_type_id, :remark, :processing_opinion,
                 submitted_fee_detail_ids: [] # Renamed from fee_detail_ids
 
   menu priority: 5, label: "沟通工单", parent: "工单管理"
@@ -30,7 +30,7 @@ ActiveAdmin.register CommunicationWorkOrder do
       # This aligns with the main `permit_params` definition for the resource.
       _params = params.require(:communication_work_order).permit(
         :reimbursement_id, :audit_comment,
-        :problem_type_id, :remark, :processing_opinion,
+        :fee_type_id, :problem_type_id, :remark, :processing_opinion,
         submitted_fee_detail_ids: []
       )
 
@@ -92,6 +92,7 @@ ActiveAdmin.register CommunicationWorkOrder do
     def communication_work_order_params_for_update
       params.require(:communication_work_order).permit(
         :processing_opinion,
+        :fee_type_id,
         :problem_type_id,
         :audit_comment,
         :remark,
@@ -250,8 +251,18 @@ ActiveAdmin.register CommunicationWorkOrder do
             # Order: 2. 处理意见
             f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '请选择处理意见', input_html: { id: 'communication_work_order_processing_opinion' }
             
-            # Order: 3. 问题类型 (Conditionally Visible)
-            f.input :problem_type_id, as: :select, collection: ProblemType.all.map { |pt| [pt.display_name, pt.id] }, include_blank: '请选择问题类型', wrapper_html: { id: 'communication_problem_type_row', style: 'display:none;' }
+            # 两级级联下拉选择
+            f.input :fee_type_id, as: :select,
+                    collection: FeeType.active.order(:code).map { |ft| [ft.display_name, ft.id] },
+                    include_blank: '请选择费用类型',
+                    input_html: { id: 'fee_type_select' },
+                    wrapper_html: { id: 'fee_type_row', style: 'display:none;' }
+            
+            f.input :problem_type_id, as: :select,
+                    collection: [],
+                    include_blank: '请先选择费用类型',
+                    input_html: { id: 'problem_type_select' },
+                    wrapper_html: { id: 'problem_type_row', style: 'display:none;' }
             
             # Order: 4. 审核意见 (Conditionally Visible)
             f.input :audit_comment, label: "审核意见", wrapper_html: { id: 'communication_audit_comment_row', style: 'display:none;' }
@@ -267,22 +278,54 @@ ActiveAdmin.register CommunicationWorkOrder do
         raw """
           document.addEventListener('DOMContentLoaded', function() {
             const processingOpinionSelect = document.getElementById('communication_work_order_processing_opinion');
-            const problemTypeRow = document.getElementById('communication_problem_type_row');
+            const feeTypeRow = document.getElementById('fee_type_row');
+            const problemTypeRow = document.getElementById('problem_type_row');
             const auditCommentRow = document.getElementById('communication_audit_comment_row');
             const remarkRow = document.getElementById('communication_remark_row');
-
+            
+            const feeTypeSelect = document.getElementById('fee_type_select');
+            const problemTypeSelect = document.getElementById('problem_type_select');
+            
+            // 初始化问题类型下拉框
+            function updateProblemTypes() {
+              const feeTypeId = feeTypeSelect.value;
+              
+              // 清空当前选项
+              problemTypeSelect.innerHTML = '<option value=\"\">请选择问题类型</option>';
+              
+              if (!feeTypeId) {
+                return;
+              }
+              
+              // 获取对应的问题类型
+              fetch('/admin/problem_types.json?fee_type_id=' + feeTypeId)
+                .then(response => response.json())
+                .then(data => {
+                  data.forEach(problemType => {
+                    const option = document.createElement('option');
+                    option.value = problemType.id;
+                    option.textContent = problemType.display_name;
+                    problemTypeSelect.appendChild(option);
+                  });
+                })
+                .catch(error => console.error('Error fetching problem types:', error));
+            }
+            
+            // 切换字段显示
             function toggleFields() {
-              if (!processingOpinionSelect || !problemTypeRow || !auditCommentRow || !remarkRow) {
+              if (!processingOpinionSelect || !feeTypeRow || !problemTypeRow || !auditCommentRow || !remarkRow) {
                 console.warn('One or more conditional fields not found for CommunicationWorkOrder form.');
                 return;
               }
               const selectedValue = processingOpinionSelect.value;
 
+              feeTypeRow.style.display = 'none';
               problemTypeRow.style.display = 'none';
               auditCommentRow.style.display = 'none';
               remarkRow.style.display = 'none';
 
               if (selectedValue === '无法通过') {
+                feeTypeRow.style.display = 'list-item';
                 problemTypeRow.style.display = 'list-item';
                 auditCommentRow.style.display = 'list-item';
                 remarkRow.style.display = 'list-item';
@@ -295,11 +338,18 @@ ActiveAdmin.register CommunicationWorkOrder do
               }
             }
 
+            // 设置事件监听器
             if (processingOpinionSelect) {
               processingOpinionSelect.addEventListener('change', toggleFields);
               toggleFields();
             } else {
               console.warn('Processing opinion select not found for CommunicationWorkOrder form.');
+            }
+            
+            if (feeTypeSelect) {
+              feeTypeSelect.addEventListener('change', updateProblemTypes);
+              // 初始加载
+              updateProblemTypes();
             }
           });
         """

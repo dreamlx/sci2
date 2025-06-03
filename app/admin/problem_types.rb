@@ -24,7 +24,9 @@ ActiveAdmin.register ProblemType do
               title: pt.title,
               display_name: pt.display_name,
               fee_type_id: pt.fee_type_id,
-              fee_type_name: pt.fee_type&.display_name || "未关联费用类型"
+              fee_type_name: pt.fee_type&.display_name || "未关联费用类型",
+              sop_description: pt.sop_description,
+              standard_handling: pt.standard_handling
             }
           }
         end

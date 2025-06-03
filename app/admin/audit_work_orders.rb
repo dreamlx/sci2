@@ -305,7 +305,12 @@ ActiveAdmin.register AuditWorkOrder do
         row :vat_verified
         # 显示共享字段 (Req 6/7)
         row :problem_type do |wo|
-          wo.problem_type ? "#{wo.problem_type.fee_type.display_name}: #{wo.problem_type.display_name}" : nil
+          if wo.problem_type
+            fee_type_name = wo.problem_type.fee_type ? wo.problem_type.fee_type.display_name : "未关联费用类型"
+            "#{fee_type_name}: #{wo.problem_type.display_name}"
+          else
+            nil
+          end
         end
         row :remark
         row :processing_opinion
@@ -384,7 +389,10 @@ ActiveAdmin.register AuditWorkOrder do
                     input_html: { id: 'problem_type_select' },
                     wrapper_html: { id: 'problem_type_row', style: 'display:none;' }
             
-            f.input :audit_comment, label: "审核意见", wrapper_html: { id: 'audit_comment_row', style: 'display:none;' }
+            # 自动生成的问题描述
+            f.input :audit_comment, label: "审核意见",
+                    input_html: { id: 'audit_comment_field' },
+                    wrapper_html: { id: 'audit_comment_row', style: 'display:none;' }
             
             f.input :remark, label: "备注", wrapper_html: { id: 'remark_row', style: 'display:none;' }
           end
@@ -404,6 +412,10 @@ ActiveAdmin.register AuditWorkOrder do
             
             const feeTypeSelect = document.getElementById('fee_type_select');
             const problemTypeSelect = document.getElementById('problem_type_select');
+            const auditCommentField = document.getElementById('audit_comment_field');
+            
+            // 存储问题类型数据
+            let problemTypesData = [];
             
             // 初始化问题类型下拉框
             function updateProblemTypes() {
@@ -420,14 +432,41 @@ ActiveAdmin.register AuditWorkOrder do
               fetch('/admin/problem_types.json?fee_type_id=' + feeTypeId)
                 .then(response => response.json())
                 .then(data => {
+                  problemTypesData = data; // 存储数据以便后续使用
+                  
                   data.forEach(problemType => {
                     const option = document.createElement('option');
                     option.value = problemType.id;
                     option.textContent = problemType.display_name;
                     problemTypeSelect.appendChild(option);
                   });
+                  
+                  // 如果只有一个问题类型，自动选择它
+                  if (data.length === 1) {
+                    problemTypeSelect.value = data[0].id;
+                    updateProblemDescription();
+                  }
                 })
                 .catch(error => console.error('Error fetching problem types:', error));
+            }
+            
+            // 更新问题描述
+            function updateProblemDescription() {
+              const problemTypeId = problemTypeSelect.value;
+              
+              if (!problemTypeId || !auditCommentField) {
+                return;
+              }
+              
+              // 查找选中的问题类型
+              const selectedProblemType = problemTypesData.find(pt => pt.id == problemTypeId);
+              
+              if (selectedProblemType) {
+                // 如果审核意见为空或者是默认值，则自动填充标准处理方法
+                if (!auditCommentField.value || auditCommentField.value === '') {
+                  auditCommentField.value = selectedProblemType.standard_handling || '';
+                }
+              }
             }
             
             // 切换字段显示
@@ -464,6 +503,10 @@ ActiveAdmin.register AuditWorkOrder do
               feeTypeSelect.addEventListener('change', updateProblemTypes);
               // 初始加载
               updateProblemTypes();
+            }
+            
+            if (problemTypeSelect) {
+              problemTypeSelect.addEventListener('change', updateProblemDescription);
             }
           });
         """

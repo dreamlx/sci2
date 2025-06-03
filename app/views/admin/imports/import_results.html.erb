@@ -1,0 +1,107 @@
+<% content_for :title do %>
+  导入结果详情
+<% end %>
+
+<div class="panel">
+  <h3>导入结果详情</h3>
+  <div class="panel_contents">
+    <% if session[:import_result_details].present? %>
+      <% details = session[:import_result_details] %>
+      
+      <% if details[:fee_types].present? %>
+        <h4>费用类型 (<%= details[:fee_types].size %>)</h4>
+        <table class="index_table">
+          <thead>
+            <tr>
+              <th>代码</th>
+              <th>名称</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% details[:fee_types].each do |ft| %>
+              <tr class="<%= ft[:action] == 'created' ? 'created' : 'updated' %>">
+                <td><%= ft[:code] %></td>
+                <td><%= ft[:title] %></td>
+                <td><%= ft[:action] == 'created' ? '新建' : '更新' %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% else %>
+        <p>没有费用类型被导入或更新</p>
+      <% end %>
+      
+      <% if details[:problem_types].present? %>
+        <h4>问题类型 (<%= details[:problem_types].size %>)</h4>
+        <table class="index_table">
+          <thead>
+            <tr>
+              <th>费用类型</th>
+              <th>代码</th>
+              <th>名称</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% details[:problem_types].each do |pt| %>
+              <tr class="<%= pt[:action] == 'created' ? 'created' : 'updated' %>">
+                <td><%= pt[:fee_type] %></td>
+                <td><%= pt[:code] %></td>
+                <td><%= pt[:title] %></td>
+                <td><%= pt[:action] == 'created' ? '新建' : '更新' %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% else %>
+        <p>没有问题类型被导入或更新</p>
+      <% end %>
+      
+      <% session.delete(:import_result_details) %>
+    <% else %>
+      <p>没有可用的导入结果详情</p>
+    <% end %>
+    
+    <div class="actions">
+      <%= link_to "返回问题代码列表", admin_problem_types_path, class: "button" %>
+      <%= link_to "返回导入页面", '/admin/imports/new?resource=problem_codes', class: "button" %>
+    </div>
+  </div>
+</div>
+
+<style>
+  .index_table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+  }
+  
+  .index_table th, .index_table td {
+    padding: 8px;
+    border: 1px solid #ddd;
+    text-align: left;
+  }
+  
+  .index_table th {
+    background-color: #f5f5f5;
+    font-weight: bold;
+  }
+  
+  .index_table tr.created {
+    background-color: #dff0d8;
+  }
+  
+  .index_table tr.updated {
+    background-color: #fcf8e3;
+  }
+  
+  .actions {
+    margin-top: 20px;
+    text-align: right;
+  }
+  
+  .button {
+    margin-left: 10px;
+  }
+</style>

@@ -52,7 +52,11 @@ ActiveAdmin.register_page "Imports" do
       if result[:success]
         notice_message = "导入成功: #{result[:imported_fee_types]} 费用类型, #{result[:imported_problem_types]} 问题类型."
         notice_message += " #{result[:updated_fee_types]} 费用类型更新, #{result[:updated_problem_types]} 问题类型更新." if result[:updated_fee_types].to_i > 0 || result[:updated_problem_types].to_i > 0
-        redirect_to admin_problem_types_path, notice: notice_message
+        
+        # 保存详细信息到会话，以便在结果页面显示
+        session[:import_result_details] = result[:details]
+        
+        redirect_to import_results_admin_imports_path, notice: notice_message
       else
         alert_message = "导入失败: #{result[:error]}"
         redirect_to '/admin/imports/new?resource=problem_codes', alert: alert_message
@@ -60,6 +64,11 @@ ActiveAdmin.register_page "Imports" do
     rescue => e
       redirect_to '/admin/imports/new?resource=problem_codes', alert: "导入过程中发生错误: #{e.message}"
     end
+  end
+  
+  # 导入结果页面
+  page_action :import_results, method: :get do
+    render "admin/imports/import_results"
   end
   
   # 主页

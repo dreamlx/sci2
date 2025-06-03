@@ -221,6 +221,49 @@ RSpec.describe WorkOrderService, type: :service do
     end
   end
   
+  describe "problem description auto-generation" do
+    it "automatically fills audit_comment with standard_handling when problem_type_id is set but audit_comment is empty" do
+      # Create a test work order
+      test_work_order = AuditWorkOrder.new(
+        reimbursement: reimbursement,
+        status: "pending",
+        created_by: admin_user.id
+      )
+      
+      # Create a service with the test work order
+      service = WorkOrderService.new(test_work_order, admin_user)
+      
+      # Call the private method directly with problem_type_id but no audit_comment
+      service.send(:assign_shared_attributes, {
+        problem_type_id: problem_type.id
+      })
+      
+      # Verify the audit_comment was filled with the standard_handling from the problem_type
+      expect(test_work_order.audit_comment).to eq(problem_type.standard_handling)
+    end
+    
+    it "does not override existing audit_comment when problem_type_id is set" do
+      # Create a test work order with an existing audit_comment
+      test_work_order = AuditWorkOrder.new(
+        reimbursement: reimbursement,
+        status: "pending",
+        created_by: admin_user.id,
+        audit_comment: "已有的审核意见"
+      )
+      
+      # Create a service with the test work order
+      service = WorkOrderService.new(test_work_order, admin_user)
+      
+      # Call the private method directly with problem_type_id
+      service.send(:assign_shared_attributes, {
+        problem_type_id: problem_type.id
+      })
+      
+      # Verify the audit_comment was not changed
+      expect(test_work_order.audit_comment).to eq("已有的审核意见")
+    end
+  end
+  
   describe "#update_fee_detail_verification" do
     it "updates fee detail verification status" do
       # Mock the editable? method

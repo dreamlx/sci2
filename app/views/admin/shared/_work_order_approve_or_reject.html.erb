@@ -67,22 +67,110 @@
       <%= f.inputs do %>
         <% if work_order_type == :audit %>
           <% if action_type == :approve %>
-            <%= f.input :audit_comment, label: (label || '审核意见'), input_html: { rows: 3 }, required: true %>
+            <%= f.input :audit_comment, label: (label || '审核意见'), input_html: { rows: 3, id: 'audit_comment_field' }, required: true %>
             <%= f.input :audit_date, label: '审核日期', as: :date_select, input_html: { value: Date.today } %>
+            <%= f.input :processing_opinion, as: :hidden, input_html: { value: '可以通过' } %>
           <% else %>
-            <%= f.input :audit_comment, label: (label || '拒绝原因'), input_html: { rows: 3 }, required: true %>
+            <!-- 两级级联下拉选择 -->
+            <%= f.input :fee_type_id, as: :select,
+                    collection: FeeType.active.order(:code).map { |ft| [ft.display_name, ft.id] },
+                    include_blank: '请选择费用类型',
+                    input_html: { id: 'fee_type_select' },
+                    required: true %>
+            
+            <%= f.input :problem_type_id, as: :select,
+                    collection: [],
+                    include_blank: '请先选择费用类型',
+                    input_html: { id: 'problem_type_select' },
+                    required: true %>
+            
+            <%= f.input :audit_comment, label: (label || '拒绝原因'),
+                    input_html: { rows: 3, id: 'audit_comment_field' },
+                    required: true %>
+            
             <%= f.input :audit_date, label: '审核日期', as: :date_select, input_html: { value: Date.today } %>
+            <%= f.input :remark, label: '备注', input_html: { rows: 2 } %>
+            <%= f.input :processing_opinion, as: :hidden, input_html: { value: '无法通过' } %>
+            
+            <script>
+              document.addEventListener('DOMContentLoaded', function() {
+                const feeTypeSelect = document.getElementById('fee_type_select');
+                const problemTypeSelect = document.getElementById('problem_type_select');
+                const auditCommentField = document.getElementById('audit_comment_field');
+                
+                // 存储问题类型数据
+                let problemTypesData = [];
+                
+                // 初始化问题类型下拉框
+                function updateProblemTypes() {
+                  const feeTypeId = feeTypeSelect.value;
+                  
+                  // 清空当前选项
+                  problemTypeSelect.innerHTML = '<option value="">请选择问题类型</option>';
+                  
+                  if (!feeTypeId) {
+                    return;
+                  }
+                  
+                  // 获取对应的问题类型
+                  fetch('/admin/problem_types.json?fee_type_id=' + feeTypeId)
+                    .then(response => response.json())
+                    .then(data => {
+                      problemTypesData = data; // 存储数据以便后续使用
+                      
+                      data.forEach(problemType => {
+                        const option = document.createElement('option');
+                        option.value = problemType.id;
+                        option.textContent = problemType.display_name;
+                        problemTypeSelect.appendChild(option);
+                      });
+                      
+                      // 如果只有一个问题类型，自动选择它
+                      if (data.length === 1) {
+                        problemTypeSelect.value = data[0].id;
+                        updateProblemDescription();
+                      }
+                    })
+                    .catch(error => console.error('Error fetching problem types:', error));
+                }
+                
+                // 更新问题描述
+                function updateProblemDescription() {
+                  const problemTypeId = problemTypeSelect.value;
+                  
+                  if (!problemTypeId || !auditCommentField) {
+                    return;
+                  }
+                  
+                  // 查找选中的问题类型
+                  const selectedProblemType = problemTypesData.find(pt => pt.id == problemTypeId);
+                  
+                  if (selectedProblemType) {
+                    // 如果审核意见为空或者是默认值，则自动填充标准处理方法
+                    if (!auditCommentField.value || auditCommentField.value === '') {
+                      auditCommentField.value = selectedProblemType.standard_handling || '';
+                    }
+                  }
+                }
+                
+                // 设置事件监听器
+                if (feeTypeSelect) {
+                  feeTypeSelect.addEventListener('change', updateProblemTypes);
+                  // 初始加载
+                  updateProblemTypes();
+                }
+                
+                if (problemTypeSelect) {
+                  problemTypeSelect.addEventListener('change', updateProblemDescription);
+                }
+              });
+            </script>
           <% end %>
-          <%= f.input :problem_type, as: :hidden %>
-          <%= f.input :problem_description, as: :hidden %>
-          <%= f.input :remark, as: :hidden %>
-          <%= f.input :processing_opinion, as: :hidden %>
         <% elsif work_order_type == :communication %>
-          <%= f.input :audit_comment, label: (label || (action_type == :approve ? '审核意见' : '拒绝原因')), input_html: { rows: 3 }, required: true %>
-          <%= f.input :problem_type, as: :hidden %>
-          <%= f.input :problem_description, as: :hidden %>
+          <%= f.input :audit_comment, label: (label || (action_type == :approve ? '审核意见' : '拒绝原因')), input_html: { rows: 3, id: 'audit_comment_field' }, required: true %>
+          <%= f.input :problem_type_id, as: :hidden %>
           <%= f.input :remark, as: :hidden %>
-          <%= f.input :processing_opinion, as: :hidden %>
+          <%= f.input :processing_opinion, as: :hidden, input_html: { value: (action_type == :approve ? '可以通过' : '无法通过') } %>
         <% end %>
       <% end %>
       <div class="actions">

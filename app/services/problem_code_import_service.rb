@@ -13,7 +13,11 @@ class ProblemCodeImportService
       imported_problem_types: 0,
       updated_fee_types: 0,
       updated_problem_types: 0,
-      error: nil
+      error: nil,
+      details: {
+        fee_types: [],
+        problem_types: []
+      }
     }
     
     begin
@@ -25,6 +29,29 @@ class ProblemCodeImportService
           result[:updated_fee_types] += 1 if fee_type_updated
           result[:imported_problem_types] += 1 if problem_type_created
           result[:updated_problem_types] += 1 if problem_type_updated
+          
+          # 记录详细信息
+          if fee_type_created
+            result[:details][:fee_types] << { code: fee_type.code, title: fee_type.title, action: "created" }
+          elsif fee_type_updated
+            result[:details][:fee_types] << { code: fee_type.code, title: fee_type.title, action: "updated" }
+          end
+          
+          if problem_type_created
+            result[:details][:problem_types] << {
+              code: problem_type.code,
+              title: problem_type.title,
+              fee_type: fee_type&.display_name || "未关联",
+              action: "created"
+            }
+          elsif problem_type_updated
+            result[:details][:problem_types] << {
+              code: problem_type.code,
+              title: problem_type.title,
+              fee_type: fee_type&.display_name || "未关联",
+              action: "updated"
+            }
+          end
         end
       end
     rescue => e
