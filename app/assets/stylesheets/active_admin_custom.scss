@@ -224,6 +224,43 @@
   &:hover {
     background-color: #1e83f6;
   }
+  
+  &.primary_action {
+    background-color: #4CAF50;
+    font-weight: bold;
+    
+    &:hover {
+      background-color: #45a049;
+    }
+  }
+}
+
+// 批量操作按钮样式
+.batch_actions_selector {
+  .dropdown_menu_button.primary_action {
+    background-color: #4CAF50;
+    font-weight: bold;
+    
+    &:hover, &:focus {
+      background-color: #45a049;
+    }
+    
+    &:after {
+      border-color: #fff transparent;
+    }
+  }
+  
+  .dropdown_menu_list {
+    li.primary_action a {
+      background-color: #4CAF50;
+      color: #fff;
+      font-weight: bold;
+      
+      &:hover {
+        background-color: #45a049;
+      }
+    }
+  }
 }
 
 // 图表样式

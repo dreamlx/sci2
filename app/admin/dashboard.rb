@@ -66,49 +66,14 @@ ActiveAdmin.register_page "Dashboard" do
             end
             
             div class: 'stat-box' do
-              p "查看分配记录"
-              a href: admin_reimbursement_assignments_path, class: 'import-button' do
-                i class: 'fa fa-tasks fa-3x', 'data-label': '查看分配记录'
+              p "查看分配给我的报销单"
+              a href: "/admin/reimbursements?scope=my_assignments", class: 'import-button' do
+                i class: 'fa fa-tasks fa-3x', 'data-label': '查看分配给我的报销单'
               end
             end
           end
         end
 
-        panel "报销单状态分布" do
-          div class: 'status-distribution' do
-            div class: 'status-box pending' do
-              h3 "待处理"
-              h3 Reimbursement.where(status: 'pending').count
-            end
-
-            div class: 'status-box processing' do
-              h3 "处理中"
-              h3 Reimbursement.where(status: 'processing').count
-            end
-
-            div class: 'status-box waiting_completion' do
-              h3 "等待完成"
-              h3 Reimbursement.where(status: 'waiting_completion').count
-            end
-
-            div class: 'status-box closed' do
-              h3 "已关闭"
-              h3 Reimbursement.where(status: 'closed').count
-            end
-          end
-          
-          div class: 'status-chart' do
-            status_data = {
-              "待处理" => Reimbursement.where(status: 'pending').count,
-              "处理中" => Reimbursement.where(status: 'processing').count,
-              "等待完成" => Reimbursement.where(status: 'waiting_completion').count,
-              "已关闭" => Reimbursement.where(status: 'closed').count
-            }
-            
-            h3 "状态分布图表", style: "margin-top: 20px;"
-            pie_chart status_data, colors: ["#f39c12", "#2196f3", "#4caf50", "#9e9e9e"], donut: true, height: "250px"
-          end
-        end
       end
 
       column do
@@ -192,58 +157,7 @@ ActiveAdmin.register_page "Dashboard" do
       end
     end
     
-    columns do
-      column do
-        panel "工作量统计" do
-          table_for AdminUser.all do
-            column :email
-            column "分配的报销单数量" do |admin_user|
-              ReimbursementAssignment.active.where(assignee_id: admin_user.id).count
-            end
-            column "已处理的报销单数量" do |admin_user|
-              Reimbursement.joins(:active_assignment)
-                          .where(reimbursement_assignments: { assignee_id: admin_user.id })
-                          .where(status: 'closed')
-                          .count
-            end
-            column "待处理的报销单数量" do |admin_user|
-              Reimbursement.joins(:active_assignment)
-                          .where(reimbursement_assignments: { assignee_id: admin_user.id })
-                          .where.not(status: 'closed')
-                          .count
-            end
-          end
-          
-          div class: 'workload-chart' do
-            workload_data = AdminUser.all.map do |admin_user|
-              assigned = ReimbursementAssignment.active.where(assignee_id: admin_user.id).count
-              processed = Reimbursement.joins(:active_assignment)
-                                     .where(reimbursement_assignments: { assignee_id: admin_user.id })
-                                     .where(status: 'closed')
-                                     .count
-              pending = Reimbursement.joins(:active_assignment)
-                                   .where(reimbursement_assignments: { assignee_id: admin_user.id })
-                                   .where.not(status: 'closed')
-                                   .count
-              [admin_user.email, { "已处理" => processed, "待处理" => pending }]
-            end.to_h
-            
-            h3 "工作量分布图表", style: "margin-top: 20px;"
-            bar_chart workload_data, stacked: true, colors: ["#4caf50", "#2196f3"], height: "300px"
-          end
-        end
-      end
-    end
 
-    columns do
-      column do
-        panel "快速分配报销单" do
-          div class: 'quick-assign-form' do
-            render partial: 'admin/reimbursements/quick_assign_form'
-          end
-        end
-      end
-    end
 
     # 移除了快速操作和最近验证的费用明细区块
   end

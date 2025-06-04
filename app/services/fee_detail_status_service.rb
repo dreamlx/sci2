@@ -17,11 +17,8 @@ class FeeDetailStatusService
   
   # Update status for fee details related to a specific work order
   def update_status_for_work_order(work_order)
-    # Get all fee details associated with this work order
-    fee_detail_ids = WorkOrderFeeDetail.where(
-      work_order_id: work_order.id,
-      work_order_type: work_order.type
-    ).pluck(:fee_detail_id)
+    # Get all fee details associated with this work order - 简化版本
+    fee_detail_ids = work_order.work_order_fee_details.pluck(:fee_detail_id)
     
     # Update their status
     FeeDetail.where(id: fee_detail_ids).find_each do |fee_detail|
@@ -32,46 +29,41 @@ class FeeDetailStatusService
   private
   
   def update_fee_detail_status(fee_detail)
+    # 添加调试日志
+    Rails.logger.debug "FeeDetailStatusService#update_fee_detail_status: 开始更新费用明细 ##{fee_detail.id}, 当前状态: #{fee_detail.verification_status}"
+    
     # Get the latest work order associated with this fee detail
     latest_work_order = get_latest_work_order(fee_detail)
     
     if latest_work_order.nil?
+      Rails.logger.debug "FeeDetailStatusService#update_fee_detail_status: 没有关联的工单，保持或设置为 pending"
       # If no work orders, keep or set to pending
-      fee_detail.update(verification_status: "pending") unless fee_detail.verification_status == "pending"
+      unless fee_detail.verification_status == "pending"
+        fee_detail.update(verification_status: "pending")
+        Rails.logger.debug "FeeDetailStatusService#update_fee_detail_status: 更新状态为 pending"
+      end
       return
     end
     
+    Rails.logger.debug "FeeDetailStatusService#update_fee_detail_status: 最新关联工单 ##{latest_work_order.id}, 类型: #{latest_work_order.type}, 状态: #{latest_work_order.status}"
+    
     # Apply the "latest work order decides" principle
     new_status = determine_status_from_work_order(latest_work_order)
+    Rails.logger.debug "FeeDetailStatusService#update_fee_detail_status: 根据工单状态确定的新状态: #{new_status}"
     
     # Update only if status has changed
     if fee_detail.verification_status != new_status
-      fee_detail.update(verification_status: new_status)
+      Rails.logger.debug "FeeDetailStatusService#update_fee_detail_status: 状态需要更新，从 #{fee_detail.verification_status} 到 #{new_status}"
+      result = fee_detail.update(verification_status: new_status)
+      Rails.logger.debug "FeeDetailStatusService#update_fee_detail_status: 更新结果: #{result}, 错误: #{fee_detail.errors.full_messages.join(', ')}"
+    else
+      Rails.logger.debug "FeeDetailStatusService#update_fee_detail_status: 状态未变更，保持为 #{fee_detail.verification_status}"
     end
   end
   
   def get_latest_work_order(fee_detail)
-    # Get all work orders associated with this fee detail
-    work_order_ids_with_types = WorkOrderFeeDetail.where(fee_detail_id: fee_detail.id)
-                                                 .pluck(:work_order_id, :work_order_type)
-    
-    return nil if work_order_ids_with_types.empty?
-    
-    # Find the latest work order by updated_at timestamp
-    latest_work_order = nil
-    latest_updated_at = nil
-    
-    work_order_ids_with_types.each do |work_order_id, work_order_type|
-      work_order = work_order_type.constantize.find_by(id: work_order_id)
-      next unless work_order
-      
-      if latest_updated_at.nil? || work_order.updated_at > latest_updated_at
-        latest_work_order = work_order
-        latest_updated_at = work_order.updated_at
-      end
-    end
-    
-    latest_work_order
+    # 简化版本 - 直接使用关联获取最新工单
+    fee_detail.work_orders.order(updated_at: :desc).first
   end
   
   def determine_status_from_work_order(work_order)

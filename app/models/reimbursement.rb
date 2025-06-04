@@ -72,6 +72,16 @@ class Reimbursement < ApplicationRecord
     where(is_electronic: false)
   end
   
+  # 获取分配给特定用户的报销单
+  def self.assigned_to_user(user_id)
+    joins(:assignments)
+      .where(reimbursement_assignments: { assignee_id: user_id, is_active: true })
+      .distinct
+  end
+  
+  # 定义my_assignments scope
+  scope :my_assignments, ->(user_id) { assigned_to_user(user_id) }
+  
   # ActiveAdmin configuration
   def self.ransackable_attributes(auth_object = nil)
     %w[id invoice_number document_name applicant applicant_id company department
@@ -159,6 +169,14 @@ class Reimbursement < ApplicationRecord
   # Check if work orders can be created for this reimbursement
   def can_create_work_orders?
     !closed?
+  end
+  
+  # Mark this reimbursement as received
+  def mark_as_received(received_date = nil)
+    update(
+      receipt_status: 'received',
+      receipt_date: received_date || Time.current
+    )
   end
   
   # Get the meeting type context for this reimbursement

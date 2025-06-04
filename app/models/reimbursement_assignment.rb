@@ -22,4 +22,14 @@ class ReimbursementAssignment < ApplicationRecord
                             .update_all(is_active: false)
     end
   end
+  
+  # Define ransackable attributes for ActiveAdmin search
+  def self.ransackable_attributes(auth_object = nil)
+    ["assignee_id", "assigner_id", "created_at", "id", "id_value", "is_active", "notes", "reimbursement_id", "updated_at"]
+  end
+  
+  # Define ransackable associations for ActiveAdmin search
+  def self.ransackable_associations(auth_object = nil)
+    ["assignee", "assigner", "reimbursement"]
+  end
 end

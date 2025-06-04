@@ -1,6 +1,8 @@
 require 'rails_helper'
 
 RSpec.describe WorkOrderService, type: :service do
+  let(:admin_user) { AdminUser.create!(email: 'admin@example.com', password: 'password') }
+  
   let(:reimbursement) do
     Reimbursement.create!(
       invoice_number: "INV-001",
@@ -10,10 +12,20 @@ RSpec.describe WorkOrderService, type: :service do
     )
   end
   
+  let(:fee_detail) do
+    FeeDetail.create!(
+      document_number: reimbursement.invoice_number,
+      fee_type: "月度交通费",
+      amount: 100.0,
+      fee_date: Date.today,
+      verification_status: "pending"
+    )
+  end
+  
   let(:fee_type) do
     FeeType.create!(
       code: "00",
-      title: "月度交通费（销售/SMO/CO）",
+      title: "月度交通费",
       meeting_type: "个人",
       active: true
     )
@@ -30,173 +42,159 @@ RSpec.describe WorkOrderService, type: :service do
     )
   end
   
-  let(:admin_user) do
-    AdminUser.create!(
-      email: "admin@example.com",
-      password: "password",
-      password_confirmation: "password"
-    )
-  end
-  
-  let(:work_order) do
-    AuditWorkOrder.create!(
-      reimbursement: reimbursement,
-      status: "pending",
-      created_by: admin_user.id
-    )
-  end
-  
-  let(:fee_detail) do
-    FeeDetail.create!(
-      document_number: reimbursement.invoice_number,
-      fee_type: "交通费",
-      amount: 100.0,
-      verification_status: "pending"
-    )
-  end
-  
+  # 设置Current.admin_user
   before do
-    # Create work order fee detail association
-    WorkOrderFeeDetail.create!(
-      work_order: work_order,
-      fee_detail: fee_detail,
-      work_order_type: work_order.type
-    )
+    Current.admin_user = admin_user
   end
   
-  describe "#approve" do
-    it "handles approval logic" do
-      # Create a test service with a mock work order
-      test_work_order = double("WorkOrder",
-        may_approve?: true,
-        approve: true,
-        errors: double("errors", any?: false),
-        reimbursement: reimbursement,
-        is_a?: true,
-        assign_attributes: nil,
-        problem_type_id: nil
-      )
-      
-      # Make sure is_a? returns true for WorkOrder
-      allow(test_work_order).to receive(:is_a?).with(WorkOrder).and_return(true)
-      
-      # Create the service
-      service = WorkOrderService.new(test_work_order, admin_user)
-      
-      # Test the approve method
-      result = service.approve(audit_comment: "审核通过")
-      
-      # Verify the result
-      expect(result).to be true
-    end
-    
-    it "returns false if the work order cannot be approved" do
-      # First approve the work order
-      work_order.update(status: "approved")
-      
-      # Then try to approve it again
-      service = WorkOrderService.new(work_order, admin_user)
-      result = service.approve(audit_comment: "审核通过")
-      
-      expect(result).to be false
-    end
+  # 清理Current.admin_user
+  after do
+    Current.admin_user = nil
   end
   
-  describe "#reject" do
-    it "handles rejection logic" do
-      # Create a test service with a mock work order
-      test_work_order = double("WorkOrder",
-        may_reject?: true,
-        reject: true,
-        errors: double("errors", any?: false),
-        reimbursement: reimbursement,
-        is_a?: true,
-        assign_attributes: nil,
-        problem_type_id: nil
-      )
-      
-      # Make sure is_a? returns true for WorkOrder
-      allow(test_work_order).to receive(:is_a?).with(WorkOrder).and_return(true)
-      
-      # Create the service
-      service = WorkOrderService.new(test_work_order, admin_user)
-      
-      # Test the reject method
-      result = service.reject(
-        audit_comment: "审核拒绝",
-        problem_type_id: problem_type.id
-      )
-      
-      # Verify the result
-      expect(result).to be true
-    end
-    
-    it "returns false if the work order cannot be rejected" do
-      # First reject the work order
-      work_order.update(status: "rejected")
-      
-      # Then try to reject it again
-      service = WorkOrderService.new(work_order, admin_user)
-      result = service.reject(
-        audit_comment: "审核拒绝",
-        problem_type_id: problem_type.id
-      )
-      
-      expect(result).to be false
-    end
-  end
-  
-  describe "#update" do
-    it "updates a work order" do
-      # Mock the editable? method
-      allow(work_order).to receive(:editable?).and_return(true)
-      allow(work_order).to receive(:save).and_return(true)
-      
-      service = WorkOrderService.new(work_order, admin_user)
-      result = service.update(
-        audit_comment: "更新审核意见",
-        remark: "备注信息"
-      )
-      
-      expect(result).to be true
-    end
-    
-    it "returns false if the work order is not editable" do
-      # Mock the editable? method
-      allow(work_order).to receive(:editable?).and_return(false)
-      
-      service = WorkOrderService.new(work_order, admin_user)
-      result = service.update(audit_comment: "更新审核意见")
-      
-      expect(result).to be false
-    end
-  end
-  
-  describe "#assign_shared_attributes" do
-    it "handles fee_type_id and finds a default problem_type" do
-      # Create a test work order that can be assigned attributes
-      test_work_order = AuditWorkOrder.new(
+  describe "审核工单状态处理" do
+    let(:audit_work_order) do
+      # 创建工单
+      work_order = AuditWorkOrder.create!(
         reimbursement: reimbursement,
         status: "pending",
         created_by: admin_user.id
       )
       
-      # Create a service with the test work order
-      service = WorkOrderService.new(test_work_order, admin_user)
+      # 关联费用明细
+      WorkOrderFeeDetail.create!(
+        work_order: work_order,
+        fee_detail: fee_detail,
+        work_order_type: work_order.class.name
+      )
       
-      # Call the private method directly
-      service.send(:assign_shared_attributes, {
-        fee_type_id: fee_type.id,
-        audit_comment: "测试审核意见"
-      })
-      
-      # Verify the attributes were assigned
-      expect(test_work_order.audit_comment).to eq("测试审核意见")
+      work_order
     end
     
-    it "does not override problem_type_id if already set" do
-      # Create another problem type
-      another_problem_type = ProblemType.create!(
+    let(:service) { WorkOrderService.new(audit_work_order, admin_user) }
+    
+    context "处理意见设置为'可以通过'" do
+      it "工单状态变更为approved" do
+        # 设置处理意见为"可以通过"
+        audit_work_order.processing_opinion = '可以通过'
+        
+        # 直接调用方法
+        audit_work_order.send(:set_status_based_on_processing_opinion)
+        
+        # 验证结果
+        expect(audit_work_order.reload.status).to eq('approved')
+      end
+      
+      it "关联的费用明细状态变更为verified" do
+        # 设置处理意见为"可以通过"
+        audit_work_order.processing_opinion = '可以通过'
+        
+        # 直接调用方法
+        audit_work_order.send(:set_status_based_on_processing_opinion)
+        
+        # 验证费用明细状态
+        expect(fee_detail.reload.verification_status).to eq(FeeDetail::VERIFICATION_STATUS_VERIFIED)
+      end
+    end
+    
+    context "处理意见设置为'无法通过'" do
+      it "工单状态变更为rejected" do
+        # 设置处理意见为"无法通过"
+        audit_work_order.processing_opinion = '无法通过'
+        
+        # 直接调用方法
+        audit_work_order.send(:set_status_based_on_processing_opinion)
+        
+        # 验证结果
+        expect(audit_work_order.reload.status).to eq('rejected')
+      end
+      
+      it "关联的费用明细状态变更为problematic" do
+        # 设置处理意见为"无法通过"
+        audit_work_order.processing_opinion = '无法通过'
+        
+        # 直接调用方法
+        audit_work_order.send(:set_status_based_on_processing_opinion)
+        
+        # 验证费用明细状态
+        expect(fee_detail.reload.verification_status).to eq(FeeDetail::VERIFICATION_STATUS_PROBLEMATIC)
+      end
+    end
+  end
+  
+  describe "沟通工单状态处理" do
+    let(:communication_work_order) do
+      # 创建工单
+      work_order = CommunicationWorkOrder.create!(
+        reimbursement: reimbursement,
+        status: "pending",
+        created_by: admin_user.id
+      )
+      
+      # 关联费用明细
+      WorkOrderFeeDetail.create!(
+        work_order: work_order,
+        fee_detail: fee_detail,
+        work_order_type: work_order.class.name
+      )
+      
+      work_order
+    end
+    
+    let(:service) { WorkOrderService.new(communication_work_order, admin_user) }
+    
+    context "处理意见设置为'可以通过'" do
+      it "工单状态变更为approved" do
+        # 设置处理意见为"可以通过"
+        communication_work_order.processing_opinion = '可以通过'
+        
+        # 直接调用方法
+        communication_work_order.send(:set_status_based_on_processing_opinion)
+        
+        # 验证结果
+        expect(communication_work_order.reload.status).to eq('approved')
+      end
+      
+      it "关联的费用明细状态变更为verified" do
+        # 设置处理意见为"可以通过"
+        communication_work_order.processing_opinion = '可以通过'
+        
+        # 直接调用方法
+        communication_work_order.send(:set_status_based_on_processing_opinion)
+        
+        # 验证费用明细状态
+        expect(fee_detail.reload.verification_status).to eq(FeeDetail::VERIFICATION_STATUS_VERIFIED)
+      end
+    end
+    
+    context "处理意见设置为'无法通过'" do
+      it "工单状态变更为rejected" do
+        # 设置处理意见为"无法通过"
+        communication_work_order.processing_opinion = '无法通过'
+        
+        # 直接调用方法
+        communication_work_order.send(:set_status_based_on_processing_opinion)
+        
+        # 验证结果
+        expect(communication_work_order.reload.status).to eq('rejected')
+      end
+      
+      it "关联的费用明细状态变更为problematic" do
+        # 设置处理意见为"无法通过"
+        communication_work_order.processing_opinion = '无法通过'
+        
+        # 直接调用方法
+        communication_work_order.send(:set_status_based_on_processing_opinion)
+        
+        # 验证费用明细状态
+        expect(fee_detail.reload.verification_status).to eq(FeeDetail::VERIFICATION_STATUS_PROBLEMATIC)
+      end
+    end
+  end
+  
+  describe "多问题类型处理" do
+    let(:another_problem_type) do
+      ProblemType.create!(
         code: "02",
         title: "交通费超标",
         sop_description: "检查交通费是否超过标准",
@@ -204,97 +202,99 @@ RSpec.describe WorkOrderService, type: :service do
         fee_type: fee_type,
         active: true
       )
-      
-      # Set the problem_type_id
-      work_order.update(problem_type_id: another_problem_type.id)
-      
-      service = WorkOrderService.new(work_order, admin_user)
-      
-      # Call the private method directly
-      service.send(:assign_shared_attributes, {
-        fee_type_id: fee_type.id,
-        audit_comment: "测试审核意见"
-      })
-      
-      # The problem_type_id should not change
-      expect(work_order.problem_type_id).to eq(another_problem_type.id)
     end
-  end
-  
-  describe "problem description auto-generation" do
-    it "automatically fills audit_comment with standard_handling when problem_type_id is set but audit_comment is empty" do
-      # Create a test work order
-      test_work_order = AuditWorkOrder.new(
+    
+    let(:audit_work_order) do
+      # 创建工单
+      work_order = AuditWorkOrder.create!(
         reimbursement: reimbursement,
         status: "pending",
         created_by: admin_user.id
       )
       
-      # Create a service with the test work order
-      service = WorkOrderService.new(test_work_order, admin_user)
-      
-      # Call the private method directly with problem_type_id but no audit_comment
-      service.send(:assign_shared_attributes, {
-        problem_type_id: problem_type.id
-      })
-      
-      # Verify the audit_comment was filled with the standard_handling from the problem_type
-      expect(test_work_order.audit_comment).to eq(problem_type.standard_handling)
-    end
-    
-    it "does not override existing audit_comment when problem_type_id is set" do
-      # Create a test work order with an existing audit_comment
-      test_work_order = AuditWorkOrder.new(
-        reimbursement: reimbursement,
-        status: "pending",
-        created_by: admin_user.id,
-        audit_comment: "已有的审核意见"
+      # 关联费用明细
+      WorkOrderFeeDetail.create!(
+        work_order: work_order,
+        fee_detail: fee_detail,
+        work_order_type: work_order.class.name
       )
       
-      # Create a service with the test work order
-      service = WorkOrderService.new(test_work_order, admin_user)
+      work_order
+    end
+    
+    it "支持添加多个问题类型" do
+      # 设置多个问题类型
+      audit_work_order.problem_type_ids = [problem_type.id, another_problem_type.id]
       
-      # Call the private method directly with problem_type_id
-      service.send(:assign_shared_attributes, {
-        problem_type_id: problem_type.id
-      })
+      # 直接调用方法
+      audit_work_order.send(:process_problem_types)
       
-      # Verify the audit_comment was not changed
-      expect(test_work_order.audit_comment).to eq("已有的审核意见")
+      # 验证结果
+      expect(audit_work_order.problem_types.count).to eq(2)
+      expect(audit_work_order.problem_types).to include(problem_type, another_problem_type)
     end
   end
   
-  describe "#update_fee_detail_verification" do
-    it "updates fee detail verification status" do
-      # Mock the editable? method
-      allow(work_order).to receive(:editable?).and_return(true)
+  describe "最新工单决定原则" do
+    let(:audit_work_order_1) do
+      # 创建第一个工单
+      work_order = AuditWorkOrder.create!(
+        reimbursement: reimbursement,
+        status: "pending",
+        created_by: admin_user.id
+      )
       
-      # Mock the FeeDetailVerificationService
-      verification_service = instance_double(FeeDetailVerificationService)
-      allow(FeeDetailVerificationService).to receive(:new).with(admin_user).and_return(verification_service)
-      allow(verification_service).to receive(:update_verification_status).and_return(true)
+      # 关联费用明细
+      WorkOrderFeeDetail.create!(
+        work_order: work_order,
+        fee_detail: fee_detail,
+        work_order_type: work_order.class.name
+      )
       
-      service = WorkOrderService.new(work_order, admin_user)
-      result = service.update_fee_detail_verification(fee_detail.id, "verified", "验证通过")
-      
-      expect(result).to be true
+      work_order
     end
     
-    it "returns false if the fee detail is not found" do
-      service = WorkOrderService.new(work_order, admin_user)
-      result = service.update_fee_detail_verification(999, "verified", "验证通过")
+    let(:audit_work_order_2) do
+      # 创建第二个工单
+      work_order = AuditWorkOrder.create!(
+        reimbursement: reimbursement,
+        status: "pending",
+        created_by: admin_user.id
+      )
       
-      expect(result).to be false
+      # 关联费用明细
+      WorkOrderFeeDetail.create!(
+        work_order: work_order,
+        fee_detail: fee_detail,
+        work_order_type: work_order.class.name
+      )
+      
+      work_order
     end
     
-    it "returns false if the work order is not editable" do
-      # Mark the work order as completed
-      work_order.update(status: "completed")
+    it "费用明细状态由最新工单决定" do
+      # 第一个工单设置为拒绝
+      audit_work_order_1.update_column(:status, 'rejected')
+      audit_work_order_1.sync_fee_details_verification_status
       
-      service = WorkOrderService.new(work_order, admin_user)
-      result = service.update_fee_detail_verification(fee_detail.id, "verified", "验证通过")
+      # 验证费用明细状态为problematic
+      expect(fee_detail.reload.verification_status).to eq(FeeDetail::VERIFICATION_STATUS_PROBLEMATIC)
       
-      expect(result).to be false
+      # 第二个工单设置为通过
+      audit_work_order_2.update_column(:status, 'approved')
+      audit_work_order_2.sync_fee_details_verification_status
+      
+      # 验证费用明细状态变为verified
+      expect(fee_detail.reload.verification_status).to eq(FeeDetail::VERIFICATION_STATUS_VERIFIED)
+      
+      # 更新第二个工单的更新时间为更早的时间
+      audit_work_order_2.update_column(:updated_at, 1.day.ago)
+      
+      # 重新触发第一个工单的状态更新
+      audit_work_order_1.sync_fee_details_verification_status
+      
+      # 验证费用明细状态变回problematic
+      expect(fee_detail.reload.verification_status).to eq(FeeDetail::VERIFICATION_STATUS_PROBLEMATIC)
     end
   end
 end

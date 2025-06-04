@@ -39,7 +39,8 @@ ActiveAdmin.register FeeDetail do
 
     if result[:success]
       notice_message = "导入成功: #{result[:created]} 创建, #{result[:updated]} 更新."
-      notice_message += " #{result[:errors]} 错误." if result[:errors].to_i > 0
+      notice_message += " #{result[:skipped_errors]} 错误." if result[:skipped_errors].to_i > 0
+      notice_message += " #{result[:unmatched_count]} 未匹配的报销单." if result[:unmatched_count].to_i > 0
       redirect_to admin_fee_details_path, notice: notice_message
     else
       alert_message = "导入失败: #{result[:error_details] ? result[:error_details].join(', ') : (result[:errors].is_a?(Array) ? result[:errors].join(', ') : result[:errors])}"

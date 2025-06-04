@@ -13,13 +13,13 @@ class FeeDetail < ApplicationRecord
   # Associations
   belongs_to :reimbursement, foreign_key: 'document_number', primary_key: 'invoice_number'
   has_many :work_order_fee_details, dependent: :destroy
-  has_many :work_orders, through: :work_order_fee_details, source: :work_order, source_type: "WorkOrder"
+  has_many :work_orders, through: :work_order_fee_details
   
   # Validations
   validates :document_number, presence: true
   validates :verification_status, inclusion: { in: VERIFICATION_STATUSES }
   validates :external_fee_id, uniqueness: true, allow_nil: true
-  validates :amount, presence: true, numericality: { greater_than: 0 }
+  validates :amount, numericality: { greater_than_or_equal_to: 0, allow_nil: true }
   
   # Callbacks
   after_save :update_reimbursement_status, if: -> { saved_change_to_verification_status? }
@@ -61,13 +61,10 @@ class FeeDetail < ApplicationRecord
   
   # Instance methods
   
-  # Get the latest work order associated with this fee detail
+  # Get the latest work order associated with this fee detail - 简化版本
   def latest_work_order
-    # 获取最新的工单（按更新时间排序）
-    work_order_ids = work_order_fee_details.pluck(:work_order_id)
-    return nil if work_order_ids.empty?
-    
-    WorkOrder.where(id: work_order_ids).order(updated_at: :desc).first
+    # 直接使用关联获取最新的工单（按更新时间排序）
+    work_orders.order(updated_at: :desc).first
   end
   
   # Alias for compatibility with existing code
@@ -100,9 +97,8 @@ class FeeDetail < ApplicationRecord
   
   # Get all work orders that have affected this fee detail, ordered by recency
   def work_order_history
-    # 获取所有工单，按更新时间排序
-    work_order_ids = work_order_fee_details.pluck(:work_order_id)
-    WorkOrder.where(id: work_order_ids).order(updated_at: :desc)
+    # 直接使用关联获取所有工单，按更新时间排序
+    work_orders.order(updated_at: :desc)
   end
   
   # Get the status of the latest work order
@@ -113,18 +109,12 @@ class FeeDetail < ApplicationRecord
   
   # Check if this fee detail has been approved by any work order
   def approved_by_any_work_order?
-    work_order_ids = work_order_fee_details.pluck(:work_order_id)
-    return false if work_order_ids.empty?
-    
-    WorkOrder.where(id: work_order_ids, status: WorkOrder::STATUS_APPROVED).exists?
+    work_orders.where(status: WorkOrder::STATUS_APPROVED).exists?
   end
   
   # Check if this fee detail has been rejected by any work order
   def rejected_by_any_work_order?
-    work_order_ids = work_order_fee_details.pluck(:work_order_id)
-    return false if work_order_ids.empty?
-    
-    WorkOrder.where(id: work_order_ids, status: WorkOrder::STATUS_REJECTED).exists?
+    work_orders.where(status: WorkOrder::STATUS_REJECTED).exists?
   end
   
   # Check if this fee detail has been approved by the latest work order

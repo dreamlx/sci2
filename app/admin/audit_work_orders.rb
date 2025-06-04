@@ -2,8 +2,9 @@ ActiveAdmin.register AuditWorkOrder do
   permit_params :reimbursement_id, :audit_comment, # resolution & audit_date are set by system, creator_id by controller
                 :vat_verified,
                 # 共享字段 - 使用 _id 后缀
-                :problem_type_id, :remark, :processing_opinion,
-                submitted_fee_detail_ids: []
+                :remark, :processing_opinion,
+                submitted_fee_detail_ids: [], problem_type_ids: []
+  # 移除 problem_type_id 从 permit_params 中，改为使用 problem_type_ids 数组
   # 移除 status 从 permit_params 中，状态由系统自动管理
 
   menu priority: 4, label: "审核工单", parent: "工单管理"
@@ -46,11 +47,11 @@ ActiveAdmin.register AuditWorkOrder do
       # Parameters should align with the main permit_params, using _id for problem type
       _audit_work_order_params = params.require(:audit_work_order).permit(
         :reimbursement_id, :audit_comment, # resolution & audit_date are set by system
-        :problem_type_id, :remark, :processing_opinion,
-        submitted_fee_detail_ids: []
+        :remark, :processing_opinion,
+        submitted_fee_detail_ids: [], problem_type_ids: []
       )
 
-      @audit_work_order = AuditWorkOrder.new(_audit_work_order_params.except(:submitted_fee_detail_ids))
+      @audit_work_order = AuditWorkOrder.new(_audit_work_order_params.except(:submitted_fee_detail_ids, :problem_type_ids))
       @audit_work_order.created_by = current_admin_user.id # MODIFIED: Use created_by instead of creator_id
 
       if _audit_work_order_params[:submitted_fee_detail_ids].present?
@@ -58,6 +59,11 @@ ActiveAdmin.register AuditWorkOrder do
         @audit_work_order.instance_variable_set(:@_direct_submitted_fee_ids, _audit_work_order_params[:submitted_fee_detail_ids])
         # Also set the accessor for form repopulation if validation fails and we re-render new
         @audit_work_order.submitted_fee_detail_ids = _audit_work_order_params[:submitted_fee_detail_ids]
+      end
+      
+      # 设置问题类型IDs
+      if _audit_work_order_params[:problem_type_ids].present?
+        @audit_work_order.problem_type_ids = _audit_work_order_params[:problem_type_ids]
       end
       
       if @audit_work_order.save
@@ -71,6 +77,10 @@ ActiveAdmin.register AuditWorkOrder do
         if _audit_work_order_params[:submitted_fee_detail_ids].present? 
           @audit_work_order.instance_variable_set(:@_direct_submitted_fee_ids, _audit_work_order_params[:submitted_fee_detail_ids])
           @audit_work_order.submitted_fee_detail_ids = _audit_work_order_params[:submitted_fee_detail_ids]
+        end
+        # 重新设置问题类型IDs
+        if _audit_work_order_params[:problem_type_ids].present?
+          @audit_work_order.problem_type_ids = _audit_work_order_params[:problem_type_ids]
         end
         flash.now[:error] = "创建审核工单失败: #{@audit_work_order.errors.full_messages.join(', ')}"
         render :new
@@ -88,10 +98,15 @@ ActiveAdmin.register AuditWorkOrder do
         # For form repopulation on error, also set the accessor if it exists
         @audit_work_order.submitted_fee_detail_ids = update_params[:submitted_fee_detail_ids] if @audit_work_order.respond_to?(:submitted_fee_detail_ids=)
       end
+      
+      # 设置问题类型IDs
+      if update_params[:problem_type_ids].present?
+        @audit_work_order.problem_type_ids = update_params[:problem_type_ids]
+      end
 
       # Use the centrally defined audit_work_order_params method for strong parameters
       # The service update method should ideally only take attributes for the model itself, not the fee IDs which are handled by callback
-      if service.update(update_params.except(:submitted_fee_detail_ids)) 
+      if service.update(update_params.except(:submitted_fee_detail_ids, :problem_type_ids)) 
         redirect_to admin_audit_work_order_path(@audit_work_order), notice: '审核工单已更新'
       else
         # If update fails, @_direct_submitted_fee_ids might need to be preserved or reset for the form
@@ -106,10 +121,10 @@ ActiveAdmin.register AuditWorkOrder do
     def audit_work_order_params_for_update
       params.require(:audit_work_order).permit(
         :processing_opinion,
-        :problem_type_id,         # Use _id
         :audit_comment,
         :remark,
-        submitted_fee_detail_ids: []  # If editable
+        submitted_fee_detail_ids: [],
+        problem_type_ids: []
       )
     end
   end
@@ -192,9 +207,9 @@ ActiveAdmin.register AuditWorkOrder do
     # Ensure :processing_opinion is part of the permitted params for approval logic
     permitted_params = params.require(:audit_work_order).permit(
       :audit_comment, :processing_opinion,
-      :problem_type_id, :remark, # Shared fields
-      :vat_verified # AuditWorkOrder specific, if still needed here
-      # fee_detail_ids: [] # If fee details are managed on this form
+      :remark, # Shared fields
+      :vat_verified, # AuditWorkOrder specific, if still needed here
+      problem_type_ids: []
     ).merge(processing_opinion: '可以通过') # Explicitly set for approval
 
     if service.approve(permitted_params)
@@ -219,9 +234,9 @@ ActiveAdmin.register AuditWorkOrder do
     # Ensure :processing_opinion is part of the permitted params for rejection logic
     permitted_params = params.require(:audit_work_order).permit(
       :audit_comment, :processing_opinion,
-      :problem_type_id, :remark, # Shared fields
-      :vat_verified # AuditWorkOrder specific, if still needed here
-      # fee_detail_ids: [] # If fee details are managed on this form
+      :remark, # Shared fields
+      :vat_verified, # AuditWorkOrder specific, if still needed here
+      problem_type_ids: []
     ).merge(processing_opinion: '无法通过') # Explicitly set for rejection
 
     if service.reject(permitted_params)
@@ -271,7 +286,14 @@ ActiveAdmin.register AuditWorkOrder do
     id_column
     column :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
     column :status do |wo| status_tag wo.status end
-    column "问题类型", :problem_type do |wo| wo.problem_type&.display_name end # Display name of associated problem_type
+    column "问题类型", :problem_types do |wo| 
+      if wo.problem_types.any?
+        wo.problem_types.map(&:display_name).join(", ")
+      else
+        # 兼容旧数据
+        wo.problem_type&.display_name
+      end
+    end
     column :creator
     column :created_at
     # Explicitly define the actions column to prevent defaults from potentially being added elsewhere
@@ -288,7 +310,7 @@ ActiveAdmin.register AuditWorkOrder do
 
   # 详情页
   show title: proc{|wo| "审核工单 ##{wo.id}" } do
-    panel "基本信息" do
+    
       # reimbursement display partial (原"基本信息"Tab内容)
       if resource.reimbursement.present?
         render 'admin/reimbursements/reimbursement_display', reimbursement: resource.reimbursement
@@ -303,13 +325,19 @@ ActiveAdmin.register AuditWorkOrder do
         row :audit_comment
         row :audit_date
         row :vat_verified
-        # 显示共享字段 (Req 6/7)
-        row :problem_type do |wo|
-          if wo.problem_type
-            fee_type_name = wo.problem_type.fee_type ? wo.problem_type.fee_type.display_name : "未关联费用类型"
-            "#{fee_type_name}: #{wo.problem_type.display_name}"
+        # 显示问题类型
+        row :problem_types do |wo|
+          if wo.problem_types.any?
+            ul do
+              wo.problem_types.each do |problem_type|
+                li do
+                  fee_type_name = problem_type.fee_type ? problem_type.fee_type.display_name : "未关联费用类型"
+                  "#{fee_type_name}: #{problem_type.display_name}"
+                end
+              end
+            end
           else
-            nil
+            para "无问题类型"
           end
         end
         row :remark
@@ -318,7 +346,7 @@ ActiveAdmin.register AuditWorkOrder do
         row :created_at
         row :updated_at
       end
-    end
+    
 
     # panel for Fee Details (原"费用明细"Tab内容)
     panel "关联的费用明细" do
@@ -408,20 +436,10 @@ ActiveAdmin.register AuditWorkOrder do
           f.inputs '处理与反馈' do
             f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '请选择处理意见', input_html: { id: 'audit_work_order_processing_opinion' }
             
-            # 两级级联下拉选择
-            f.input :fee_type_id, as: :select,
-                    collection: FeeType.active.order(:code).map { |ft| [ft.display_name, ft.id] },
-                    include_blank: '请选择费用类型',
-                    input_html: { id: 'fee_type_select' },
-                    wrapper_html: { id: 'fee_type_row', style: 'display:none;' }
+            # 移除费用类型和问题类型下拉选择
+            # 问题类型选择已在费用明细选择部分实现
             
-            f.input :problem_type_id, as: :select,
-                    collection: [],
-                    include_blank: '请先选择费用类型',
-                    input_html: { id: 'problem_type_select' },
-                    wrapper_html: { id: 'problem_type_row', style: 'display:none;' }
-            
-            # 自动生成的问题描述
+            # 审核意见输入框
             f.input :audit_comment, label: "审核意见",
                     input_html: { id: 'audit_comment_field' },
                     wrapper_html: { id: 'audit_comment_row', style: 'display:none;' }
@@ -437,108 +455,43 @@ ActiveAdmin.register AuditWorkOrder do
         raw """
           document.addEventListener('DOMContentLoaded', function() {
             const processingOpinionSelect = document.getElementById('audit_work_order_processing_opinion');
-            const feeTypeRow = document.getElementById('fee_type_row');
-            const problemTypeRow = document.getElementById('problem_type_row');
             const auditCommentRow = document.getElementById('audit_comment_row');
             const remarkRow = document.getElementById('remark_row');
-            
-            const feeTypeSelect = document.getElementById('fee_type_select');
-            const problemTypeSelect = document.getElementById('problem_type_select');
-            const auditCommentField = document.getElementById('audit_comment_field');
-            
-            // 存储问题类型数据
-            let problemTypesData = [];
-            
-            // 初始化问题类型下拉框
-            function updateProblemTypes() {
-              const feeTypeId = feeTypeSelect.value;
-              
-              // 清空当前选项
-              problemTypeSelect.innerHTML = '<option value=\"\">请选择问题类型</option>';
-              
-              if (!feeTypeId) {
-                return;
-              }
-              
-              // 获取对应的问题类型
-              fetch('/admin/problem_types.json?fee_type_id=' + feeTypeId)
-                .then(response => response.json())
-                .then(data => {
-                  problemTypesData = data; // 存储数据以便后续使用
-                  
-                  data.forEach(problemType => {
-                    const option = document.createElement('option');
-                    option.value = problemType.id;
-                    option.textContent = problemType.display_name;
-                    problemTypeSelect.appendChild(option);
-                  });
-                  
-                  // 如果只有一个问题类型，自动选择它
-                  if (data.length === 1) {
-                    problemTypeSelect.value = data[0].id;
-                    updateProblemDescription();
-                  }
-                })
-                .catch(error => console.error('Error fetching problem types:', error));
-            }
-            
-            // 更新问题描述
-            function updateProblemDescription() {
-              const problemTypeId = problemTypeSelect.value;
-              
-              if (!problemTypeId || !auditCommentField) {
-                return;
-              }
-              
-              // 查找选中的问题类型
-              const selectedProblemType = problemTypesData.find(pt => pt.id == problemTypeId);
-              
-              if (selectedProblemType) {
-                // 如果审核意见为空或者是默认值，则自动填充标准处理方法
-                if (!auditCommentField.value || auditCommentField.value === '') {
-                  auditCommentField.value = selectedProblemType.standard_handling || '';
-                }
-              }
-            }
+            const problemTypesContainer = document.getElementById('problem-types-container');
             
             // 切换字段显示
             function toggleFields() {
-              if (!processingOpinionSelect || !feeTypeRow || !problemTypeRow || !auditCommentRow || !remarkRow) {
+              if (!processingOpinionSelect || !auditCommentRow || !remarkRow) {
                 return;
               }
               const selectedValue = processingOpinionSelect.value;
-
-              feeTypeRow.style.display = 'none';
-              problemTypeRow.style.display = 'none';
+              
               auditCommentRow.style.display = 'none';
               remarkRow.style.display = 'none';
-
+              
               if (selectedValue === '无法通过') {
-                feeTypeRow.style.display = 'list-item';
-                problemTypeRow.style.display = 'list-item';
+                if (problemTypesContainer) {
+                  problemTypesContainer.style.display = 'block';
+                }
                 auditCommentRow.style.display = 'list-item';
                 remarkRow.style.display = 'list-item';
               } else if (selectedValue === '可以通过') {
+                if (problemTypesContainer) {
+                  problemTypesContainer.style.display = 'none';
+                }
                 auditCommentRow.style.display = 'list-item';
               } else { // Blank
+                if (problemTypesContainer) {
+                  problemTypesContainer.style.display = 'none';
+                }
                 auditCommentRow.style.display = 'list-item';
               }
             }
-
+            
             // 设置事件监听器
             if (processingOpinionSelect) {
               processingOpinionSelect.addEventListener('change', toggleFields);
               toggleFields();
-            }
-            
-            if (feeTypeSelect) {
-              feeTypeSelect.addEventListener('change', updateProblemTypes);
-              // 初始加载
-              updateProblemTypes();
-            }
-            
-            if (problemTypeSelect) {
-              problemTypeSelect.addEventListener('change', updateProblemDescription);
             }
           });
         """

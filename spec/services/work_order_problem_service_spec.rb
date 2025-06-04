@@ -50,77 +50,165 @@ RSpec.describe WorkOrderProblemService, type: :service do
   end
   
   describe "#add_problem" do
-    it "adds a problem to an empty audit_comment" do
+    it "adds a single problem type" do
       service = WorkOrderProblemService.new(work_order)
-      service.add_problem(problem_type.id)
+      result = service.add_problem(problem_type.id)
       
-      expected_comment = [
-        "#{fee_type.display_name}: #{problem_type.display_name}",
-        "    #{problem_type.sop_description}",
-        "    #{problem_type.standard_handling}"
-      ].join("\n")
-      
-      expect(work_order.reload.audit_comment).to eq(expected_comment)
-      expect(work_order.problem_type_id).to eq(problem_type.id)
+      expect(result).to be true
+      expect(work_order.problem_types).to include(problem_type)
     end
     
-    it "adds a problem to an existing audit_comment with proper spacing" do
-      # First add a problem
+    it "does not add duplicate problem type" do
       service = WorkOrderProblemService.new(work_order)
       service.add_problem(problem_type.id)
       
-      # Then add another problem
-      service.add_problem(another_problem_type.id)
+      # 尝试再次添加同一问题类型
+      expect {
+        service.add_problem(problem_type.id)
+      }.not_to change { work_order.work_order_problems.count }
+    end
+  end
+  
+  describe "#add_problems" do
+    it "adds multiple problem types" do
+      service = WorkOrderProblemService.new(work_order)
+      result = service.add_problems([problem_type.id, another_problem_type.id])
       
-      first_problem = [
-        "#{fee_type.display_name}: #{problem_type.display_name}",
-        "    #{problem_type.sop_description}",
-        "    #{problem_type.standard_handling}"
-      ].join("\n")
+      expect(result).to be true
+      expect(work_order.problem_types).to include(problem_type, another_problem_type)
+    end
+    
+    it "replaces existing problem types" do
+      # 先添加一个问题类型
+      service = WorkOrderProblemService.new(work_order)
+      service.add_problem(problem_type.id)
       
-      second_problem = [
-        "#{fee_type.display_name}: #{another_problem_type.display_name}",
-        "    #{another_problem_type.sop_description}",
-        "    #{another_problem_type.standard_handling}"
-      ].join("\n")
+      # 然后添加另一个问题类型，替换现有的
+      result = service.add_problems([another_problem_type.id])
       
-      expected_comment = "#{first_problem}\n\n#{second_problem}"
+      expect(result).to be true
+      expect(work_order.problem_types).to include(another_problem_type)
+      expect(work_order.problem_types).not_to include(problem_type)
+    end
+    
+    it "returns false if problem_type_ids is blank" do
+      service = WorkOrderProblemService.new(work_order)
+      result = service.add_problems([])
       
-      expect(work_order.reload.audit_comment).to eq(expected_comment)
-      expect(work_order.problem_type_id).to eq(another_problem_type.id)
+      expect(result).to be false
+    end
+  end
+  
+  describe "#remove_problem" do
+    it "removes a problem type" do
+      service = WorkOrderProblemService.new(work_order)
+      service.add_problem(problem_type.id)
+      
+      result = service.remove_problem(problem_type.id)
+      
+      expect(result).to be true
+      expect(work_order.problem_types).not_to include(problem_type)
+    end
+    
+    it "returns true even if problem type was not associated" do
+      service = WorkOrderProblemService.new(work_order)
+      result = service.remove_problem(problem_type.id)
+      
+      expect(result).to be true
     end
   end
   
   describe "#clear_problems" do
-    it "clears all problems from the audit_comment" do
-      # First add a problem
+    it "removes all problem types" do
       service = WorkOrderProblemService.new(work_order)
-      service.add_problem(problem_type.id)
+      service.add_problems([problem_type.id, another_problem_type.id])
       
-      # Then clear all problems
+      result = service.clear_problems
+      
+      expect(result).to be true
+      expect(work_order.problem_types).to be_empty
+    end
+    
+    it "clears audit_comment if present" do
+      work_order.update(audit_comment: "测试审核意见")
+      service = WorkOrderProblemService.new(work_order)
+      
       service.clear_problems
       
       expect(work_order.reload.audit_comment).to be_nil
-      expect(work_order.problem_type_id).to be_nil
+    end
+    
+    it "clears problem_type_id if present" do
+      work_order.update(problem_type_id: problem_type.id)
+      service = WorkOrderProblemService.new(work_order)
+      
+      service.clear_problems
+      
+      expect(work_order.reload.problem_type_id).to be_nil
     end
   end
   
   describe "#get_problems" do
-    it "returns an empty array when there are no problems" do
+    it "returns all associated problem types" do
       service = WorkOrderProblemService.new(work_order)
-      expect(service.get_problems).to eq([])
-    end
-    
-    it "returns an array of problems when there are problems" do
-      service = WorkOrderProblemService.new(work_order)
-      service.add_problem(problem_type.id)
-      service.add_problem(another_problem_type.id)
+      service.add_problems([problem_type.id, another_problem_type.id])
       
       problems = service.get_problems
       
-      expect(problems.size).to eq(2)
-      expect(problems[0]).to include(problem_type.display_name)
-      expect(problems[1]).to include(another_problem_type.display_name)
+      expect(problems).to include(problem_type, another_problem_type)
+      expect(problems.count).to eq(2)
+    end
+    
+    it "returns empty array when there are no problems" do
+      service = WorkOrderProblemService.new(work_order)
+      problems = service.get_problems
+      
+      expect(problems).to be_empty
+    end
+  end
+  
+  describe "#get_formatted_problems" do
+    it "returns formatted problem descriptions" do
+      service = WorkOrderProblemService.new(work_order)
+      service.add_problems([problem_type.id, another_problem_type.id])
+      
+      formatted_problems = service.get_formatted_problems
+      
+      expect(formatted_problems.size).to eq(2)
+      expect(formatted_problems[0]).to include(problem_type.display_name)
+      expect(formatted_problems[0]).to include(problem_type.sop_description)
+      expect(formatted_problems[0]).to include(problem_type.standard_handling)
+      
+      expect(formatted_problems[1]).to include(another_problem_type.display_name)
+      expect(formatted_problems[1]).to include(another_problem_type.sop_description)
+      expect(formatted_problems[1]).to include(another_problem_type.standard_handling)
+    end
+  end
+  
+  describe "#generate_audit_comment" do
+    it "generates audit comment from problem types" do
+      service = WorkOrderProblemService.new(work_order)
+      service.add_problems([problem_type.id, another_problem_type.id])
+      
+      audit_comment = service.generate_audit_comment
+      
+      expect(audit_comment).to include(problem_type.display_name)
+      expect(audit_comment).to include(problem_type.sop_description)
+      expect(audit_comment).to include(problem_type.standard_handling)
+      
+      expect(audit_comment).to include(another_problem_type.display_name)
+      expect(audit_comment).to include(another_problem_type.sop_description)
+      expect(audit_comment).to include(another_problem_type.standard_handling)
+      
+      # 检查是否有空行分隔
+      expect(audit_comment).to include("\n\n")
+    end
+    
+    it "returns nil when there are no problems" do
+      service = WorkOrderProblemService.new(work_order)
+      audit_comment = service.generate_audit_comment
+      
+      expect(audit_comment).to be_nil
     end
   end
 end

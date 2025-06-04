@@ -1,92 +1,104 @@
 # app/services/work_order_problem_service.rb
 class WorkOrderProblemService
-  def initialize(work_order, admin_user = nil)
+  def initialize(work_order)
     @work_order = work_order
-    @admin_user = admin_user || Current.admin_user
-    @operation_service = WorkOrderOperationService.new(work_order, @admin_user)
   end
   
-  # Add a problem to the work order's audit comment
+  # 添加多个问题类型
+  def add_problems(problem_type_ids)
+    return false if problem_type_ids.blank?
+    
+    # 转换为数组并确保是整数
+    problem_type_ids = Array(problem_type_ids).map(&:to_i).uniq
+    
+    # 获取现有问题ID
+    existing_ids = @work_order.work_order_problems.pluck(:problem_type_id)
+    
+    # 计算需要添加和删除的ID
+    ids_to_add = problem_type_ids - existing_ids
+    ids_to_remove = existing_ids - problem_type_ids
+    
+    # 添加新问题
+    ids_to_add.each do |problem_type_id|
+      @work_order.work_order_problems.create(problem_type_id: problem_type_id)
+    end
+    
+    # 删除不再需要的问题
+    if ids_to_remove.any?
+      @work_order.work_order_problems.where(problem_type_id: ids_to_remove).destroy_all
+    end
+    
+    true
+  end
+  
+  # 添加单个问题类型
   def add_problem(problem_type_id)
-    problem_type = ProblemType.find(problem_type_id)
+    return false if problem_type_id.blank?
     
-    # Format the problem information
-    new_problem_text = format_problem(problem_type)
+    # 创建关联
+    @work_order.work_order_problems.create(problem_type_id: problem_type_id)
     
-    # Update the work order's audit comment
-    current_comment = @work_order.audit_comment.to_s.strip
-    
-    if current_comment.present?
-      # Add a blank line between problems
-      @work_order.audit_comment = "#{current_comment}\n\n#{new_problem_text}"
-    else
-      @work_order.audit_comment = new_problem_text
-    end
-    
-    # Update the problem_type_id field (for reference)
-    @work_order.problem_type_id = problem_type_id
-    
-    # Save the work order
-    if @work_order.save
-      # Record the add problem operation
-      @operation_service.record_add_problem(problem_type_id, new_problem_text)
-      true
-    else
-      false
-    end
+    true
   end
   
-  # Clear all problems from the work order
+  # 移除问题类型
+  def remove_problem(problem_type_id)
+    return false if problem_type_id.blank?
+    
+    # 查找并删除关联
+    problem = @work_order.work_order_problems.find_by(problem_type_id: problem_type_id)
+    problem&.destroy
+    
+    true
+  end
+  
+  # 清除所有问题
   def clear_problems
-    old_content = @work_order.audit_comment.dup
-    problem_type_id = @work_order.problem_type_id
+    @work_order.work_order_problems.destroy_all
     
-    if @work_order.update(audit_comment: nil, problem_type_id: nil)
-      # Record the remove problem operation if there was a problem
-      if old_content.present? && problem_type_id.present?
-        @operation_service.record_remove_problem(problem_type_id, old_content)
-      end
-      true
-    else
-      false
+    # 如果工单还有旧的单一问题类型关联，也清除它
+    if @work_order.respond_to?(:problem_type_id) && @work_order.problem_type_id.present?
+      @work_order.update(problem_type_id: nil)
+    end
+    
+    # 清除审核意见
+    if @work_order.respond_to?(:audit_comment) && @work_order.audit_comment.present?
+      @work_order.update(audit_comment: nil)
+    end
+    
+    true
+  end
+  
+  # 获取当前关联的所有问题类型
+  def get_problems
+    @work_order.problem_types
+  end
+  
+  # 获取问题类型的格式化文本
+  def get_formatted_problems
+    @work_order.problem_types.map do |problem_type|
+      format_problem(problem_type)
     end
   end
   
-  # Modify a problem in the work order's audit comment
-  def modify_problem(problem_type_id, new_content)
-    old_content = @work_order.audit_comment.dup
+  # 生成审核意见文本（兼容旧版本）
+  def generate_audit_comment
+    problems = get_formatted_problems
     
-    # Update the work order's audit comment
-    @work_order.audit_comment = new_content
-    
-    # Save the work order
-    if @work_order.save
-      # Record the modify problem operation
-      @operation_service.record_modify_problem(problem_type_id, old_content, new_content)
-      true
+    if problems.empty?
+      nil
     else
-      false
+      problems.join("\n\n")
     end
-  end
-
-  # Get all problems from the work order's audit comment
-  def get_problems
-    return [] if @work_order.audit_comment.blank?
-    
-    # Split the audit comment by double newlines to get individual problems
-    @work_order.audit_comment.split("\n\n").map(&:strip).reject(&:blank?)
   end
   
   private
   
+  # 格式化单个问题类型
   def format_problem(problem_type)
-    fee_type = problem_type.fee_type
-    
-    # Format: "费用类型(code+title): 问题类型(code+title)"
-    #         "    SOP描述内容"
-    #         "    标准处理方法内容"
+    fee_type_info = problem_type.fee_type.present? ? "#{problem_type.fee_type.display_name}: " : ""
     [
-      "#{fee_type.display_name}: #{problem_type.display_name}",
+      "#{fee_type_info}#{problem_type.display_name}",
       "    #{problem_type.sop_description}",
       "    #{problem_type.standard_handling}"
     ].join("\n")

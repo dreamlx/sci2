@@ -13,13 +13,8 @@ class AuditWorkOrder < WorkOrder
   # validates :audit_comment, presence: true, if: -> { audit_result == 'rejected' }
   # validates :audit_date, presence: true, if: -> { audit_result.present? }
 
-  # 子类可以按需扩展 AASM 状态机，例如：
-  # aasm column: :status, whiny_transitions: false do
-  #   state :specific_audit_state
-  #   event :specific_audit_event do
-  #     transitions from: :processing, to: :specific_audit_state
-  #   end
-  # end
+  # 回调
+  after_save :sync_audit_result_with_status, if: -> { status_changed? && persisted? }
 
   # ActiveAdmin 支持
   def self.ransackable_attributes(auth_object = nil)
@@ -31,6 +26,23 @@ class AuditWorkOrder < WorkOrder
   end
 
   private
+
+  # 同步状态和审核结果
+  def sync_audit_result_with_status
+    case status
+    when 'approved'
+      self.audit_result = 'approved'
+      self.audit_date = Time.current
+    when 'rejected'
+      self.audit_result = 'rejected'
+      self.audit_date = Time.current
+    end
+    
+    # 避免触发无限循环
+    self.class.skip_callback(:save, :after, :sync_audit_result_with_status)
+    save
+    self.class.set_callback(:save, :after, :sync_audit_result_with_status, if: -> { status_changed? && persisted? })
+  end
 
   # 可选：特有方法
   # def vat_not_verified?

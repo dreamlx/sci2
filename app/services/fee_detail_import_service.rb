@@ -40,14 +40,22 @@ class FeeDetailImportService
         import_fee_detail(row_data, idx + 1)
       end
       
+      # Limit the amount of data returned to prevent session overflow
+      # Store only counts and a limited number of error messages
+      error_summary = @errors.empty? ? [] : @errors.take(10)
+      if @errors.size > 10
+        error_summary << "... and #{@errors.size - 10} more errors"
+      end
+      
       {
         success: @errors.empty?,
         created: @created_count,
         updated: @updated_count,
         unmatched_reimbursement: @unmatched_reimbursement_count,
         skipped_errors: @skipped_due_to_error_count,
-        error_details: @errors,
-        unmatched_reimbursement_details: @unmatched_reimbursement_details
+        error_details: error_summary,
+        # Don't include the full unmatched_reimbursement_details array to save space
+        unmatched_count: @unmatched_reimbursement_details.size
       }
     rescue Roo::FileNotFound => e
       Rails.logger.error "Fee Detail Import Failed: File not found - #{e.message}\n#{e.backtrace.join("\n")}"
@@ -144,11 +152,13 @@ class FeeDetailImportService
   end
   
   def parse_decimal(decimal_string)
-    return nil unless decimal_string.present?
+    return 0 unless decimal_string.present?
     begin
-      BigDecimal(decimal_string.to_s.gsub(',', '')) # 处理可能的逗号
+      value = BigDecimal(decimal_string.to_s.gsub(',', '')) # 处理可能的逗号
+      # If parsing succeeds but results in 0 or negative, return 0
+      value.positive? ? value : 0
     rescue ArgumentError
-      nil
+      0 # Return 0 instead of nil for invalid values
     end
   end
 end

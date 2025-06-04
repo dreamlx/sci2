@@ -1,21 +1,33 @@
 ActiveAdmin.register FeeType do
-  menu priority: 2, parent: '数据管理', label: '费用类型库'
-
-  # 允许的参数
   permit_params :code, :title, :meeting_type, :active
 
-  # 控制器自定义
-  controller do
-    def scoped_collection
-      super.includes(:problem_types) # 预加载关联的问题类型
-    end
-  end
+  menu priority: 6, label: "费用类型", parent: "系统设置"
 
   # 过滤器
   filter :code
   filter :title
-  filter :meeting_type, as: :select, collection: -> { ['个人', '学术论坛'] }
+  filter :meeting_type
   filter :active
+
+  # 批量操作
+  batch_action :activate do |ids|
+    batch_action_collection.find(ids).each do |fee_type|
+      fee_type.update(active: true)
+    end
+    redirect_to collection_path, notice: "已激活选中的费用类型"
+  end
+
+  batch_action :deactivate do |ids|
+    batch_action_collection.find(ids).each do |fee_type|
+      fee_type.update(active: false)
+    end
+    redirect_to collection_path, notice: "已停用选中的费用类型"
+  end
+
+  # 范围过滤器
+  scope :all, default: true
+  scope :active
+  scope :by_meeting_type, ->(type) { where(meeting_type: type) }, if: proc { params[:meeting_type].present? }
 
   # 列表页
   index do
@@ -25,9 +37,6 @@ ActiveAdmin.register FeeType do
     column :title
     column :meeting_type
     column :active
-    column :problem_types do |ft|
-      link_to "#{ft.problem_types.count} 个问题类型", admin_problem_types_path(q: { fee_type_id_eq: ft.id })
-    end
     column :created_at
     column :updated_at
     actions
@@ -39,7 +48,6 @@ ActiveAdmin.register FeeType do
       row :id
       row :code
       row :title
-      row :display_name
       row :meeting_type
       row :active
       row :created_at
@@ -47,46 +55,55 @@ ActiveAdmin.register FeeType do
     end
 
     panel "关联的问题类型" do
-      table_for fee_type.problem_types.order(:code) do
-        column :id do |pt|
-          link_to pt.id, admin_problem_type_path(pt)
-        end
+      table_for fee_type.problem_types do
+        column :id
         column :code
         column :title
         column :active
+        column :created_at
+        column :updated_at
+        column "操作" do |problem_type|
+          links = []
+          links << link_to("查看", admin_problem_type_path(problem_type))
+          links << link_to("编辑", edit_admin_problem_type_path(problem_type))
+          links.join(" | ").html_safe
+        end
       end
     end
   end
 
   # 表单
   form do |f|
-    f.semantic_errors
     f.inputs do
       f.input :code
       f.input :title
-      f.input :meeting_type, as: :select, collection: ['个人', '学术论坛']
+      f.input :meeting_type, as: :select, collection: ["个人", "学术论坛"]
       f.input :active
     end
     f.actions
   end
-  
-  # 批量操作
-  batch_action :activate do |ids|
-    batch_action_collection.find(ids).each do |fee_type|
-      fee_type.update(active: true)
-    end
-    redirect_to collection_path, notice: "已将选中的费用类型设置为激活状态"
+
+  # 添加JSON端点
+  collection_action :index, format: :json do
+    @fee_types = if params[:meeting_type].present?
+                  FeeType.active.by_meeting_type(params[:meeting_type])
+                else
+                  FeeType.active
+                end
+    
+    render json: @fee_types.as_json(
+      only: [:id, :code, :title, :meeting_type],
+      methods: [:display_name]
+    )
   end
   
-  batch_action :deactivate do |ids|
-    batch_action_collection.find(ids).each do |fee_type|
-      fee_type.update(active: false)
+  # 确保HTML格式的index正常工作
+  controller do
+    def index
+      super do |format|
+        format.html { render :index }
+        format.json { render json: @fee_types }
+      end
     end
-    redirect_to collection_path, notice: "已将选中的费用类型设置为非激活状态"
-  end
-  
-  # 自定义操作
-  action_item :import_problem_codes, only: :index do
-    link_to '导入问题代码', '/admin/imports/new?resource=problem_codes'
   end
 end

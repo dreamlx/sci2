@@ -1,8 +1,9 @@
 ActiveAdmin.register CommunicationWorkOrder do
   permit_params :reimbursement_id, :audit_comment, # creator_id by controller, audit_date by system
                 # Shared fields (initiator_role & communication_method removed)
-                :fee_type_id, :problem_type_id, :remark, :processing_opinion,
-                submitted_fee_detail_ids: [] # Renamed from fee_detail_ids
+                :fee_type_id, :remark, :processing_opinion,
+                submitted_fee_detail_ids: [], problem_type_ids: []
+  # 移除 problem_type_id 从 permit_params 中，改为使用 problem_type_ids 数组
 
   menu priority: 5, label: "沟通工单", parent: "工单管理"
   config.sort_order = 'created_at_desc'
@@ -26,51 +27,79 @@ ActiveAdmin.register CommunicationWorkOrder do
     end
     
     def create
-      # Permit all attributes for communication_work_order, including potentially submitted_fee_detail_ids
-      # This aligns with the main `permit_params` definition for the resource.
-      _params = params.require(:communication_work_order).permit(
-        :reimbursement_id, :audit_comment,
-        :fee_type_id, :problem_type_id, :remark, :processing_opinion,
-        submitted_fee_detail_ids: []
+      # 添加调试日志
+      Rails.logger.debug "CommunicationWorkOrdersController#create: 开始创建沟通工单"
+      
+      # 获取参数
+      create_params = params.require(:communication_work_order).permit(
+        :reimbursement_id, :audit_comment, # creator_id by controller, audit_date by system
+        :fee_type_id, :remark, :processing_opinion,
+        submitted_fee_detail_ids: [], problem_type_ids: []
       )
+      
+      Rails.logger.debug "CommunicationWorkOrdersController#create: 参数: #{create_params.inspect}"
 
-      @communication_work_order = CommunicationWorkOrder.new(_params.except(:submitted_fee_detail_ids))
+      # 创建工单实例
+      @communication_work_order = CommunicationWorkOrder.new(create_params.except(:submitted_fee_detail_ids, :problem_type_ids))
       @communication_work_order.created_by = current_admin_user.id
+      
+      Rails.logger.debug "CommunicationWorkOrdersController#create: 创建工单实例: #{@communication_work_order.inspect}"
 
-      current_submitted_ids = _params[:submitted_fee_detail_ids]
-      if current_submitted_ids.blank? && params.dig(:audit_work_order, :submitted_fee_detail_ids).present?
-        misplaced_ids = params.dig(:audit_work_order, :submitted_fee_detail_ids)
-        Rails.logger.warn "CommunicationWorkOrder create: submitted_fee_detail_ids found under 'audit_work_order' key. " \
-                          "The shared partial '_fee_details_selection.html.erb' likely needs correction to use a dynamic param key " \
-                          "instead of hardcoding 'audit_work_order'."
-        current_submitted_ids = misplaced_ids
-      end
-      
-      if current_submitted_ids.present?
-        # Set the special instance variable for the callback in WorkOrder model
-        @communication_work_order.instance_variable_set(:@_direct_submitted_fee_ids, current_submitted_ids.reject(&:blank?))
-        # Also set the accessor for form repopulation if validation fails and we re-render new
-        @communication_work_order.submitted_fee_detail_ids = current_submitted_ids.reject(&:blank?)
-      end
-      
-      if @communication_work_order.save
-        redirect_to admin_communication_work_order_path(@communication_work_order), notice: "沟通工单已成功创建" # Changed label
+      # 设置服务
+      service = CommunicationWorkOrderService.new(@communication_work_order, current_admin_user)
+      Rails.logger.debug "CommunicationWorkOrdersController#create: 创建服务实例"
+
+      # 处理费用明细IDs
+      if create_params[:submitted_fee_detail_ids].present?
+        Rails.logger.debug "CommunicationWorkOrdersController#create: 设置费用明细IDs: #{create_params[:submitted_fee_detail_ids].inspect}"
+        @communication_work_order.instance_variable_set(:@_direct_submitted_fee_ids, create_params[:submitted_fee_detail_ids])
+        @communication_work_order.submitted_fee_detail_ids = create_params[:submitted_fee_detail_ids]
       else
-        @reimbursement = Reimbursement.find_by(id: _params[:reimbursement_id])
-        # Ensure @_direct_submitted_fee_ids and submitted_fee_detail_ids (accessor) are set for form repopulation.
-        if current_submitted_ids.present? 
-          @communication_work_order.instance_variable_set(:@_direct_submitted_fee_ids, current_submitted_ids.reject(&:blank?))
-          @communication_work_order.submitted_fee_detail_ids = current_submitted_ids.reject(&:blank?)
+        Rails.logger.debug "CommunicationWorkOrdersController#create: 没有提供费用明细IDs"
+      end
+      
+      # 设置问题类型IDs
+      if create_params[:problem_type_ids].present?
+        Rails.logger.debug "CommunicationWorkOrdersController#create: 设置问题类型IDs: #{create_params[:problem_type_ids].inspect}"
+        @communication_work_order.problem_type_ids = create_params[:problem_type_ids]
+      else
+        Rails.logger.debug "CommunicationWorkOrdersController#create: 没有提供问题类型IDs"
+      end
+      
+      # 使用服务保存工单
+      Rails.logger.debug "CommunicationWorkOrdersController#create: 调用 service.update 方法"
+      result = service.update(create_params.except(:submitted_fee_detail_ids, :problem_type_ids))
+      Rails.logger.debug "CommunicationWorkOrdersController#create: service.update 返回结果: #{result}"
+      
+      if result
+        Rails.logger.debug "CommunicationWorkOrdersController#create: 创建成功，重定向到详情页"
+        redirect_to admin_communication_work_order_path(@communication_work_order), notice: "沟通工单已成功创建"
+      else
+        Rails.logger.error "CommunicationWorkOrdersController#create: 创建失败，错误: #{@communication_work_order.errors.full_messages.inspect}"
+        Rails.logger.error "CommunicationWorkOrdersController#create: 工单状态: #{@communication_work_order.status}, 处理意见: #{@communication_work_order.processing_opinion}"
+        Rails.logger.error "CommunicationWorkOrdersController#create: 费用类型ID: #{@communication_work_order.fee_type_id}, 问题类型IDs: #{@communication_work_order.problem_type_ids}"
+        # Re-fetch reimbursement if save fails, needed for the form on render :new
+        @reimbursement = Reimbursement.find_by(id: create_params[:reimbursement_id])
+        
+        # 重新设置费用明细IDs
+        if create_params[:submitted_fee_detail_ids].present?
+          @communication_work_order.instance_variable_set(:@_direct_submitted_fee_ids, create_params[:submitted_fee_detail_ids])
+          @communication_work_order.submitted_fee_detail_ids = create_params[:submitted_fee_detail_ids]
         end
-        flash.now[:error] = "创建沟通工单失败: #{@communication_work_order.errors.full_messages.join(', ')}" # Changed label
+        
+        # 重新设置问题类型IDs
+        if create_params[:problem_type_ids].present?
+          @communication_work_order.problem_type_ids = create_params[:problem_type_ids]
+        end
+        
+        flash.now[:error] = "创建沟通工单失败: #{@communication_work_order.errors.full_messages.join(', ')}"
         render :new
       end
     end
 
     def update
       @communication_work_order = CommunicationWorkOrder.find(params[:id])
-      # Ensure to use WorkOrderService if CommunicationWorkOrderService is fully deprecated
-      service = WorkOrderService.new(@communication_work_order, current_admin_user) 
+      service = CommunicationWorkOrderService.new(@communication_work_order, current_admin_user)
       
       update_params = communication_work_order_params_for_update
       if update_params[:submitted_fee_detail_ids].present?
@@ -79,7 +108,12 @@ ActiveAdmin.register CommunicationWorkOrder do
         @communication_work_order.submitted_fee_detail_ids = update_params[:submitted_fee_detail_ids] if @communication_work_order.respond_to?(:submitted_fee_detail_ids=)
       end
       
-      if service.update(update_params.except(:submitted_fee_detail_ids)) # Pass params without submitted_fee_detail_ids to service
+      # 设置问题类型IDs
+      if update_params[:problem_type_ids].present?
+        @communication_work_order.problem_type_ids = update_params[:problem_type_ids]
+      end
+
+      if service.update(update_params.except(:submitted_fee_detail_ids, :problem_type_ids)) # Pass params without arrays to service
         redirect_to admin_communication_work_order_path(@communication_work_order), notice: '沟通工单已更新'
       else
         render :edit
@@ -93,10 +127,10 @@ ActiveAdmin.register CommunicationWorkOrder do
       params.require(:communication_work_order).permit(
         :processing_opinion,
         :fee_type_id,
-        :problem_type_id,
         :audit_comment,
         :remark,
-        submitted_fee_detail_ids: [] # If editable
+        submitted_fee_detail_ids: [],
+        problem_type_ids: []
       )
     end
   end
@@ -291,11 +325,15 @@ ActiveAdmin.register CommunicationWorkOrder do
                     input_html: { id: 'fee_type_select' },
                     wrapper_html: { id: 'fee_type_row', style: 'display:none;' }
             
-            f.input :problem_type_id, as: :select,
-                    collection: [],
-                    include_blank: '请先选择费用类型',
-                    input_html: { id: 'problem_type_select' },
-                    wrapper_html: { id: 'problem_type_row', style: 'display:none;' }
+            # 注意：问题类型现在通过费用明细选择部分的复选框选择，不再使用下拉框
+            # 保留此字段以兼容旧代码，但设置为隐藏
+            f.input :problem_type_id, as: :hidden,
+                    input_html: { id: 'problem_type_select' }
+            
+            # 添加说明
+            f.inputs '问题类型', id: 'problem_type_row', style: 'display:none;' do
+              para "请在费用明细选择区域中选择问题类型"
+            end
             
             # Order: 4. 审核意见 (Conditionally Visible)
             f.input :audit_comment, label: "审核意见", wrapper_html: { id: 'communication_audit_comment_row', style: 'display:none;' }
@@ -323,17 +361,22 @@ ActiveAdmin.register CommunicationWorkOrder do
             function updateProblemTypes() {
               const feeTypeId = feeTypeSelect.value;
               
+              console.log('Updating problem types for fee type ID:', feeTypeId);
+              
               // 清空当前选项
               problemTypeSelect.innerHTML = '<option value=\"\">请选择问题类型</option>';
               
               if (!feeTypeId) {
+                console.log('No fee type ID selected, not fetching problem types');
                 return;
               }
               
               // 获取对应的问题类型
+              console.log('Fetching problem types for fee type ID:', feeTypeId);
               fetch('/admin/problem_types.json?fee_type_id=' + feeTypeId)
                 .then(response => response.json())
                 .then(data => {
+                  console.log('Received problem types:', data);
                   data.forEach(problemType => {
                     const option = document.createElement('option');
                     option.value = problemType.id;
@@ -351,6 +394,7 @@ ActiveAdmin.register CommunicationWorkOrder do
                 return;
               }
               const selectedValue = processingOpinionSelect.value;
+              console.log('Processing opinion selected:', selectedValue);
 
               feeTypeRow.style.display = 'none';
               problemTypeRow.style.display = 'none';
@@ -358,14 +402,17 @@ ActiveAdmin.register CommunicationWorkOrder do
               remarkRow.style.display = 'none';
 
               if (selectedValue === '无法通过') {
+                console.log('Showing fee type, problem type, audit comment, and remark fields');
                 feeTypeRow.style.display = 'list-item';
                 problemTypeRow.style.display = 'list-item';
                 auditCommentRow.style.display = 'list-item';
                 remarkRow.style.display = 'list-item';
               } else if (selectedValue === '可以通过') {
+                console.log('Showing audit comment and remark fields');
                 auditCommentRow.style.display = 'list-item';
                 remarkRow.style.display = 'list-item';
               } else {
+                console.log('Showing audit comment and remark fields (default)');
                 auditCommentRow.style.display = 'list-item';
                 remarkRow.style.display = 'list-item';
               }
@@ -383,6 +430,40 @@ ActiveAdmin.register CommunicationWorkOrder do
               feeTypeSelect.addEventListener('change', updateProblemTypes);
               // 初始加载
               updateProblemTypes();
+            }
+          });
+          
+          // Add form submission handler
+          document.addEventListener('submit', function(event) {
+            if (event.target.id === 'new_communication_work_order' || event.target.id.startsWith('edit_communication_work_order')) {
+              console.log('Form submission detected');
+              
+              // Log form data
+              const formData = new FormData(event.target);
+              const formDataObj = {};
+              formData.forEach((value, key) => {
+                formDataObj[key] = value;
+              });
+              console.log('Form data:', formDataObj);
+              
+              // Check processing opinion
+              const processingOpinion = formData.get('communication_work_order[processing_opinion]');
+              console.log('Processing opinion:', processingOpinion);
+              
+              // Check fee type ID
+              const feeTypeId = formData.get('communication_work_order[fee_type_id]');
+              console.log('Fee type ID:', feeTypeId);
+              
+              // Check problem type ID
+              const problemTypeId = formData.get('communication_work_order[problem_type_id]');
+              console.log('Problem type ID:', problemTypeId);
+              
+              // If processing opinion is '无法通过' but fee_type_id or problem_type_id is missing, show an alert
+              if (processingOpinion === '无法通过' && (!feeTypeId || !problemTypeId)) {
+                console.error('Validation error: When processing opinion is 无法通过, fee_type_id and problem_type_id are required');
+                // Skip the alert for now as it's causing syntax issues
+                event.preventDefault();
+              }
             }
           });
         """

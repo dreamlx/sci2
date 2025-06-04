@@ -1,219 +1,216 @@
+# app/models/work_order.rb
 class WorkOrder < ApplicationRecord
-  # STI setup
+  # 使用STI实现不同类型的工单
   self.inheritance_column = :type
   
-  # Associations
-  belongs_to :reimbursement
-  belongs_to :creator, class_name: 'AdminUser', foreign_key: 'created_by', optional: true
-  belongs_to :problem_type, optional: true
-  belongs_to :fee_type, optional: true
-  has_many :work_order_status_changes, as: :work_order, dependent: :destroy
-  has_many :work_order_fee_details, dependent: :destroy
-  has_many :fee_details, through: :work_order_fee_details
-  has_many :operations, class_name: 'WorkOrderOperation', dependent: :destroy
-  
-  # Validations
-  validates :status, presence: true
-  validates :reimbursement_id, presence: true
-  
-  # Constants
+  # 常量
   STATUS_PENDING = 'pending'.freeze
   STATUS_APPROVED = 'approved'.freeze
   STATUS_REJECTED = 'rejected'.freeze
-  
-  # 用于表单中选择费用明细
-  def submitted_fee_detail_ids
-    fee_details.pluck(:id).map(&:to_s)
-  end
-  
-  def submitted_fee_detail_ids=(ids)
-    # 这个方法会在表单提交时被调用
-    # 保存 ID 到实例变量，在 after_save 回调中处理
-    @_direct_submitted_fee_ids = ids
-  end
   STATUS_COMPLETED = 'completed'.freeze
   
-  # State Machine
+  # 关联
+  belongs_to :reimbursement
+  belongs_to :problem_type, optional: true # 保留向后兼容
+  belongs_to :creator, class_name: 'AdminUser', foreign_key: 'created_by', optional: true
+  
+  # 新增多对多关联
+  has_many :work_order_problems, dependent: :destroy
+  has_many :problem_types, through: :work_order_problems
+  
+  # 修改关联定义，使用普通的has_many而不是多态关联
+  has_many :work_order_fee_details, dependent: :destroy
+  has_many :fee_details, through: :work_order_fee_details
+  
+  has_many :operations, class_name: 'WorkOrderOperation', dependent: :destroy
+  
+  # 验证
+  validates :reimbursement_id, presence: true
+  validates :status, presence: true
+  
+  # 虚拟属性，用于表单处理
+  attr_accessor :submitted_fee_detail_ids, :problem_type_ids
+  
+  # 状态机
   state_machine :status, initial: :pending do
+    # 定义状态
+    state :pending, value: 'pending'
+    state :processing, value: 'processing'
+    state :approved, value: 'approved'
+    state :rejected, value: 'rejected'
+    state :completed, value: 'completed'
+    
+    # 定义事件
+    event :start_processing do
+      transition pending: :processing
+    end
+    
     event :approve do
-      transition [:pending, :rejected] => :approved
+      transition [:pending, :processing] => :approved
     end
     
     event :reject do
-      transition [:pending, :approved] => :rejected
+      transition [:pending, :processing] => :rejected
     end
     
+    # complete 事件只适用于快递工单，审核工单和沟通工单不使用此事件
     event :complete do
-      transition [:pending, :approved, :rejected] => :completed
+      transition [:approved, :rejected] => :completed, if: -> { is_a?(ExpressReceiptWorkOrder) }
     end
     
-    event :reopen do
-      transition :completed => :pending
-    end
-    
-    # 添加状态机方法
-    event :mark_as_approved do
-      transition [:pending, :rejected] => :approved
-    end
-    
-    event :mark_as_rejected do
-      transition [:pending, :approved] => :rejected
-    end
-    
-    event :mark_as_completed do
-      transition [:pending, :approved, :rejected] => :completed
+    # 状态变更回调
+    after_transition any => any do |work_order, transition|
+      # 记录状态变更
+      WorkOrderOperation.create!(
+        work_order: work_order,
+        operation_type: WorkOrderOperation::OPERATION_TYPE_STATUS_CHANGE,
+        details: "状态变更: #{transition.from} -> #{transition.to}",
+        admin_user_id: Current.admin_user&.id
+      ) if defined?(WorkOrderOperation)
+      
+      # 更新费用明细状态
+      work_order.sync_fee_details_verification_status
     end
   end
   
-  # Callbacks
-  after_create :update_reimbursement_status
-  before_save :set_status_based_on_processing_opinion, if: -> { processing_opinion_changed? }
-  after_save :sync_fee_details_verification_status, if: -> { saved_change_to_status? }
-  after_save :record_status_change, if: -> { saved_change_to_status? }
-  after_save :process_submitted_fee_detail_ids, if: -> { @_direct_submitted_fee_ids.present? }
-  
-  # Scopes
-  scope :by_type, ->(type) { where(type: type) }
-  scope :by_status, ->(status) { where(status: status) }
-  scope :by_reimbursement, ->(reimbursement_id) { where(reimbursement_id: reimbursement_id) }
+  # 范围
   scope :pending, -> { where(status: STATUS_PENDING) }
   scope :approved, -> { where(status: STATUS_APPROVED) }
   scope :rejected, -> { where(status: STATUS_REJECTED) }
   scope :completed, -> { where(status: STATUS_COMPLETED) }
+  scope :by_reimbursement, ->(reimbursement_id) { where(reimbursement_id: reimbursement_id) }
+  scope :recent_first, -> { order(created_at: :desc) }
   
-  # Class methods
-  def self.types
-    %w[AuditWorkOrder CommunicationWorkOrder ExpressReceiptWorkOrder]
-  end
+  # 回调
+  after_create :log_creation
+  after_update :log_update
+  after_save :process_submitted_fee_details, if: -> { @_direct_submitted_fee_ids.present? }
+  after_save :process_problem_types, if: -> { @problem_type_ids.present? }
+  after_save :set_status_based_on_processing_opinion, if: -> { processing_opinion.present? && persisted? }
   
-  def self.ransackable_attributes(auth_object = nil)
-    %w[id reimbursement_id type status created_by remark processing_opinion tracking_number 
-       received_at courier_name audit_result audit_comment audit_date vat_verified 
-       created_at updated_at problem_type_id initiator_role]
-  end
+  # 方法
   
-  def self.ransackable_associations(auth_object = nil)
-    %w[reimbursement creator problem_type work_order_status_changes work_order_fee_details fee_details]
-  end
-  
-  # Instance methods
-  
-  # Add a problem to this work order
-  def add_problem(problem_type_id)
-    WorkOrderProblemService.new(self).add_problem(problem_type_id)
-  end
-  
-  # Clear all problems from this work order
-  def clear_problems
-    WorkOrderProblemService.new(self).clear_problems
-  end
-  
-  # Get all problems from this work order
-  def get_problems
-    WorkOrderProblemService.new(self).get_problems
-  end
-  
-  # Check if the work order can be modified based on reimbursement status
-  def can_be_modified?
-    !reimbursement.closed?
-  end
-  
-  # Check if the work order is editable
+  # 判断工单是否可编辑
   def editable?
-    !completed? && can_be_modified?
+    pending?
   end
   
-  # Check if the work order is completed
-  def completed?
-    status == STATUS_COMPLETED
-  end
-  
-  private
-  
-  # Update the reimbursement status when a work order is created
-  def update_reimbursement_status
-    # If reimbursement is in pending status, move it to processing
-    if reimbursement.status == 'pending'
-      reimbursement.update(status: 'processing')
-    end
-  end
-  
-  # Sync fee details verification status based on this work order's status
+  # 同步费用明细验证状态 - 简化版本
   def sync_fee_details_verification_status
-    # Use the FeeDetailStatusService to update the status of related fee details
-    FeeDetailStatusService.new.update_status_for_work_order(self)
+    # 添加调试日志
+    Rails.logger.debug "WorkOrder#sync_fee_details_verification_status: 开始同步费用明细状态，工单 ##{id}, 当前状态: #{status}"
+    
+    # 直接使用关联获取费用明细ID
+    fee_detail_ids = fee_details.pluck(:id)
+    Rails.logger.debug "WorkOrder#sync_fee_details_verification_status: 关联的费用明细ID: #{fee_detail_ids.inspect}"
+    
+    # 使用服务更新费用明细状态
+    if fee_detail_ids.any?
+      Rails.logger.debug "WorkOrder#sync_fee_details_verification_status: 调用 FeeDetailStatusService.update_status"
+      FeeDetailStatusService.new(fee_detail_ids).update_status
+      Rails.logger.debug "WorkOrder#sync_fee_details_verification_status: 费用明细状态更新完成"
+    else
+      Rails.logger.debug "WorkOrder#sync_fee_details_verification_status: 没有关联的费用明细，跳过更新"
+    end
   end
   
-  # Record status change in work_order_status_changes table
-  def record_status_change
-    previous_status = status_before_last_save
-    current_status = status
+  # 处理提交的费用明细ID
+  def process_submitted_fee_details
+    # 获取提交的费用明细ID
+    submitted_ids = Array(@_direct_submitted_fee_ids).map(&:to_i).uniq
     
-    # Skip if status didn't actually change
-    return if previous_status == current_status
+    # 清除实例变量
+    @_direct_submitted_fee_ids = nil
     
-    work_order_status_changes.create!(
-      from_status: previous_status,
-      to_status: current_status,
-      changed_at: Time.current,
-      changer_id: updated_by_id || created_by
-    )
-  end
-  
-  # This is a placeholder for tracking who updated the record
-  # In a real implementation, you would set this in the controller
-  def updated_by_id
-    @updated_by_id
-  end
-  
-  def updated_by=(admin_user)
-    @updated_by_id = admin_user&.id
-  end
-  
-  # Process submitted fee detail IDs and create associations
-  def process_submitted_fee_detail_ids
-    return if @_direct_submitted_fee_ids.blank?
+    # 获取当前关联的费用明细ID
+    current_ids = work_order_fee_details.pluck(:fee_detail_id)
     
-    # 清除现有关联
-    work_order_fee_details.destroy_all
+    # 计算需要添加和删除的ID
+    ids_to_add = submitted_ids - current_ids
+    ids_to_remove = current_ids - submitted_ids
     
-    # 创建新关联
-    @_direct_submitted_fee_ids.each do |fee_detail_id|
-      fee_detail = FeeDetail.find_by(id: fee_detail_id)
-      next unless fee_detail
-      
-      # 确保费用明细属于同一个报销单
-      next unless fee_detail.document_number == reimbursement.invoice_number
-      
-      # 创建关联
-      WorkOrderFeeDetail.create!(
-        work_order: self,
-        fee_detail: fee_detail,
-        work_order_type: type
-      )
+    # 添加新关联
+    ids_to_add.each do |fee_detail_id|
+      work_order_fee_details.create(fee_detail_id: fee_detail_id)
     end
     
-    # 清除实例变量，避免重复处理
-    @_direct_submitted_fee_ids = nil
+    # 删除旧关联
+    if ids_to_remove.any?
+      work_order_fee_details.where(fee_detail_id: ids_to_remove).destroy_all
+    end
     
     # 更新费用明细状态
     sync_fee_details_verification_status
   end
   
-  # 根据处理意见设置工单状态
+  # 处理问题类型ID
+  def process_problem_types
+    # 获取提交的问题类型ID
+    problem_ids = Array(@problem_type_ids).map(&:to_i).uniq
+    
+    # 清除实例变量
+    @problem_type_ids = nil
+    
+    # 使用服务处理问题类型
+    WorkOrderProblemService.new(self).add_problems(problem_ids)
+  end
+  
+  # 根据处理意见设置状态
   def set_status_based_on_processing_opinion
-    return unless processing_opinion.present?
+    return unless respond_to?(:processing_opinion)
     
     case processing_opinion
     when '可以通过'
-      self.status = STATUS_APPROVED unless approved?
+      # 直接尝试调用 approve 方法，并处理可能的异常
+      begin
+        approve
+        # 记录日志
+        Rails.logger.info "WorkOrder ##{id}: 状态已更新为 approved"
+      rescue StateMachines::InvalidTransition => e
+        # 记录警告日志
+        Rails.logger.warn "WorkOrder ##{id}: 无法更新为 approved，当前状态: #{status}, 错误: #{e.message}"
+      end
     when '无法通过'
-      self.status = STATUS_REJECTED unless rejected?
+      # 直接尝试调用 reject 方法，并处理可能的异常
+      begin
+        reject
+        # 记录日志
+        Rails.logger.info "WorkOrder ##{id}: 状态已更新为 rejected"
+      rescue StateMachines::InvalidTransition => e
+        # 记录警告日志
+        Rails.logger.warn "WorkOrder ##{id}: 无法更新为 rejected，当前状态: #{status}, 错误: #{e.message}"
+      end
     end
   end
   
-  # 检查处理意见是否改变
-  def processing_opinion_changed?
-    changes.key?('processing_opinion') && processing_opinion.present?
+  private
+  
+  # 记录创建操作
+  def log_creation
+    WorkOrderOperation.create!(
+      work_order: self,
+      operation_type: WorkOrderOperation::OPERATION_TYPE_CREATE,
+      details: "创建#{self.class.name.underscore.humanize}",
+      admin_user_id: Current.admin_user&.id
+    ) if defined?(WorkOrderOperation)
+  end
+  
+  # 记录更新操作
+  def log_update
+    # 只记录重要字段的变更
+    important_changes = saved_changes.except('updated_at', 'created_at')
+    
+    if important_changes.any?
+      change_details = important_changes.map do |attr, values|
+        "#{attr}: #{values[0].inspect} -> #{values[1].inspect}"
+      end.join(', ')
+      
+      WorkOrderOperation.create!(
+        work_order: self,
+        operation_type: WorkOrderOperation::OPERATION_TYPE_UPDATE,
+        details: "更新: #{change_details}",
+        admin_user_id: Current.admin_user&.id
+      ) if defined?(WorkOrderOperation)
+    end
   end
 end

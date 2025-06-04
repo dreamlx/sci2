@@ -69,6 +69,12 @@ GEM
       activemodel (= 7.1.5.1)
       activesupport (= 7.1.5.1)
       timeout (>= 0.4.0)
+    activerecord-session_store (2.2.0)
+      actionpack (>= 7.0)
+      activerecord (>= 7.0)
+      cgi (>= 0.3.6)
+      rack (>= 2.0.8, < 4)
+      railties (>= 7.0)
     activestorage (7.1.5.1)
       actionpack (= 7.1.5.1)
       activejob (= 7.1.5.1)
@@ -129,6 +135,7 @@ GEM
       rack-test (>= 0.6.3)
       regexp_parser (>= 1.5, < 3.0)
       xpath (~> 3.2)
+    cgi (0.4.2)
     chartkick (5.1.5)
     concurrent-ruby (1.3.5)
     connection_pool (2.5.2)
@@ -417,6 +424,7 @@ PLATFORMS
 
 DEPENDENCIES
   activeadmin
+  activerecord-session_store
   bootsnap
   byebug
   capistrano (~> 3.19)

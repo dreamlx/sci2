@@ -8,6 +8,11 @@ class CommunicationWorkOrder < WorkOrder
   # :initiator_role (string)
   # :resolution_summary (text)
 
+  # 验证
+  validates :fee_type_id, presence: true, if: -> { processing_opinion == '无法通过' }
+  # 移除 problem_type_id 验证，改为在 WorkOrderProblemService 中处理
+  validate :has_problem_types, if: -> { processing_opinion == '无法通过' }
+
   # 关联
   has_many :communication_records, dependent: :destroy
 
@@ -22,7 +27,13 @@ class CommunicationWorkOrder < WorkOrder
   def self.ransackable_associations(auth_object = nil)
     super + %w[audit_work_order communication_records] # 如果 CommunicationRecord 需要被搜索
   end
+private
 
-  private
+# 验证是否有关联的问题类型
+def has_problem_types
+  if problem_types.empty? && !@problem_type_ids.present?
+    errors.add(:base, "当处理意见为'无法通过'时，必须选择至少一个问题类型")
+  end
+end
 
 end

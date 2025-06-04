@@ -67,7 +67,7 @@ RSpec.describe ReimbursementImportService do
         expect(reimbursement2.is_electronic).to be true
       end
 
-      it 'sets status based on external_status for new records' do
+      it 'sets status to pending for all new records regardless of external_status' do
         # Create a test spreadsheet
         spreadsheet = double('spreadsheet')
         
@@ -83,7 +83,7 @@ RSpec.describe ReimbursementImportService do
         reimbursement2 = Reimbursement.find_by(invoice_number: 'R202501002')
 
         expect(reimbursement1.status).to eq('pending')
-        expect(reimbursement2.status).to eq('closed')
+        expect(reimbursement2.status).to eq('pending')
       end
     end
 

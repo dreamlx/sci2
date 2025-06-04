@@ -21,9 +21,8 @@ ActiveAdmin.register Reimbursement do
   scope :pending
   scope :processing
   scope :closed
-  scope :my_assignments, label: "分配给我的" do |reimbursements|
-    reimbursements.joins(:active_assignment)
-                 .where(reimbursement_assignments: { assignee_id: proc { Current.admin_user.id } })
+  scope "分配给我的", :my_assignments, if: proc { true } do |reimbursements|
+    reimbursements.my_assignments(current_admin_user.id)
   end
   scope :unassigned, label: "未分配的" do |reimbursements|
     reimbursements.left_joins(:active_assignment)
@@ -48,7 +47,12 @@ ActiveAdmin.register Reimbursement do
      redirect_to collection_path, notice: "已尝试将选中的报销单标记为处理中"
   end
   
-  batch_action :assign_to, form: -> {
+  # 批量分配报销单 - 特别突出显示在未分配页面
+  batch_action :assign_to,
+               title: "批量分配报销单",
+               if: proc { true },
+               class: proc { params[:scope] == 'unassigned' ? 'primary_action' : nil },
+               form: -> {
     {
       assignee: AdminUser.all.map { |u| [u.email, u.id] },
       notes: :text
@@ -222,32 +226,6 @@ ActiveAdmin.register Reimbursement do
           end
         end
         
-        panel "分配历史" do
-          table_for resource.assignments.recent_first do
-            column :id do |assignment|
-              link_to assignment.id, admin_reimbursement_assignment_path(assignment)
-            end
-            column :assignee
-            column :assigner
-            column :is_active do |assignment|
-              status_tag assignment.is_active? ? "活跃" : "已取消", class: assignment.is_active? ? "green" : "red"
-            end
-            column :created_at
-            column :notes
-          end
-          
-          if resource.current_assignee.nil?
-            div class: 'panel_contents' do
-              render partial: 'assign_form', locals: { reimbursement: resource }
-            end
-          else
-            div class: 'panel_contents' do
-              para "当前处理人: #{resource.current_assignee.email}"
-              render partial: 'transfer_form', locals: { reimbursement: resource }
-              render partial: 'unassign_form', locals: { reimbursement: resource }
-            end
-          end
-        end
       end
 
       tab "快递收单工单" do
@@ -312,100 +290,6 @@ ActiveAdmin.register Reimbursement do
       end
     end
     
-    # 报销单分配相关的成员操作
-    member_action :assign, method: :post do
-      service = ReimbursementAssignmentService.new(current_admin_user)
-      assignment = service.assign(resource.id, params[:assignee_id], params[:notes])
-      
-      if assignment
-        redirect_to admin_reimbursement_path(resource), notice: "报销单已分配给 #{assignment.assignee.email}"
-      else
-        redirect_to admin_reimbursement_path(resource), alert: "报销单分配失败"
-      end
-    end
-    
-    member_action :transfer_assignment, method: :post do
-      service = ReimbursementAssignmentService.new(current_admin_user)
-      assignment = service.transfer(resource.id, params[:assignee_id], params[:notes])
-      
-      if assignment
-        redirect_to admin_reimbursement_path(resource), notice: "报销单已转移给 #{assignment.assignee.email}"
-      else
-        redirect_to admin_reimbursement_path(resource), alert: "报销单转移失败"
-      end
-    end
-    
-    member_action :unassign, method: :post do
-      if resource.active_assignment.present?
-        service = ReimbursementAssignmentService.new(current_admin_user)
-        if service.unassign(resource.active_assignment.id)
-          redirect_to admin_reimbursement_path(resource), notice: "报销单分配已取消"
-        else
-          redirect_to admin_reimbursement_path(resource), alert: "报销单取消分配失败"
-        end
-      else
-        redirect_to admin_reimbursement_path(resource), alert: "报销单当前没有活跃的分配"
-      end
-    end
-    
-    # 批量分配相关的集合操作
-    collection_action :batch_assign, method: :get do
-      # 获取未分配的报销单
-      @reimbursements = Reimbursement.left_joins(:active_assignment)
-                                    .where(reimbursement_assignments: { id: nil })
-                                    .order(created_at: :desc)
-      
-      render "admin/reimbursements/batch_assign"
-    end
-    
-    collection_action :batch_assign, method: :post do
-      if params[:reimbursement_ids].blank?
-        redirect_to collection_path(action: :batch_assign), alert: "请选择要分配的报销单"
-        return
-      end
-      
-      if params[:assignee_id].blank?
-        redirect_to collection_path(action: :batch_assign), alert: "请选择审核人员"
-        return
-      end
-      
-      service = ReimbursementAssignmentService.new(current_admin_user)
-      results = service.batch_assign(params[:reimbursement_ids], params[:assignee_id], params[:notes])
-      
-      if results.any?
-        redirect_to admin_reimbursements_path, notice: "成功分配 #{results.size} 个报销单给 #{AdminUser.find(params[:assignee_id]).email}"
-      else
-        redirect_to collection_path(action: :batch_assign), alert: "报销单分配失败"
-      end
-    end
-    
-    # 快速分配
-    collection_action :quick_assign, method: :post do
-      if params[:reimbursement_id].blank?
-        redirect_to admin_dashboard_path, alert: "请选择要分配的报销单"
-        return
-      end
-      
-      if params[:assignee_id].blank?
-        redirect_to admin_dashboard_path, alert: "请选择审核人员"
-        return
-      end
-      
-      service = ReimbursementAssignmentService.new(current_admin_user)
-      assignment = service.assign(params[:reimbursement_id], params[:assignee_id], params[:notes])
-      
-      if assignment
-        redirect_to admin_reimbursement_path(assignment.reimbursement),
-                    notice: "报销单 #{assignment.reimbursement.invoice_number} 已分配给 #{assignment.assignee.email}"
-      else
-        redirect_to admin_dashboard_path, alert: "报销单分配失败"
-      end
-    end
-    
-    # 定义路由辅助方法
-    collection_action :quick_assign_path, method: :get do
-      render json: { path: collection_path(action: :quick_assign) }
-    end
   end
 
   # 表单页
@@ -452,5 +336,100 @@ ActiveAdmin.register Reimbursement do
     rescue => e
       redirect_to admin_reimbursement_path(resource), alert: "发生未知错误: #{e.message}"
     end
+  end
+  
+  # 报销单分配相关的成员操作
+  member_action :assign, method: :post do
+    service = ReimbursementAssignmentService.new(current_admin_user)
+    assignment = service.assign(resource.id, params[:assignee_id], params[:notes])
+    
+    if assignment
+      redirect_to admin_reimbursement_path(resource), notice: "报销单已分配给 #{assignment.assignee.email}"
+    else
+      redirect_to admin_reimbursement_path(resource), alert: "报销单分配失败"
+    end
+  end
+  
+  member_action :transfer_assignment, method: :post do
+    service = ReimbursementAssignmentService.new(current_admin_user)
+    assignment = service.transfer(resource.id, params[:assignee_id], params[:notes])
+    
+    if assignment
+      redirect_to admin_reimbursement_path(resource), notice: "报销单已转移给 #{assignment.assignee.email}"
+    else
+      redirect_to admin_reimbursement_path(resource), alert: "报销单转移失败"
+    end
+  end
+  
+  member_action :unassign, method: :post do
+    if resource.active_assignment.present?
+      service = ReimbursementAssignmentService.new(current_admin_user)
+      if service.unassign(resource.active_assignment.id)
+        redirect_to admin_reimbursement_path(resource), notice: "报销单分配已取消"
+      else
+        redirect_to admin_reimbursement_path(resource), alert: "报销单取消分配失败"
+      end
+    else
+      redirect_to admin_reimbursement_path(resource), alert: "报销单当前没有活跃的分配"
+    end
+  end
+  
+  # 批量分配相关的集合操作
+  collection_action :batch_assign, method: :get do
+    # 获取未分配的报销单
+    @reimbursements = Reimbursement.left_joins(:active_assignment)
+                                  .where(reimbursement_assignments: { id: nil })
+                                  .order(created_at: :desc)
+    
+    render "admin/reimbursements/batch_assign"
+  end
+  
+  collection_action :batch_assign, method: :post do
+    if params[:reimbursement_ids].blank?
+      redirect_to collection_path(action: :batch_assign), alert: "请选择要分配的报销单"
+      return
+    end
+    
+    if params[:assignee_id].blank?
+      redirect_to collection_path(action: :batch_assign), alert: "请选择审核人员"
+      return
+    end
+    
+    service = ReimbursementAssignmentService.new(current_admin_user)
+    results = service.batch_assign(params[:reimbursement_ids], params[:assignee_id], params[:notes])
+    
+    if results.any?
+      redirect_to admin_reimbursements_path, notice: "成功分配 #{results.size} 个报销单给 #{AdminUser.find(params[:assignee_id]).email}"
+    else
+      redirect_to collection_path(action: :batch_assign), alert: "报销单分配失败"
+    end
+  end
+  
+  # 快速分配
+  collection_action :quick_assign, method: :post do
+    if params[:reimbursement_id].blank?
+      redirect_to admin_dashboard_path, alert: "请选择要分配的报销单"
+      return
+    end
+    
+    if params[:assignee_id].blank?
+      redirect_to admin_dashboard_path, alert: "请选择审核人员"
+      return
+    end
+    
+    service = ReimbursementAssignmentService.new(current_admin_user)
+    assignment = service.assign(params[:reimbursement_id], params[:assignee_id], params[:notes])
+    
+    if assignment
+      redirect_to admin_reimbursement_path(assignment.reimbursement),
+                  notice: "报销单 #{assignment.reimbursement.invoice_number} 已分配给 #{assignment.assignee.email}"
+    else
+      redirect_to admin_dashboard_path, alert: "报销单分配失败"
+    end
+  end
+  
+  # 定义路由辅助方法
+  collection_action :quick_assign_path, method: :get do
+    render json: { path: collection_path(action: :quick_assign) }
   end
 end

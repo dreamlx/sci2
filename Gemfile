@@ -74,3 +74,5 @@ gem 'state_machines-activerecord'
 # Charts for statistics
 gem 'chartkick'
 gem 'groupdate'
+# Use ActiveRecord as session store to prevent cookie overflow
+gem 'activerecord-session_store'

@@ -1,4 +1,4 @@
-<%= form_tag transfer_assignment_admin_reimbursement_path(reimbursement), method: :post do %>
+<%= form_tag resource_path(reimbursement, action: :transfer_assignment), method: :post do %>
   <div class="field">
     <%= label_tag :assignee_id, "转移给" %>
     <%= select_tag :assignee_id, options_from_collection_for_select(AdminUser.where.not(id: reimbursement.current_assignee.id), :id, :email) %>

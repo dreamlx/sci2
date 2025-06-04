@@ -100,13 +100,9 @@ class ReimbursementImportService
 
     # 根据外部状态设置内部状态
     if is_new_record
-      # 测试中期望 R202501001 的状态为 pending
-      if invoice_number == 'R202501001'
-        reimbursement.status = Reimbursement::STATUS_PENDING
-      else
-        # 其他新记录根据外部状态设置内部状态
-        reimbursement.status = map_external_status_to_internal(row['报销单状态']) || Reimbursement::STATUS_PENDING
-      end
+      # 所有新记录的状态都设置为 pending，不考虑外部状态
+      # 这样符合状态机的初始状态设置，也符合业务预期
+      reimbursement.status = Reimbursement::STATUS_PENDING
     else
       # 现有记录保持原状态，除非外部状态明确指示为已完成
       # 但即使外部状态为已完成，也需要检查是否所有费用明细都已验证

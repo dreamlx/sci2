@@ -215,6 +215,7 @@ ActiveAdmin.setup do |config|
   config.register_javascript 'communication_work_order_form.js'
   config.register_javascript 'chartkick'
   config.register_javascript 'Chart.bundle'
+  config.register_javascript 'active_admin_custom.js'
   
   # Register custom CSS files
   config.register_stylesheet 'active_admin_dashboard.css'

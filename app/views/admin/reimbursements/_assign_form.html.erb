@@ -1,4 +1,4 @@
-<%= form_tag assign_admin_reimbursement_path(reimbursement), method: :post do %>
+<%= form_tag resource_path(reimbursement, action: :assign), method: :post do %>
   <div class="field">
     <%= label_tag :assignee_id, "分配给" %>
     <%= select_tag :assignee_id, options_from_collection_for_select(AdminUser.all, :id, :email) %>

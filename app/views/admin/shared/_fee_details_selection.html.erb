@@ -28,13 +28,13 @@
             <td>
               <% arbre_context = Arbre::Context.new %>
               <%= arbre_context.status_tag(fee_detail.verification_status, class: case fee_detail.verification_status
-                                                                                when FeeDetail::VERIFICATION_STATUS_VERIFIED
-                                                                                  'ok' # green
-                                                                                when FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
-                                                                                  'error' # red
-                                                                                else
-                                                                                  'warning' # orange
-                                                                                end).to_s %>
+                                                                             when FeeDetail::VERIFICATION_STATUS_VERIFIED
+                                                                               'ok' # green
+                                                                             when FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
+                                                                               'error' # red
+                                                                             else
+                                                                               'warning' # orange
+                                                                             end).to_s %>
             </td>
             <td><%= fee_detail.notes %></td>
             <td><%= fee_detail.created_at %></td>
@@ -54,16 +54,26 @@
                 # For new work orders, determine the type from the controller name
                 if work_order.type.present?
                   param_name = work_order.type.underscore.gsub('/', '_')
+                  Rails.logger.debug "Fee details selection: Using work_order.type for param_name: #{param_name}"
                 else
                   # Extract from current path, e.g., /admin/audit_work_orders/new -> audit_work_order
                   controller_path = request.path.split('/')[2]
                   param_name = controller_path.present? ? controller_path.singularize : 'work_order'
+                  Rails.logger.debug "Fee details selection: Using controller_path for param_name: #{param_name}, path: #{request.path}, controller_path: #{controller_path}"
+                end
+                
+                # Force param_name to match the actual controller for communication work orders
+                if request.path.include?('communication_work_orders')
+                  param_name = 'communication_work_order'
+                  Rails.logger.debug "Fee details selection: Forcing param_name to communication_work_order"
                 end
               %>
               <%= check_box_tag "#{param_name}[submitted_fee_detail_ids][]",
                               fee_detail.id,
                               work_order.submitted_fee_detail_ids&.include?(fee_detail.id.to_s),
-                              id: "fee_detail_#{fee_detail.id}" %>
+                              id: "fee_detail_#{fee_detail.id}",
+                              class: "fee-detail-checkbox",
+                              data: { fee_type: fee_detail.fee_type } %>
             </div>
             <span class="fee-detail-id">#<%= fee_detail.id %></span>
             <span class="fee-detail-type"><%= fee_detail.fee_type %></span>
@@ -83,6 +93,18 @@
           </label>
         </div>
       <% end %>
+    </div>
+    
+    <%# 费用类型分组标签 %>
+    <div class="fee-type-tags" id="fee-type-tags">
+      <h4>已选费用类型</h4>
+      <div class="fee-type-tags-container"></div>
+    </div>
+    
+    <%# 问题类型选择区域 %>
+    <div class="problem-types-container" id="problem-types-container" style="display:none;">
+      <h4>选择问题类型</h4>
+      <div class="problem-types-wrapper"></div>
     </div>
   <% end %>
 </div>
@@ -142,4 +164,319 @@
   min-width: 20px;
   margin-right: 5px;
 }
+
+/* 费用类型标签样式 */
+.fee-type-tags {
+  margin-top: 20px;
+  border: 1px solid #ddd;
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.fee-type-tags h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.fee-type-tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.fee-type-tag {
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 14px;
+  display: inline-block;
+}
+
+/* 问题类型复选框样式 */
+.problem-types-container {
+  margin-top: 20px;
+  border: 1px solid #ddd;
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.problem-types-container h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.problem-types-wrapper {
+  margin-top: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.problem-type-section {
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.problem-type-section h5 {
+  margin-top: 10px;
+  margin-bottom: 5px;
+  padding-bottom: 5px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.problem-type-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.problem-type-checkbox {
+  display: flex;
+  align-items: center;
+  margin-right: 15px;
+  margin-bottom: 5px;
+}
+
+.problem-type-checkbox input {
+  margin-right: 5px;
+}
+
+.problem-type-checkbox label {
+  font-size: 13px;
+  cursor: pointer;
+}
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const feeDetailCheckboxes = document.querySelectorAll('.fee-detail-checkbox');
+  const feeTypeTagsContainer = document.querySelector('.fee-type-tags-container');
+  const problemTypesContainer = document.getElementById('problem-types-container');
+  const problemTypesWrapper = document.querySelector('.problem-types-wrapper');
+  
+  // 存储选中的费用明细
+  let selectedFeeDetails = [];
+  
+  // 存储费用类型分组
+  let feeTypeGroups = {};
+  
+  // 存储费用类型ID映射
+  let feeTypeNameToIdMap = {};
+  let feeTypeIdToNameMap = {};
+  
+  // 监听费用明细复选框变化
+  feeDetailCheckboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+      updateSelectedFeeDetails();
+      updateFeeTypeTags();
+      loadProblemTypes();
+    });
+  });
+  
+  // 更新选中的费用明细
+  function updateSelectedFeeDetails() {
+    selectedFeeDetails = [];
+    feeTypeGroups = {};
+    
+    feeDetailCheckboxes.forEach(checkbox => {
+      if (checkbox.checked) {
+        const feeDetailId = checkbox.value;
+        const feeType = checkbox.dataset.feeType;
+        
+        selectedFeeDetails.push({
+          id: feeDetailId,
+          feeType: feeType
+        });
+        
+        // 按费用类型分组
+        if (!feeTypeGroups[feeType]) {
+          feeTypeGroups[feeType] = [];
+        }
+        feeTypeGroups[feeType].push(feeDetailId);
+      }
+    });
+  }
+  
+  // 更新费用类型标签
+  function updateFeeTypeTags() {
+    feeTypeTagsContainer.innerHTML = '';
+    
+    if (Object.keys(feeTypeGroups).length === 0) {
+      feeTypeTagsContainer.innerHTML = '<p>未选择费用明细</p>';
+      problemTypesContainer.style.display = 'none';
+      return;
+    }
+    
+    for (const feeType in feeTypeGroups) {
+      const tagDiv = document.createElement('div');
+      tagDiv.className = 'fee-type-tag';
+      tagDiv.dataset.feeType = feeType;
+      tagDiv.textContent = `${feeType} (${feeTypeGroups[feeType].length}项)`;
+      feeTypeTagsContainer.appendChild(tagDiv);
+    }
+    
+    problemTypesContainer.style.display = 'block';
+  }
+  
+  // 加载问题类型
+  function loadProblemTypes() {
+    problemTypesWrapper.innerHTML = '';
+    
+    if (Object.keys(feeTypeGroups).length === 0) {
+      return;
+    }
+    
+    // 获取所有相关费用类型的ID
+    const feeTypeIds = Object.keys(feeTypeGroups).map(feeType => {
+      return getFeeTypeIdByName(feeType);
+    }).filter(id => id);
+    
+    if (feeTypeIds.length === 0) {
+      return;
+    }
+    
+    // 按费用类型获取问题类型
+    fetch('/admin/problem_types.json?fee_type_ids=' + feeTypeIds.join(','))
+      .then(response => response.json())
+      .then(data => {
+        console.log("Problem types data:", data); // 调试输出
+        
+        // 按费用类型分组显示问题类型
+        const groupedProblemTypes = groupProblemTypesByFeeType(data);
+        console.log("Grouped problem types:", groupedProblemTypes); // 调试输出
+        
+        // 只显示与选中的费用类型相关的问题类型
+        for (const feeTypeId in groupedProblemTypes) {
+          // 检查这个费用类型ID是否在我们选中的费用类型中
+          if (!feeTypeIds.includes(parseInt(feeTypeId)) && !feeTypeIds.includes(feeTypeId)) {
+            continue; // 跳过未选中的费用类型
+          }
+          
+          const feeTypeName = getFeeTypeNameById(feeTypeId);
+          const problemTypes = groupedProblemTypes[feeTypeId];
+          
+          // 创建费用类型分组
+          const sectionDiv = document.createElement('div');
+          sectionDiv.className = 'problem-type-section';
+          
+          // 创建费用类型标题
+          const feeTypeTitle = document.createElement('h5');
+          feeTypeTitle.textContent = feeTypeName;
+          sectionDiv.appendChild(feeTypeTitle);
+          
+          // 创建问题类型复选框容器
+          const checkboxContainer = document.createElement('div');
+          checkboxContainer.className = 'problem-type-checkboxes';
+          
+          problemTypes.forEach(problemType => {
+            const checkboxDiv = document.createElement('div');
+            checkboxDiv.className = 'problem-type-checkbox';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = `problem_type_${problemType.id}`;
+            
+            // Use the correct parameter name based on the work order type
+            if (request.path.includes('communication_work_orders')) {
+              checkbox.name = 'communication_work_order[problem_type_ids][]';
+            } else {
+              checkbox.name = 'audit_work_order[problem_type_ids][]';
+            }
+            
+            checkbox.value = problemType.id;
+            checkbox.dataset.problemTypeId = problemType.id;
+            
+            const label = document.createElement('label');
+            label.htmlFor = `problem_type_${problemType.id}`;
+            
+            // 确保正确显示问题类型的code和title
+            // 如果display_name已经包含了code和title，则直接使用
+            // 否则，使用code和title构建显示名称
+            if (problemType.display_name) {
+              label.textContent = problemType.display_name;
+            } else if (problemType.code && problemType.title) {
+              label.textContent = `${problemType.code} - ${problemType.title}`;
+            } else {
+              label.textContent = problemType.title || `问题类型 #${problemType.id}`;
+            }
+            
+            checkboxDiv.appendChild(checkbox);
+            checkboxDiv.appendChild(label);
+            checkboxContainer.appendChild(checkboxDiv);
+          });
+          
+          sectionDiv.appendChild(checkboxContainer);
+          problemTypesWrapper.appendChild(sectionDiv);
+        }
+      })
+      .catch(error => console.error('Error fetching problem types:', error));
+  }
+  
+  // 辅助函数：按费用类型分组问题类型
+  function groupProblemTypesByFeeType(problemTypes) {
+    const grouped = {};
+    
+    problemTypes.forEach(problemType => {
+      const feeTypeId = problemType.fee_type_id;
+      
+      if (!grouped[feeTypeId]) {
+        grouped[feeTypeId] = [];
+      }
+      
+      grouped[feeTypeId].push(problemType);
+    });
+    
+    return grouped;
+  }
+  
+  // 辅助函数：根据费用类型名称获取ID
+  function getFeeTypeIdByName(name) {
+    return feeTypeNameToIdMap[name] || null;
+  }
+  
+  // 辅助函数：根据费用类型ID获取名称
+  function getFeeTypeNameById(id) {
+    return feeTypeIdToNameMap[id] || '未知费用类型';
+  }
+  
+  // 预加载费用类型映射关系
+  fetch('/admin/fee_types.json')
+    .then(response => response.json())
+    .then(data => {
+      console.log("Fee types data:", data); // 调试输出
+      
+      data.forEach(feeType => {
+        // 使用title作为主键，但也添加code作为备用
+        feeTypeNameToIdMap[feeType.title] = feeType.id;
+        // 如果费用明细中使用的是code而不是title，也添加映射
+        if (feeType.code) {
+          feeTypeNameToIdMap[feeType.code] = feeType.id;
+        }
+        // 如果费用明细中使用的是完整的display_name，也添加映射
+        if (feeType.display_name) {
+          feeTypeNameToIdMap[feeType.display_name] = feeType.id;
+        }
+        
+        // ID到名称的映射
+        feeTypeIdToNameMap[feeType.id] = feeType.title;
+      });
+      
+      console.log("Fee type name to ID map:", feeTypeNameToIdMap); // 调试输出
+      console.log("Fee type ID to name map:", feeTypeIdToNameMap); // 调试输出
+      
+      // 初始化
+      updateSelectedFeeDetails();
+      updateFeeTypeTags();
+      
+      // 如果已有选中的费用明细，加载问题类型
+      if (Object.keys(feeTypeGroups).length > 0) {
+        loadProblemTypes();
+      }
+    })
+    .catch(error => console.error('Error fetching fee types:', error));
+});
+</script>

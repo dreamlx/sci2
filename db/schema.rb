@@ -158,15 +158,23 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000008) do
     t.index ["status"], name: "index_reimbursements_on_status"
   end
 
-  create_table "work_order_fee_details", force: :cascade do |t|
-    t.integer "fee_detail_id", null: false
-    t.integer "work_order_id", null: false
-    t.string "work_order_type", null: false
+  create_table "sessions", force: :cascade do |t|
+    t.string "session_id", null: false
+    t.text "data"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["fee_detail_id", "work_order_id", "work_order_type"], name: "index_work_order_fee_details_uniqueness", unique: true
+    t.index ["session_id"], name: "index_sessions_on_session_id", unique: true
+    t.index ["updated_at"], name: "index_sessions_on_updated_at"
+  end
+
+  create_table "work_order_fee_details", force: :cascade do |t|
+    t.integer "work_order_id", null: false
+    t.integer "fee_detail_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
     t.index ["fee_detail_id"], name: "index_work_order_fee_details_on_fee_detail_id"
-    t.index ["work_order_id", "work_order_type"], name: "index_work_order_fee_details_on_work_order"
+    t.index ["work_order_id", "fee_detail_id"], name: "index_work_order_fee_details_on_wo_and_fd", unique: true
+    t.index ["work_order_id"], name: "index_work_order_fee_details_on_work_order_id"
   end
 
   create_table "work_order_operations", force: :cascade do |t|
@@ -182,6 +190,16 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000008) do
     t.index ["operation_type", "created_at"], name: "index_work_order_operations_on_operation_type_and_created_at"
     t.index ["work_order_id", "created_at"], name: "index_work_order_operations_on_work_order_id_and_created_at"
     t.index ["work_order_id"], name: "index_work_order_operations_on_work_order_id"
+  end
+
+  create_table "work_order_problems", force: :cascade do |t|
+    t.integer "work_order_id", null: false
+    t.integer "problem_type_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["problem_type_id"], name: "index_work_order_problems_on_problem_type_id"
+    t.index ["work_order_id", "problem_type_id"], name: "idx_work_order_problems_unique", unique: true
+    t.index ["work_order_id"], name: "index_work_order_problems_on_work_order_id"
   end
 
   create_table "work_order_status_changes", force: :cascade do |t|
@@ -232,8 +250,11 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000008) do
   add_foreign_key "reimbursement_assignments", "admin_users", column: "assigner_id"
   add_foreign_key "reimbursement_assignments", "reimbursements"
   add_foreign_key "work_order_fee_details", "fee_details"
+  add_foreign_key "work_order_fee_details", "work_orders"
   add_foreign_key "work_order_operations", "admin_users"
   add_foreign_key "work_order_operations", "work_orders"
+  add_foreign_key "work_order_problems", "problem_types"
+  add_foreign_key "work_order_problems", "work_orders"
   add_foreign_key "work_order_status_changes", "admin_users", column: "changer_id"
   add_foreign_key "work_orders", "admin_users", column: "created_by"
   add_foreign_key "work_orders", "reimbursements"
