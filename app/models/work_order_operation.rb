@@ -1,6 +1,6 @@
 class WorkOrderOperation < ApplicationRecord
   belongs_to :work_order
-  belongs_to :admin_user
+  belongs_to :admin_user, optional: true
   
   validates :operation_type, presence: true
   

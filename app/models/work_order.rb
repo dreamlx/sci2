@@ -23,6 +23,7 @@ class WorkOrder < ApplicationRecord
   has_many :fee_details, through: :work_order_fee_details
   
   has_many :operations, class_name: 'WorkOrderOperation', dependent: :destroy
+  has_many :work_order_status_changes, as: :work_order, dependent: :destroy
   
   # 验证
   validates :reimbursement_id, presence: true

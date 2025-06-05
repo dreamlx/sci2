@@ -125,9 +125,10 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
             column :changer do |change| change.changer&.email end
           end
         end
-        
-        tab "操作记录" do
-          panel "操作记录" do
+      end
+      
+      tab "操作记录" do
+        panel "操作记录" do
             if resource.operations.exists?
               table_for resource.operations.recent_first do
                 column :id do |operation|
@@ -161,7 +162,6 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
         end
       end
     end
-  end
 
   # 表单页
   form do |f|

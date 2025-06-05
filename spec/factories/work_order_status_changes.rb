@@ -2,7 +2,6 @@
 FactoryBot.define do
   factory :work_order_status_change do
     association :work_order, factory: :audit_work_order
-    work_order_type { "AuditWorkOrder" }
     from_status { nil }
     to_status { "pending" }
     changed_at { Time.current }

@@ -76,8 +76,7 @@ FactoryBot.define do
           communication_work_order.fee_details.each do |fee_detail|
             WorkOrderFeeDetail.find_or_create_by(
               fee_detail: fee_detail,
-              work_order_id: communication_work_order.id,
-              work_order_type: 'CommunicationWorkOrder'
+              work_order_id: communication_work_order.id
             )
           end
         end

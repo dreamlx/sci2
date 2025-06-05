@@ -82,11 +82,12 @@
                     collection: [],
                     include_blank: '请先选择费用类型',
                     input_html: { id: 'problem_type_select' },
-                    required: true %>
+                    required: false %>
             
             <%= f.input :audit_comment, label: (label || '拒绝原因'),
                     input_html: { rows: 3, id: 'audit_comment_field' },
-                    required: true %>
+                    required: false,
+                    hint: '当未选择问题类型时，必须填写审核意见' %>
             
             <%= f.input :audit_date, label: '审核日期', as: :date_select, input_html: { value: Date.today } %>
             <%= f.input :remark, label: '备注', input_html: { rows: 2 } %>

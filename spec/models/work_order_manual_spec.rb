@@ -42,8 +42,7 @@ RSpec.describe "WorkOrder手动状态处理", type: :model do
       # 关联费用明细
       WorkOrderFeeDetail.create!(
         work_order: order,
-        fee_detail: fee_detail,
-        work_order_type: "AuditWorkOrder"
+        fee_detail: fee_detail
       )
       
       order
@@ -84,8 +83,7 @@ RSpec.describe "WorkOrder手动状态处理", type: :model do
       # 关联费用明细
       WorkOrderFeeDetail.create!(
         work_order: order,
-        fee_detail: fee_detail,
-        work_order_type: "AuditWorkOrder"
+        fee_detail: fee_detail
       )
       
       order
@@ -102,8 +100,7 @@ RSpec.describe "WorkOrder手动状态处理", type: :model do
       # 关联费用明细
       WorkOrderFeeDetail.create!(
         work_order: order,
-        fee_detail: fee_detail,
-        work_order_type: "AuditWorkOrder"
+        fee_detail: fee_detail
       )
       
       order

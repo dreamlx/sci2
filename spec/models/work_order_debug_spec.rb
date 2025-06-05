@@ -42,8 +42,7 @@ RSpec.describe "WorkOrder调试", type: :model do
       # 关联费用明细
       wofd = WorkOrderFeeDetail.create!(
         work_order: work_order,
-        fee_detail: fee_detail,
-        work_order_type: work_order.class.name
+        fee_detail: fee_detail
       )
       
       # 调试输出
@@ -52,14 +51,13 @@ RSpec.describe "WorkOrder调试", type: :model do
       puts "工单类型: #{work_order.class.name}"
       puts "WorkOrderFeeDetail ID: #{wofd.id}"
       puts "WorkOrderFeeDetail work_order_id: #{wofd.work_order_id}"
-      puts "WorkOrderFeeDetail work_order_type: #{wofd.work_order_type}"
       puts "WorkOrderFeeDetail fee_detail_id: #{wofd.fee_detail_id}"
       
       # 直接从数据库查询关联
       wofds = WorkOrderFeeDetail.where(fee_detail_id: fee_detail.id)
       puts "WorkOrderFeeDetail记录数: #{wofds.count}"
       wofds.each do |wofd|
-        puts "  work_order_id: #{wofd.work_order_id}, work_order_type: #{wofd.work_order_type}"
+        puts "  work_order_id: #{wofd.work_order_id}"
       end
       
       # 重新加载工单和费用明细
@@ -67,7 +65,7 @@ RSpec.describe "WorkOrder调试", type: :model do
       fee_detail.reload
       
       # 检查工单关联的费用明细ID
-      fee_detail_ids = WorkOrderFeeDetail.where(work_order_id: work_order.id, work_order_type: work_order.class.name).pluck(:fee_detail_id)
+      fee_detail_ids = WorkOrderFeeDetail.where(work_order_id: work_order.id).pluck(:fee_detail_id)
       puts "直接查询的费用明细ID: #{fee_detail_ids}"
       expect(fee_detail_ids).to include(fee_detail.id)
       
@@ -99,8 +97,7 @@ RSpec.describe "WorkOrder调试", type: :model do
       # 关联费用明细
       wofd = WorkOrderFeeDetail.create!(
         work_order: work_order,
-        fee_detail: fee_detail,
-        work_order_type: work_order.class.name
+        fee_detail: fee_detail
       )
       
       # 调试输出

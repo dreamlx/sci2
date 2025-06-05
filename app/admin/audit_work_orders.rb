@@ -399,105 +399,107 @@ ActiveAdmin.register AuditWorkOrder do
   end
 
   # 表单使用 partial
-  form title: proc { |wo| wo.new_record? ? "新建审核工单" : ((wo.approved? || wo.rejected?) ? "查看已处理审核工单 ##{wo.id}" : "编辑审核工单 ##{wo.id}") } do |f|
-
-
-    if f.object.approved? || f.object.rejected?
-      f.inputs "工单已处理" do
-        para "此工单已审核通过或拒绝，通常不再编辑。"
-      end
-    else
-      f.semantic_errors
-
-      reimbursement = f.object.reimbursement || (params[:reimbursement_id] ? Reimbursement.find_by(id: params[:reimbursement_id]) : nil)
-
-      tabs do
-        tab '基本信息' do
-          f.inputs '工单详情' do
-            if reimbursement
-              render 'admin/reimbursements/reimbursement_display', reimbursement: reimbursement
-              f.input :reimbursement_id, as: :hidden, input_html: { value: reimbursement.id }
-              #f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: reimbursement.invoice_number, readonly: true, disabled: true }
-            elsif f.object.reimbursement
-               f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: f.object.reimbursement.invoice_number, readonly: true, disabled: true }
-            end
-            f.input :status, input_html: { readonly: true, disabled: true }, label: '工单状态' if f.object.persisted?
-          end
-
-          # Updated Fee Detail Section
-          if reimbursement
-            render 'admin/shared/fee_details_selection', work_order: f.object, reimbursement: reimbursement
-          else
-            f.inputs '费用明细' do
-              para "无法加载费用明细，未关联有效的报销单。"
-            end
-          end
-
-          f.inputs '处理与反馈' do
-            f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '请选择处理意见', input_html: { id: 'audit_work_order_processing_opinion' }
-            
-            # 移除费用类型和问题类型下拉选择
-            # 问题类型选择已在费用明细选择部分实现
-            
-            # 审核意见输入框
-            f.input :audit_comment, label: "审核意见",
-                    input_html: { id: 'audit_comment_field' },
-                    wrapper_html: { id: 'audit_comment_row', style: 'display:none;' }
-            
-            f.input :remark, label: "备注", wrapper_html: { id: 'remark_row', style: 'display:none;' }
-          end
-        end
-      end
-      f.actions
-
-      # JavaScript for conditional fields
-      script do
-        raw """
-          document.addEventListener('DOMContentLoaded', function() {
-            const processingOpinionSelect = document.getElementById('audit_work_order_processing_opinion');
-            const auditCommentRow = document.getElementById('audit_comment_row');
-            const remarkRow = document.getElementById('remark_row');
-            const problemTypesContainer = document.getElementById('problem-types-container');
-            
-            // 切换字段显示
-            function toggleFields() {
-              if (!processingOpinionSelect || !auditCommentRow || !remarkRow) {
-                return;
-              }
-              const selectedValue = processingOpinionSelect.value;
-              
-              auditCommentRow.style.display = 'none';
-              remarkRow.style.display = 'none';
-              
-              if (selectedValue === '无法通过') {
-                if (problemTypesContainer) {
-                  problemTypesContainer.style.display = 'block';
-                }
-                auditCommentRow.style.display = 'list-item';
-                remarkRow.style.display = 'list-item';
-              } else if (selectedValue === '可以通过') {
-                if (problemTypesContainer) {
-                  problemTypesContainer.style.display = 'none';
-                }
-                auditCommentRow.style.display = 'list-item';
-              } else { // Blank
-                if (problemTypesContainer) {
-                  problemTypesContainer.style.display = 'none';
-                }
-                auditCommentRow.style.display = 'list-item';
-              }
-            }
-            
-            // 设置事件监听器
-            if (processingOpinionSelect) {
-              processingOpinionSelect.addEventListener('change', toggleFields);
-              toggleFields();
-            }
-          });
-        """
-      end
-    end
-  end
+  form partial: "form"
+  
+  # 原始表单实现已移至 _form.html.erb
+  # 以下代码已注释掉，不再使用
+  # form title: proc { |wo| wo.new_record? ? "新建审核工单" : ((wo.approved? || wo.rejected?) ? "查看已处理审核工单 ##{wo.id}" : "编辑审核工单 ##{wo.id}") } do |f|
+  #   if f.object.approved? || f.object.rejected?
+  #     f.inputs "工单已处理" do
+  #       para "此工单已审核通过或拒绝，通常不再编辑。"
+  #     end
+  #   else
+  #     f.semantic_errors
+  #
+  #     reimbursement = f.object.reimbursement || (params[:reimbursement_id] ? Reimbursement.find_by(id: params[:reimbursement_id]) : nil)
+  #
+  #     tabs do
+  #       tab '基本信息' do
+  #         f.inputs '工单详情' do
+  #           if reimbursement
+  #             render 'admin/reimbursements/reimbursement_display', reimbursement: reimbursement
+  #             f.input :reimbursement_id, as: :hidden, input_html: { value: reimbursement.id }
+  #             #f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: reimbursement.invoice_number, readonly: true, disabled: true }
+  #           elsif f.object.reimbursement
+  #              f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: f.object.reimbursement.invoice_number, readonly: true, disabled: true }
+  #           end
+  #           f.input :status, input_html: { readonly: true, disabled: true }, label: '工单状态' if f.object.persisted?
+  #         end
+  #
+  #         # Updated Fee Detail Section
+  #         if reimbursement
+  #           render 'admin/shared/fee_details_selection', work_order: f.object, reimbursement: reimbursement
+  #         else
+  #           f.inputs '费用明细' do
+  #             para "无法加载费用明细，未关联有效的报销单。"
+  #           end
+  #         end
+  #
+  #         f.inputs '处理与反馈' do
+  #           f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '请选择处理意见', input_html: { id: 'audit_work_order_processing_opinion' }
+  #
+  #           # 移除费用类型和问题类型下拉选择
+  #           # 问题类型选择已在费用明细选择部分实现
+  #
+  #           # 审核意见输入框
+  #           f.input :audit_comment, label: "审核意见",
+  #                   input_html: { id: 'audit_comment_field' },
+  #                   wrapper_html: { id: 'audit_comment_row', style: 'display:none;' }
+  #
+  #           f.input :remark, label: "备注", wrapper_html: { id: 'remark_row', style: 'display:none;' }
+  #         end
+  #       end
+  #     end
+  #     f.actions
+  #
+  #     # JavaScript for conditional fields
+  #     script do
+  #       raw """
+  #         document.addEventListener('DOMContentLoaded', function() {
+  #           const processingOpinionSelect = document.getElementById('audit_work_order_processing_opinion');
+  #           const auditCommentRow = document.getElementById('audit_comment_row');
+  #           const remarkRow = document.getElementById('remark_row');
+  #           const problemTypesContainer = document.getElementById('problem-types-container');
+  #
+  #           // 切换字段显示
+  #           function toggleFields() {
+  #             if (!processingOpinionSelect || !auditCommentRow || !remarkRow) {
+  #               return;
+  #             }
+  #             const selectedValue = processingOpinionSelect.value;
+  #
+  #             auditCommentRow.style.display = 'none';
+  #             remarkRow.style.display = 'none';
+  #
+  #             if (selectedValue === '无法通过') {
+  #               if (problemTypesContainer) {
+  #                 problemTypesContainer.style.display = 'block';
+  #               }
+  #               auditCommentRow.style.display = 'list-item';
+  #               remarkRow.style.display = 'list-item';
+  #             } else if (selectedValue === '可以通过') {
+  #               if (problemTypesContainer) {
+  #                 problemTypesContainer.style.display = 'none';
+  #               }
+  #               auditCommentRow.style.display = 'list-item';
+  #             } else { // Blank
+  #               if (problemTypesContainer) {
+  #                 problemTypesContainer.style.display = 'none';
+  #               }
+  #               auditCommentRow.style.display = 'list-item';
+  #             }
+  #           }
+  #
+  #           // 设置事件监听器
+  #           if (processingOpinionSelect) {
+  #             processingOpinionSelect.addEventListener('change', toggleFields);
+  #             toggleFields();
+  #           }
+  #         });
+  #       """
+  #     end
+  #   end
+  # end
   
   # 处理意见与状态关系由模型的 set_status_based_on_processing_opinion 回调自动处理
   

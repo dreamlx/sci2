@@ -95,17 +95,20 @@
       <% end %>
     </div>
     
-    <%# 费用类型分组标签 %>
-    <div class="fee-type-tags" id="fee-type-tags">
+    <%# 费用类型分组标签 - 默认隐藏 %>
+    <div class="fee-type-tags" id="fee-type-tags" style="display:none;">
       <h4>已选费用类型</h4>
       <div class="fee-type-tags-container"></div>
     </div>
     
-    <%# 问题类型选择区域 %>
+    <%# 问题类型选择区域 - 默认隐藏 %>
     <div class="problem-types-container" id="problem-types-container" style="display:none;">
-      <h4>选择问题类型</h4>
+      <h4>选择问题类型（当处理意见为"无法通过"时，需选择问题类型或填写审核意见）</h4>
       <div class="problem-types-wrapper"></div>
     </div>
+    
+    <%# 验证错误显示区域 %>
+    <div id="validation-errors" class="validation-error" style="display:none;"></div>
   <% end %>
 </div>
 
@@ -249,234 +252,508 @@
   font-size: 13px;
   cursor: pointer;
 }
+
+/* 未找到费用类型警告样式 */
+.missing-fee-types-warning {
+  margin: 15px 0;
+  padding: 15px;
+  background-color: #fff3cd;
+  border: 1px solid #ffeeba;
+  border-radius: 4px;
+  color: #856404;
+}
+
+.missing-fee-types-warning .warning-text {
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.missing-fee-types-warning .button {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 5px 10px;
+  background-color: #5cb85c;
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+}
+
+.missing-fee-types-warning .button:hover {
+  background-color: #4cae4c;
+}
+
+/* 验证错误样式 */
+.validation-error {
+  color: #721c24;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 4px;
+}
+
+.highlight-error {
+  border: 2px solid #dc3545 !important;
+  animation: pulse-error 1s;
+}
+
+@keyframes pulse-error {
+  0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+}
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  // 获取DOM元素
   const feeDetailCheckboxes = document.querySelectorAll('.fee-detail-checkbox');
   const feeTypeTagsContainer = document.querySelector('.fee-type-tags-container');
+  const feeTypeTags = document.getElementById('fee-type-tags');
   const problemTypesContainer = document.getElementById('problem-types-container');
   const problemTypesWrapper = document.querySelector('.problem-types-wrapper');
+  const validationErrorsContainer = document.getElementById('validation-errors');
   
-  // 存储选中的费用明细
-  let selectedFeeDetails = [];
+  // 支持两种工单类型的处理意见选择器
+  let processingOpinionSelect = document.getElementById('communication_work_order_processing_opinion');
+  if (!processingOpinionSelect) {
+    processingOpinionSelect = document.getElementById('audit_work_order_processing_opinion');
+    console.log('找到审核工单处理意见选择器');
+  } else {
+    console.log('找到沟通工单处理意见选择器');
+  }
   
-  // 存储费用类型分组
-  let feeTypeGroups = {};
+  // 获取审核意见字段
+  const auditCommentField = document.getElementById('audit_comment_field');
   
-  // 存储费用类型ID映射
-  let feeTypeNameToIdMap = {};
-  let feeTypeIdToNameMap = {};
+  // 应用状态 - 单一数据源
+  const appState = {
+    // 数据
+    allFeeTypes: [],
+    allProblemTypes: [],
+    
+    // 用户选择
+    selectedFeeDetails: [],
+    feeTypeGroups: {},
+    processingOpinion: processingOpinionSelect ? processingOpinionSelect.value : null,
+    
+    // 映射关系
+    feeTypeNameToIdMap: {},
+    feeTypeIdToNameMap: {},
+    
+    // 验证状态
+    validationErrors: [],
+    isFormValid: true,
+    
+    // 加载状态
+    isLoading: {
+      feeTypes: false,
+      problemTypes: false
+    }
+  };
   
-  // 监听费用明细复选框变化
-  feeDetailCheckboxes.forEach(checkbox => {
-    checkbox.addEventListener('change', function() {
-      updateSelectedFeeDetails();
-      updateFeeTypeTags();
-      loadProblemTypes();
+  // 初始化应用
+  initializeApp();
+  
+  // 主要初始化函数
+  function initializeApp() {
+    console.log('初始化应用...');
+    
+    // 加载费用类型数据
+    loadFeeTypes()
+      .then(() => {
+        // 初始化UI状态
+        updateSelectedFeeDetails();
+        renderFeeTypeTags();
+        
+        // 如果处理意见为"无法通过"，加载问题类型
+        if (appState.processingOpinion === '无法通过') {
+          renderProblemTypes();
+        }
+      })
+      .catch(error => console.error('初始化应用时出错:', error));
+    
+    // 添加事件监听器
+    setupEventListeners();
+  }
+  
+  // 设置事件监听器
+  function setupEventListeners() {
+    // 费用明细复选框变化
+    feeDetailCheckboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', handleFeeDetailChange);
     });
-  });
+    
+    // 处理意见变化
+    if (processingOpinionSelect) {
+      processingOpinionSelect.addEventListener('change', handleProcessingOpinionChange);
+    }
+    
+    // 审核意见字段变化
+    if (auditCommentField) {
+      auditCommentField.addEventListener('input', function() {
+        // 如果有验证错误，重新验证
+        if (appState.validationErrors.length > 0) {
+          validateFormState();
+          renderValidationErrors();
+        }
+      });
+    }
+    
+    // 表单提交验证 - 只添加一次
+    const form = document.querySelector('form.formtastic');
+    if (form && !form.dataset.validationAdded) {
+      form.addEventListener('submit', validateForm);
+      form.dataset.validationAdded = 'true';
+      console.log('已添加表单验证');
+    }
+  }
+  
+  // 加载费用类型数据
+  function loadFeeTypes() {
+    console.log('加载费用类型数据...');
+    appState.isLoading.feeTypes = true;
+    
+    return fetch('/admin/fee_types.json')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('获取费用类型失败');
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('获取到费用类型数据:', data);
+        appState.allFeeTypes = data;
+        
+        // 构建映射关系
+        data.forEach(feeType => {
+          // 使用title作为主键
+          appState.feeTypeNameToIdMap[feeType.title] = feeType.id;
+          
+          // 如果费用明细中使用的是code而不是title，也添加映射
+          if (feeType.code) {
+            appState.feeTypeNameToIdMap[feeType.code] = feeType.id;
+          }
+          
+          // 如果费用明细中使用的是完整的display_name，也添加映射
+          if (feeType.display_name) {
+            appState.feeTypeNameToIdMap[feeType.display_name] = feeType.id;
+          }
+          
+          // ID到名称的映射
+          appState.feeTypeIdToNameMap[feeType.id] = feeType.title;
+        });
+        
+        console.log('费用类型名称到ID映射:', appState.feeTypeNameToIdMap);
+        console.log('费用类型ID到名称映射:', appState.feeTypeIdToNameMap);
+        
+        appState.isLoading.feeTypes = false;
+      })
+      .catch(error => {
+        console.error('加载费用类型时出错:', error);
+        appState.isLoading.feeTypes = false;
+        throw error;
+      });
+  }
+  
+  // 加载问题类型数据
+  function loadProblemTypes() {
+    console.log('加载问题类型数据...');
+    appState.isLoading.problemTypes = true;
+    
+    return fetch('/admin/problem_types.json')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('获取问题类型失败');
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('获取到问题类型数据:', data);
+        appState.allProblemTypes = data;
+        appState.isLoading.problemTypes = false;
+      })
+      .catch(error => {
+        console.error('加载问题类型时出错:', error);
+        appState.isLoading.problemTypes = false;
+        throw error;
+      });
+  }
+  
+  // 处理费用明细选择变化
+  function handleFeeDetailChange() {
+    console.log('费用明细选择变更');
+    
+    // 更新选中的费用明细
+    updateSelectedFeeDetails();
+    
+    // 更新UI
+    renderFeeTypeTags();
+    
+    // 如果处理意见为"无法通过"，更新问题类型
+    if (appState.processingOpinion === '无法通过') {
+      renderProblemTypes();
+    }
+    
+    // 如果有验证错误，重新验证
+    if (appState.validationErrors.length > 0) {
+      validateFormState();
+      renderValidationErrors();
+    }
+  }
+  
+  // 处理处理意见变化
+  function handleProcessingOpinionChange() {
+    const newOpinion = processingOpinionSelect.value;
+    console.log('处理意见变更为:', newOpinion);
+    
+    // 更新状态
+    appState.processingOpinion = newOpinion;
+    
+    // 根据处理意见显示/隐藏相应区域
+    if (newOpinion === '无法通过') {
+      console.log('处理意见为"无法通过"，显示费用类型和问题类型区域');
+      
+      // 显示费用类型标签
+      feeTypeTags.style.display = 'block';
+      
+      // 显示并加载问题类型
+      problemTypesContainer.style.display = 'block';
+      renderProblemTypes();
+    } else if (newOpinion === '可以通过') {
+      console.log('处理意见为"可以通过"，只显示费用类型标签');
+      
+      // 显示费用类型标签，隐藏问题类型区域
+      feeTypeTags.style.display = 'block';
+      problemTypesContainer.style.display = 'none';
+    } else {
+      console.log('处理意见为其他值，隐藏费用类型和问题类型区域');
+      
+      // 隐藏费用类型和问题类型
+      feeTypeTags.style.display = 'none';
+      problemTypesContainer.style.display = 'none';
+    }
+    
+    // 如果有验证错误，重新验证
+    if (appState.validationErrors.length > 0) {
+      validateFormState();
+      renderValidationErrors();
+    }
+  }
   
   // 更新选中的费用明细
   function updateSelectedFeeDetails() {
-    selectedFeeDetails = [];
-    feeTypeGroups = {};
+    console.log('更新选中的费用明细...');
     
+    // 重置状态
+    appState.selectedFeeDetails = [];
+    appState.feeTypeGroups = {};
+    
+    // 获取所有选中的费用明细
     feeDetailCheckboxes.forEach(checkbox => {
       if (checkbox.checked) {
         const feeDetailId = checkbox.value;
-        const feeType = checkbox.dataset.feeType;
+        const feeType = checkbox.dataset.feeType || '';
         
-        selectedFeeDetails.push({
+        console.log(`选中的费用明细 #${feeDetailId}, 费用类型: "${feeType}"`);
+        
+        // 如果费用类型为空，使用"未知费用类型"
+        const normalizedFeeType = (!feeType || feeType.trim() === '') ? '未知费用类型' : feeType;
+        
+        // 添加到选中的费用明细
+        appState.selectedFeeDetails.push({
           id: feeDetailId,
-          feeType: feeType
+          feeType: normalizedFeeType
         });
         
         // 按费用类型分组
-        if (!feeTypeGroups[feeType]) {
-          feeTypeGroups[feeType] = [];
+        if (!appState.feeTypeGroups[normalizedFeeType]) {
+          appState.feeTypeGroups[normalizedFeeType] = [];
         }
-        feeTypeGroups[feeType].push(feeDetailId);
+        appState.feeTypeGroups[normalizedFeeType].push(feeDetailId);
       }
+    });
+    
+    console.log('更新后的费用类型分组:', appState.feeTypeGroups);
+  }
+  
+  // 渲染费用类型标签
+  function renderFeeTypeTags() {
+    console.log('渲染费用类型标签...');
+    
+    // 清空容器
+    feeTypeTagsContainer.innerHTML = '';
+    
+    // 检查是否有选择的费用明细
+    const feeTypeKeys = Object.keys(appState.feeTypeGroups);
+    if (feeTypeKeys.length === 0) {
+      // 没有选择费用明细，显示提示信息
+      feeTypeTagsContainer.innerHTML = '<p>未选择费用明细</p>';
+      console.log('未选择费用明细，显示提示信息');
+      
+      // 隐藏费用类型标签区域
+      feeTypeTags.style.display = 'none';
+      return;
+    }
+    
+    // 显示费用类型标签区域
+    feeTypeTags.style.display = 'block';
+    
+    // 有选择的费用明细，显示费用类型标签
+    console.log('已选择费用明细，显示费用类型标签');
+    feeTypeKeys.forEach(feeType => {
+      const tagDiv = document.createElement('div');
+      tagDiv.className = 'fee-type-tag';
+      tagDiv.dataset.feeType = feeType;
+      tagDiv.textContent = `${feeType} (${appState.feeTypeGroups[feeType].length}项)`;
+      feeTypeTagsContainer.appendChild(tagDiv);
+      
+      console.log(`添加费用类型标签: ${feeType} (${appState.feeTypeGroups[feeType].length}项)`);
     });
   }
   
-  // 更新费用类型标签
-  function updateFeeTypeTags() {
-    feeTypeTagsContainer.innerHTML = '';
+  // 渲染问题类型
+  function renderProblemTypes() {
+    console.log('渲染问题类型...');
     
-    if (Object.keys(feeTypeGroups).length === 0) {
-      feeTypeTagsContainer.innerHTML = '<p>未选择费用明细</p>';
+    // 清空问题类型容器
+    problemTypesWrapper.innerHTML = '';
+    
+    // 如果处理意见不是"无法通过"，隐藏问题类型区域并返回
+    if (appState.processingOpinion !== '无法通过') {
       problemTypesContainer.style.display = 'none';
       return;
     }
     
-    for (const feeType in feeTypeGroups) {
-      const tagDiv = document.createElement('div');
-      tagDiv.className = 'fee-type-tag';
-      tagDiv.dataset.feeType = feeType;
-      tagDiv.textContent = `${feeType} (${feeTypeGroups[feeType].length}项)`;
-      feeTypeTagsContainer.appendChild(tagDiv);
+    // 显示问题类型区域
+    problemTypesContainer.style.display = 'block';
+    
+    // 如果没有选择费用明细，显示提示信息
+    if (Object.keys(appState.feeTypeGroups).length === 0) {
+      problemTypesWrapper.innerHTML = '<p>请先选择费用明细，以加载相关的问题类型</p>';
+      console.log('未选择费用明细，显示问题类型提示信息');
+      return;
     }
     
-    problemTypesContainer.style.display = 'block';
+    // 如果问题类型数据尚未加载，先加载数据
+    if (appState.allProblemTypes.length === 0) {
+      // 显示加载中提示
+      problemTypesWrapper.innerHTML = '<p>正在加载问题类型数据...</p>';
+      
+      // 加载问题类型数据
+      loadProblemTypes()
+        .then(() => {
+          // 数据加载完成后重新渲染
+          renderProblemTypesContent();
+        })
+        .catch(error => {
+          // 显示错误信息
+          problemTypesWrapper.innerHTML = `<p>加载问题类型时出错: ${error.message}</p>`;
+        });
+    } else {
+      // 数据已加载，直接渲染
+      renderProblemTypesContent();
+    }
   }
   
-  // 加载问题类型
-  function loadProblemTypes() {
+  // 渲染问题类型内容
+  function renderProblemTypesContent() {
+    console.log('渲染问题类型内容...');
+    
+    // 清空问题类型容器
     problemTypesWrapper.innerHTML = '';
     
-    if (Object.keys(feeTypeGroups).length === 0) {
+    // 获取已选费用类型
+    const selectedFeeTypes = Object.keys(appState.feeTypeGroups);
+    console.log('已选费用类型:', selectedFeeTypes);
+    
+    // 检查是否有未找到的费用类型
+    const missingFeeTypes = [];
+    for (const selectedFeeType of selectedFeeTypes) {
+      if (!appState.feeTypeNameToIdMap[selectedFeeType]) {
+        missingFeeTypes.push(selectedFeeType);
+      }
+    }
+    
+    // 如果有未找到的费用类型，显示提示信息
+    if (missingFeeTypes.length > 0) {
+      console.log(`未找到以下费用类型: ${missingFeeTypes.join(', ')}`);
+      const warningDiv = document.createElement('div');
+      warningDiv.className = 'missing-fee-types-warning';
+      warningDiv.innerHTML = `
+        <p class="warning-text">未找到以下费用类型: <strong>${missingFeeTypes.join(', ')}</strong></p>
+        <p>请先在系统中创建这些费用类型及相关的问题类型，然后再继续操作。</p>
+        <p><a href="/admin/fee_types/new" target="_blank" class="button">创建费用类型</a></p>
+      `;
+      problemTypesWrapper.appendChild(warningDiv);
+    }
+    
+    // 过滤出与已选费用类型相关的问题类型
+    const filteredProblemTypes = filterProblemTypesByFeeTypes(selectedFeeTypes);
+    console.log('过滤后的问题类型:', filteredProblemTypes);
+    
+    // 如果没有找到相关问题类型，显示提示信息
+    if (filteredProblemTypes.length === 0) {
+      const noDataDiv = document.createElement('div');
+      noDataDiv.textContent = `未找到与已选费用类型相关的问题类型`;
+      problemTypesWrapper.appendChild(noDataDiv);
       return;
     }
     
-    // 获取所有相关费用类型的ID
-    const feeTypeIds = Object.keys(feeTypeGroups).map(feeType => {
-      return getFeeTypeIdByName(feeType);
-    }).filter(id => id);
+    // 创建一个分组容器
+    const sectionDiv = document.createElement('div');
+    sectionDiv.className = 'problem-type-section';
     
-    if (feeTypeIds.length === 0) {
-      return;
-    }
+    // 创建费用类型标题
+    const feeTypeTitle = document.createElement('h5');
+    feeTypeTitle.textContent = `已选费用类型: ${selectedFeeTypes.join(', ')}`;
+    sectionDiv.appendChild(feeTypeTitle);
     
-    // 按费用类型获取问题类型
-    fetch('/admin/problem_types.json?fee_type_ids=' + feeTypeIds.join(','))
-      .then(response => response.json())
-      .then(data => {
-        console.log("Problem types data:", data); // 调试输出
-        
-        // 按费用类型分组显示问题类型
-        const groupedProblemTypes = groupProblemTypesByFeeType(data);
-        console.log("Grouped problem types:", groupedProblemTypes); // 调试输出
-        
-        // 只显示与选中的费用类型相关的问题类型
-        for (const feeTypeId in groupedProblemTypes) {
-          // 检查这个费用类型ID是否在我们选中的费用类型中
-          if (!feeTypeIds.includes(parseInt(feeTypeId)) && !feeTypeIds.includes(feeTypeId)) {
-            continue; // 跳过未选中的费用类型
-          }
-          
-          const feeTypeName = getFeeTypeNameById(feeTypeId);
-          const problemTypes = groupedProblemTypes[feeTypeId];
-          
-          // 创建费用类型分组
-          const sectionDiv = document.createElement('div');
-          sectionDiv.className = 'problem-type-section';
-          
-          // 创建费用类型标题
-          const feeTypeTitle = document.createElement('h5');
-          feeTypeTitle.textContent = feeTypeName;
-          sectionDiv.appendChild(feeTypeTitle);
-          
-          // 创建问题类型复选框容器
-          const checkboxContainer = document.createElement('div');
-          checkboxContainer.className = 'problem-type-checkboxes';
-          
-          problemTypes.forEach(problemType => {
-            const checkboxDiv = document.createElement('div');
-            checkboxDiv.className = 'problem-type-checkbox';
-            
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.id = `problem_type_${problemType.id}`;
-            
-            // Use the correct parameter name based on the work order type
-            if (request.path.includes('communication_work_orders')) {
-              checkbox.name = 'communication_work_order[problem_type_ids][]';
-            } else {
-              checkbox.name = 'audit_work_order[problem_type_ids][]';
-            }
-            
-            checkbox.value = problemType.id;
-            checkbox.dataset.problemTypeId = problemType.id;
-            
-            const label = document.createElement('label');
-            label.htmlFor = `problem_type_${problemType.id}`;
-            
-            // 确保正确显示问题类型的code和title
-            // 如果display_name已经包含了code和title，则直接使用
-            // 否则，使用code和title构建显示名称
-            if (problemType.display_name) {
-              label.textContent = problemType.display_name;
-            } else if (problemType.code && problemType.title) {
-              label.textContent = `${problemType.code} - ${problemType.title}`;
-            } else {
-              label.textContent = problemType.title || `问题类型 #${problemType.id}`;
-            }
-            
-            checkboxDiv.appendChild(checkbox);
-            checkboxDiv.appendChild(label);
-            checkboxContainer.appendChild(checkboxDiv);
-          });
-          
-          sectionDiv.appendChild(checkboxContainer);
-          problemTypesWrapper.appendChild(sectionDiv);
-        }
-      })
-      .catch(error => console.error('Error fetching problem types:', error));
-  }
-  
-  // 辅助函数：按费用类型分组问题类型
-  function groupProblemTypesByFeeType(problemTypes) {
-    const grouped = {};
+    // 创建问题类型复选框容器
+    const checkboxContainer = document.createElement('div');
+    checkboxContainer.className = 'problem-type-checkboxes';
     
-    problemTypes.forEach(problemType => {
-      const feeTypeId = problemType.fee_type_id;
+    // 创建问题类型复选框
+    filteredProblemTypes.forEach(problemType => {
+      const checkboxDiv = document.createElement('div');
+      checkboxDiv.className = 'problem-type-checkbox';
       
-      if (!grouped[feeTypeId]) {
-        grouped[feeTypeId] = [];
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.id = `problem_type_${problemType.id}`;
+      
+      // 根据工单类型设置正确的参数名
+      if (window.location.pathname.includes('communication_work_orders')) {
+        checkbox.name = 'communication_work_order[problem_type_ids][]';
+      } else {
+        checkbox.name = 'audit_work_order[problem_type_ids][]';
       }
       
-      grouped[feeTypeId].push(problemType);
-    });
-    
-    return grouped;
-  }
-  
-  // 辅助函数：根据费用类型名称获取ID
-  function getFeeTypeIdByName(name) {
-    return feeTypeNameToIdMap[name] || null;
-  }
-  
-  // 辅助函数：根据费用类型ID获取名称
-  function getFeeTypeNameById(id) {
-    return feeTypeIdToNameMap[id] || '未知费用类型';
-  }
-  
-  // 预加载费用类型映射关系
-  fetch('/admin/fee_types.json')
-    .then(response => response.json())
-    .then(data => {
-      console.log("Fee types data:", data); // 调试输出
+      checkbox.value = problemType.id;
       
-      data.forEach(feeType => {
-        // 使用title作为主键，但也添加code作为备用
-        feeTypeNameToIdMap[feeType.title] = feeType.id;
-        // 如果费用明细中使用的是code而不是title，也添加映射
-        if (feeType.code) {
-          feeTypeNameToIdMap[feeType.code] = feeType.id;
+      // 添加事件监听器，当选择问题类型时重新验证
+      checkbox.addEventListener('change', function() {
+        if (appState.validationErrors.length > 0) {
+          validateFormState();
+          renderValidationErrors();
         }
-        // 如果费用明细中使用的是完整的display_name，也添加映射
-        if (feeType.display_name) {
-          feeTypeNameToIdMap[feeType.display_name] = feeType.id;
-        }
-        
-        // ID到名称的映射
-        feeTypeIdToNameMap[feeType.id] = feeType.title;
       });
       
-      console.log("Fee type name to ID map:", feeTypeNameToIdMap); // 调试输出
-      console.log("Fee type ID to name map:", feeTypeIdToNameMap); // 调试输出
+      const label = document.createElement('label');
+      label.htmlFor = `problem_type_${problemType.id}`;
       
-      // 初始化
-      updateSelectedFeeDetails();
-      updateFeeTypeTags();
-      
-      // 如果已有选中的费用明细，加载问题类型
-      if (Object.keys(feeTypeGroups).length > 0) {
-        loadProblemTypes();
+      // 构建显示名称
+      if (problemType.display_name) {
+        label.textContent = problemType.display_name;
+      } else if (problemType.code && problemType.title) {
+        label.textContent = `${problemType.code} - ${problemType.title}`;
+      } else {
+        label.textContent = problemType.title || `问题类型 #${problemType.id}`;
       }
-    })
-    .catch(error => console.error('Error fetching fee types:', error));
-});
-</script>
+      
+      checkboxDiv.appendChild(checkbox);
+      checkboxDiv.appendChild(label);
+      checkboxContainer.appendChild(checkboxDiv);
+    });
+    
+    // 添加到页面
