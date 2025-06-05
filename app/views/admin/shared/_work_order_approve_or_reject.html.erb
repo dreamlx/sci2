@@ -90,7 +90,6 @@
                     hint: '当未选择问题类型时，必须填写审核意见' %>
             
             <%= f.input :audit_date, label: '审核日期', as: :date_select, input_html: { value: Date.today } %>
-            <%= f.input :remark, label: '备注', input_html: { rows: 2 } %>
             <%= f.input :processing_opinion, as: :hidden, input_html: { value: '无法通过' } %>
             
             <script>
@@ -166,7 +165,6 @@
         <% elsif work_order_type == :communication %>
           <%= f.input :audit_comment, label: (label || (action_type == :approve ? '审核意见' : '拒绝原因')), input_html: { rows: 3, id: 'audit_comment_field' }, required: true %>
           <%= f.input :problem_type_id, as: :hidden %>
-          <%= f.input :remark, as: :hidden %>
           <%= f.input :processing_opinion, as: :hidden, input_html: { value: (action_type == :approve ? '可以通过' : '无法通过') } %>
         <% end %>
       <% end %>

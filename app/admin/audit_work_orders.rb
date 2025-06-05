@@ -2,7 +2,7 @@ ActiveAdmin.register AuditWorkOrder do
   permit_params :reimbursement_id, :audit_comment, # resolution & audit_date are set by system, creator_id by controller
                 :vat_verified,
                 # 共享字段 - 使用 _id 后缀
-                :remark, :processing_opinion,
+                :processing_opinion,
                 submitted_fee_detail_ids: [], problem_type_ids: []
   # 移除 problem_type_id 从 permit_params 中，改为使用 problem_type_ids 数组
   # 移除 status 从 permit_params 中，状态由系统自动管理
@@ -47,7 +47,7 @@ ActiveAdmin.register AuditWorkOrder do
       # Parameters should align with the main permit_params, using _id for problem type
       _audit_work_order_params = params.require(:audit_work_order).permit(
         :reimbursement_id, :audit_comment, # resolution & audit_date are set by system
-        :remark, :processing_opinion,
+        :processing_opinion,
         submitted_fee_detail_ids: [], problem_type_ids: []
       )
 
@@ -122,7 +122,6 @@ ActiveAdmin.register AuditWorkOrder do
       params.require(:audit_work_order).permit(
         :processing_opinion,
         :audit_comment,
-        :remark,
         submitted_fee_detail_ids: [],
         problem_type_ids: []
       )
@@ -207,7 +206,6 @@ ActiveAdmin.register AuditWorkOrder do
     # Ensure :processing_opinion is part of the permitted params for approval logic
     permitted_params = params.require(:audit_work_order).permit(
       :audit_comment, :processing_opinion,
-      :remark, # Shared fields
       :vat_verified, # AuditWorkOrder specific, if still needed here
       problem_type_ids: []
     ).merge(processing_opinion: '可以通过') # Explicitly set for approval
@@ -234,7 +232,6 @@ ActiveAdmin.register AuditWorkOrder do
     # Ensure :processing_opinion is part of the permitted params for rejection logic
     permitted_params = params.require(:audit_work_order).permit(
       :audit_comment, :processing_opinion,
-      :remark, # Shared fields
       :vat_verified, # AuditWorkOrder specific, if still needed here
       problem_type_ids: []
     ).merge(processing_opinion: '无法通过') # Explicitly set for rejection
@@ -325,28 +322,86 @@ ActiveAdmin.register AuditWorkOrder do
         row :audit_comment
         row :audit_date
         row :vat_verified
-        # 显示问题类型
-        row :problem_types do |wo|
-          if wo.problem_types.any?
-            ul do
-              wo.problem_types.each do |problem_type|
-                li do
-                  fee_type_name = problem_type.fee_type ? problem_type.fee_type.display_name : "未关联费用类型"
-                  "#{fee_type_name}: #{problem_type.display_name}"
-                end
-              end
-            end
-          else
-            para "无问题类型"
-          end
-        end
-        row :remark
-        row :processing_opinion
         row :creator
         row :created_at
         row :updated_at
       end
     
+      # 工单相关信息专用显示区
+      panel "工单相关信息" do
+        columns do
+          column do
+            panel "费用类型" do
+              # 从费用明细中提取费用类型字符串
+              fee_type_strings = resource.fee_details.map(&:fee_type).compact.uniq
+              
+              if fee_type_strings.any?
+                # 显示费用类型字符串
+                table_for fee_type_strings do
+                  column "费用类型名称" do |fee_type_string|
+                    fee_type_string
+                  end
+                  column "系统匹配" do |fee_type_string|
+                    # 尝试查找匹配的FeeType对象（仅匹配title）
+                    fee_type = FeeType.find_by(title: fee_type_string)
+                    if fee_type
+                      status_tag "已匹配", class: "green"
+                    else
+                      status_tag "未匹配", class: "red"
+                    end
+                  end
+                end
+              else
+                para "无关联费用类型"
+              end
+            end
+          end
+          
+          column do
+            panel "问题类型" do
+              if resource.problem_types.any?
+                table_for resource.problem_types do
+                  column "编码", :code
+                  column "名称", :display_name
+                  column "关联费用类型" do |problem_type|
+                    if problem_type.fee_type
+                      span do
+                        status_tag "已关联", class: "green"
+                        text_node " #{problem_type.fee_type.display_name}"
+                      end
+                    else
+                      status_tag "未关联费用类型", class: "orange"
+                    end
+                  end
+                end
+              else
+                para "无问题类型"
+              end
+            end
+          end
+        end
+        
+        panel "审核意见" do
+          attributes_table_for resource do
+            row :processing_opinion do |wo|
+              if wo.processing_opinion.present?
+                status_class = case wo.processing_opinion
+                               when '可以通过'
+                                 'green'
+                               when '无法通过'
+                                 'red'
+                               else
+                                 'orange'
+                               end
+                status_tag wo.processing_opinion, class: status_class
+              else
+                span "未填写", class: "empty"
+              end
+            end
+            row :audit_comment
+          end
+        end
+      end
 
     # panel for Fee Details (原"费用明细"Tab内容)
     panel "关联的费用明细" do
@@ -364,7 +419,9 @@ ActiveAdmin.register AuditWorkOrder do
         column "更新时间", :updated_at
       end
       # 操作记录面板
-      panel "操作记录" do
+
+    end
+          panel "操作记录" do
         if resource.operations.exists?
           table_for resource.operations.recent_first do
             column :id do |operation|
@@ -395,7 +452,6 @@ ActiveAdmin.register AuditWorkOrder do
           para "暂无操作记录"
         end
       end
-    end
   end
 
   # 表单使用 partial

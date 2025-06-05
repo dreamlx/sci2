@@ -1,7 +1,7 @@
 class FeeType < ApplicationRecord
   # Associations
   has_many :problem_types, dependent: :destroy
-  has_many :fee_details, dependent: :nullify
+  
 
   # Validations
   validates :code, presence: true, uniqueness: true

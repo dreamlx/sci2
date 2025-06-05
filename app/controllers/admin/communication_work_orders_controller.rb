@@ -66,7 +66,7 @@ module Admin
     def communication_work_order_params
       params.require(:communication_work_order).permit(
         :reimbursement_id, :status, :audit_comment,
-        :problem_type, :problem_description, :remark, :processing_opinion
+        :problem_type, :problem_description, :processing_opinion
       )
     end
   end

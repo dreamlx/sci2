@@ -279,7 +279,7 @@ class WorkOrderService
     Rails.logger.debug "WorkOrderService#assign_shared_attributes: 开始分配属性，参数: #{params.inspect}"
     
     shared_attr_keys = [
-      :remark, :processing_opinion, :audit_comment,
+      :processing_opinion, :audit_comment,
       :problem_type_id, :fee_type_id,
       # AuditWorkOrder specific fields that are now shared due to alignment
       :audit_result # audit_result if it's set directly, though status implies it
