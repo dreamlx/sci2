@@ -1,14 +1,16 @@
 ActiveAdmin.register FeeDetail do
   actions :index, :show
   permit_params :reimbursement_id, :document_number, :fee_type, :amount, :fee_date,
-                :verification_status, :payment_method, :notes
+                :verification_status, :notes, :external_fee_id, :month_belonging,
+                :first_submission_date, :plan_or_pre_application, :product,
+                :flex_field_6, :flex_field_7, :expense_corresponding_plan,
+                :expense_associated_application
 
   menu priority: 3, parent: "数据管理", label: "费用明细"
 
   filter :document_number, as: :string, label: "报销单号"
   filter :fee_type
   filter :verification_status, as: :select, collection: ["pending", "problematic", "verified"]
-  filter :payment_method
   filter :fee_date
   filter :created_at
 
@@ -20,9 +22,10 @@ ActiveAdmin.register FeeDetail do
       cancel_path: admin_fee_details_path,
       instructions: [
         "请上传CSV格式文件",
-        "文件必须包含以下列：报销单号,费用类型,金额,费用日期,验证状态,支付方式,备注",
+        "文件必须包含以下列：报销单号,费用id,费用类型,原始金额,费用发生日期",
+        "其他有用字段：所属月,首次提交日期,计划/预申请,产品,弹性字段6,弹性字段7,费用对应计划,费用关联申请单,备注",
         "系统会根据报销单号关联到已存在的报销单",
-        "如果费用明细已存在（根据报销单号+费用类型+金额+费用日期判断），将更新现有记录",
+        "如果费用明细已存在（根据费用id判断），将更新现有记录",
         "如果费用明细不存在，将创建新记录"
       ]
     }
@@ -62,7 +65,6 @@ ActiveAdmin.register FeeDetail do
     column :verification_status do |fee_detail|
       status_tag fee_detail.verification_status
     end
-    column :payment_method
     column :created_at
     actions
   end
@@ -75,6 +77,7 @@ ActiveAdmin.register FeeDetail do
           row :reimbursement do |fee_detail|
             link_to fee_detail.document_number, admin_reimbursement_path(fee_detail.reimbursement) if fee_detail.reimbursement
           end
+          row :external_fee_id
           row :fee_type
           row :amount do |fee_detail|
             number_to_currency(fee_detail.amount, unit: "¥") if fee_detail.amount.present?
@@ -83,7 +86,14 @@ ActiveAdmin.register FeeDetail do
           row :verification_status do |fee_detail|
             status_tag fee_detail.verification_status if fee_detail.verification_status.present?
           end
-          row :payment_method
+          row :month_belonging
+          row :first_submission_date
+          row :plan_or_pre_application
+          row :product
+          row :flex_field_6
+          row :flex_field_7
+          row :expense_corresponding_plan
+          row :expense_associated_application
           row :notes
           row :created_at
           row :updated_at
@@ -128,11 +138,19 @@ ActiveAdmin.register FeeDetail do
   form do |f|
     f.inputs "费用明细信息" do
       f.input :document_number, as: :select, collection: Reimbursement.all.pluck(:invoice_number), include_blank: true
+      f.input :external_fee_id
       f.input :fee_type
       f.input :amount, input_html: { min: 0.01 }
       f.input :fee_date, as: :datepicker
       f.input :verification_status, as: :select, collection: ["pending", "problematic", "verified"], include_blank: false
-      f.input :payment_method
+      f.input :month_belonging
+      f.input :first_submission_date, as: :datepicker
+      f.input :plan_or_pre_application
+      f.input :product
+      f.input :flex_field_6
+      f.input :flex_field_7
+      f.input :expense_corresponding_plan
+      f.input :expense_associated_application
       f.input :notes
     end
     f.actions

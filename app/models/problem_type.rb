@@ -4,8 +4,8 @@ class ProblemType < ApplicationRecord
   has_many :work_orders
   
   # Validations
-  validates :code, presence: true, uniqueness: { scope: :fee_type_id, message: "should be unique within a fee type" }, if: -> { fee_type_id.present? }
-  validates :code, presence: true, uniqueness: true, unless: -> { fee_type_id.present? }
+  validates :code, presence: true, uniqueness: true
+  validates :title, presence: true
   validates :title, presence: true
   validates :sop_description, presence: true
   validates :standard_handling, presence: true

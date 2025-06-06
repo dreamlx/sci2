@@ -268,6 +268,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
   
+  // 检查API端点配置
+  checkApiEndpoints();
+  
   // 获取DOM元素
   const feeDetailCheckboxes = document.querySelectorAll('.fee-detail-checkbox');
   const feeTypeTagsContainer = document.querySelector('.fee-type-tags-container');
@@ -714,4 +717,103 @@ document.addEventListener('DOMContentLoaded', function() {
       // 构建显示名称
       if (problemType.display_name) {
         label.textContent = problemType.display_name;
-      } else if (problemType
+      } else if (problemType.code && problemType.title) {
+        label.textContent = `${problemType.code} - ${problemType.title}`;
+      } else {
+        label.textContent = problemType.title || `问题类型 #${problemType.id}`;
+      }
+      
+      checkboxDiv.appendChild(checkbox);
+      checkboxDiv.appendChild(label);
+      checkboxContainer.appendChild(checkboxDiv);
+    });
+    
+    sectionDiv.appendChild(checkboxContainer);
+    problemTypesWrapper.appendChild(sectionDiv);
+  }
+  
+  // 表单验证
+  function validateForm(event) {
+    console.log('验证表单...');
+    
+    // 验证表单状态
+    const isValid = validateFormState();
+    
+    // 如果验证失败，阻止表单提交
+    if (!isValid) {
+      event.preventDefault();
+      renderValidationErrors();
+      return false;
+    }
+    
+    return true;
+  }
+  
+  // 验证表单状态
+  function validateFormState() {
+    console.log('验证表单状态...');
+    
+    // 重置验证状态
+    appState.validationErrors = [];
+    appState.isFormValid = true;
+    
+    // 检查是否选择了费用明细
+    if (appState.selectedFeeDetails.length === 0) {
+      appState.validationErrors.push('请至少选择一个费用明细');
+      appState.isFormValid = false;
+    }
+    
+    // 检查处理意见
+    if (!appState.processingOpinion) {
+      appState.validationErrors.push('请选择处理意见');
+      appState.isFormValid = false;
+    }
+    
+    // 如果处理意见为"无法通过"，检查是否选择了问题类型或填写了审核意见
+    if (appState.processingOpinion === '无法通过') {
+      const problemTypeCheckboxes = document.querySelectorAll('input[name="communication_work_order[problem_type_ids][]"]:checked');
+      const auditComment = auditCommentField ? auditCommentField.value.trim() : '';
+      
+      if (problemTypeCheckboxes.length === 0 && auditComment === '') {
+        appState.validationErrors.push('当处理意见为"无法通过"时，需选择问题类型或填写审核意见');
+        appState.isFormValid = false;
+      }
+    }
+    
+    return appState.isFormValid;
+  }
+  
+  // 渲染验证错误
+  function renderValidationErrors() {
+    console.log('渲染验证错误...');
+    
+    if (!validationErrorsContainer) {
+      console.error('验证错误容器未找到');
+      return;
+    }
+    
+    // 清空容器
+    validationErrorsContainer.innerHTML = '';
+    
+    // 如果没有错误，隐藏容器
+    if (appState.validationErrors.length === 0) {
+      validationErrorsContainer.style.display = 'none';
+      return;
+    }
+    
+    // 显示容器
+    validationErrorsContainer.style.display = 'block';
+    
+    // 创建错误列表
+    const errorList = document.createElement('ul');
+    
+    // 添加错误项
+    appState.validationErrors.forEach(error => {
+      const errorItem = document.createElement('li');
+      errorItem.textContent = error;
+      errorList.appendChild(errorItem);
+    });
+    
+    // 添加到容器
+    validationErrorsContainer.appendChild(errorList);
+  }

@@ -36,6 +36,15 @@ EN000201,01,住宿费,01,住宿天数与行程不符,核对住宿天数与行程
             <label for="file">CSV文件</label>
             <%= file_field_tag :file, accept: '.csv', class: 'file' %>
           </li>
+          <li class="select input optional">
+            <label for="meeting_type">会议类型</label>
+            <%= select_tag :meeting_type, options_for_select([
+              ['个人', '个人'],
+              ['学术论坛', '学术论坛'],
+              ['其他', '其他']
+            ], '个人'), class: 'select' %>
+            <p class="inline-hints">选择导入数据的会议类型，CSV文件中不包含此信息</p>
+          </li>
         </ol>
       </fieldset>
       

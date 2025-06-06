@@ -193,11 +193,14 @@ ActiveAdmin.register Reimbursement do
             column "金额", :amount do |fd| number_to_currency(fd.amount, unit: "¥") end
             column :fee_date
             column "验证状态", :verification_status do |fd| status_tag fd.verification_status end
-            column "支付方式", :payment_method
             column "最新关联工单" do |fee_detail|
               latest_wo = fee_detail.latest_associated_work_order
               if latest_wo
-                link_to "#{latest_wo.model_name.human} ##{latest_wo.id}", [:admin, latest_wo]
+                problem_titles = latest_wo.problem_types.map(&:title).join(", ")
+                hover_text = problem_titles.present? ? problem_titles : "无问题类型"
+                link_to "#{latest_wo.model_name.human} ##{latest_wo.id}", [:admin, latest_wo],
+                       class: "custom-tooltip",
+                       data: { tooltip: hover_text }
               else
                 "N/A"
               end

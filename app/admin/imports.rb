@@ -45,7 +45,8 @@ ActiveAdmin.register_page "Imports" do
     end
     
     begin
-      service = ProblemCodeImportService.new(params[:file].path)
+      meeting_type = params[:meeting_type] || "个人"
+      service = ProblemCodeImportService.new(params[:file].path, meeting_type)
       result = service.import
       
       if result[:success]
@@ -55,7 +56,8 @@ ActiveAdmin.register_page "Imports" do
         # 保存详细信息到会话，以便在结果页面显示
         session[:import_result_details] = result[:details]
         
-        redirect_to import_results_admin_imports_path, notice: notice_message
+        # 使用直接路径而不是路由辅助方法
+        redirect_to '/admin/imports/import_results', notice: notice_message
       else
         alert_message = "导入失败: #{result[:error]}"
         redirect_to '/admin/imports/new?resource=problem_codes', alert: alert_message

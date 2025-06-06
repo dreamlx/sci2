@@ -220,6 +220,7 @@ ActiveAdmin.setup do |config|
   # Register custom CSS files
   config.register_stylesheet 'active_admin_dashboard.css'
   config.register_stylesheet 'active_admin_custom'
+  config.register_stylesheet 'custom_tooltip.css'
 
   # == CSV options
   #
