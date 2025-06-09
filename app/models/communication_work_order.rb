@@ -9,7 +9,8 @@ class CommunicationWorkOrder < WorkOrder
   # :resolution_summary (text)
 
   # 验证
-  validates :fee_type_id, presence: true, if: -> { processing_opinion == '无法通过' }
+  # 移除 fee_type_id 验证，与审核工单保持一致
+  # validates :fee_type_id, presence: true, if: -> { processing_opinion == '无法通过' }
   # 移除 problem_type_id 验证，改为在 WorkOrderProblemService 中处理
   validate :has_problem_types, if: -> { processing_opinion == '无法通过' }
 

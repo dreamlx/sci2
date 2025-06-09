@@ -1,5 +1,7 @@
 //= link_tree ../images
 //= link_directory ../stylesheets .css
-//= link_directory ../stylesheets .scss
-//= link_tree ../../javascript .js
-//= link_tree ../../../vendor/javascript .js
+//= link_directory ../javascripts .js
+//= link work_order_form.js
+//= link work_order_form.css
+//= link application.js
+//= link application.css

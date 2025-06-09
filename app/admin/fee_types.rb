@@ -99,10 +99,22 @@ ActiveAdmin.register FeeType do
   
   # 确保HTML格式的index正常工作
   controller do
+    before_action :authenticate_admin_user!, except: [:index]
+    
     def index
-      super do |format|
-        format.html { render :index }
-        format.json { render json: @fee_types }
+      respond_to do |format|
+        format.html { super }
+        format.json {
+          @fee_types = if params[:meeting_type].present?
+                       FeeType.active.by_meeting_type(params[:meeting_type])
+                     else
+                       FeeType.active
+                     end
+          render json: @fee_types.as_json(
+            only: [:id, :code, :title, :meeting_type],
+            methods: [:display_name]
+          )
+        }
       end
     end
   end

@@ -1,0 +1,172 @@
+/* 工单表单共享样式 */
+.tabs {
+  margin-bottom: 20px;
+}
+
+.tab-content {
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.fee-details-selection {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  padding: 10px;
+  margin: 10px 0;
+}
+
+.fee-detail-item {
+  margin: 5px 0;
+  padding: 5px;
+  border-bottom: 1px solid #eee;
+}
+
+.fee-detail-item:last-child {
+  border-bottom: none;
+}
+
+.fee-detail-item label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.fee-detail-id {
+  font-weight: bold;
+  min-width: 50px;
+}
+
+.fee-detail-type {
+  min-width: 100px;
+}
+
+.fee-detail-amount {
+  min-width: 100px;
+  text-align: right;
+}
+
+.fee-detail-date {
+  min-width: 100px;
+}
+
+.fee-detail-status {
+  min-width: 80px;
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  margin-right: 5px;
+}
+
+/* 费用类型标签样式 */
+.fee-type-tags {
+  margin-top: 20px;
+  border: 1px solid #ddd;
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.fee-type-tags h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.fee-type-tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.fee-type-tag {
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 14px;
+  display: inline-block;
+}
+
+/* 问题类型复选框样式 */
+.problem-types-container {
+  margin-top: 20px;
+  border: 1px solid #ddd;
+  padding: 10px;
+  border-radius: 4px;
+}
+
+.problem-types-container h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.problem-types-wrapper {
+  margin-top: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* 验证错误样式 */
+.validation-error {
+  color: #721c24;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 4px;
+}
+
+.form-actions {
+  margin-top: 20px;
+}
+
+.button {
+  display: inline-block;
+  padding: 8px 16px;
+  background-color: #5cb85c;
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.button:hover {
+  background-color: #4cae4c;
+}
+
+/* 问题类型复选框样式 */
+.problem-type-section {
+  margin-bottom: 15px;
+}
+
+.problem-type-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.problem-type-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 未匹配费用类型警告样式 */
+.unmatched-fee-types-warning {
+  margin-top: 10px;
+  padding: 10px;
+  background-color: #fff3cd;
+  border: 1px solid #ffeeba;
+  border-radius: 4px;
+  color: #856404;
+}

@@ -91,10 +91,25 @@ ActiveAdmin.register ProblemType do
 
   # 确保HTML格式的index正常工作
   controller do
+    before_action :authenticate_admin_user!, except: [:index]
+    
     def index
-      super do |format|
-        format.html { render :index }
-        format.json { render json: @problem_types }
+      respond_to do |format|
+        format.html { super }
+        format.json {
+          if params[:fee_type_id].present?
+            @problem_types = ProblemType.active.by_fee_type(params[:fee_type_id])
+          elsif params[:fee_type_ids].present?
+            fee_type_ids = params[:fee_type_ids].split(',')
+            @problem_types = ProblemType.active.where(fee_type_id: fee_type_ids)
+          else
+            @problem_types = ProblemType.active
+          end
+          render json: @problem_types.as_json(
+            only: [:id, :code, :title, :fee_type_id, :sop_description, :standard_handling],
+            methods: [:display_name]
+          )
+        }
       end
     end
   end
