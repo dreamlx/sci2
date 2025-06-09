@@ -282,13 +282,27 @@ ActiveAdmin.register AuditWorkOrder do
     selectable_column
     id_column
     column :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
-    column :status do |wo| status_tag wo.status end
-    column "问题类型", :problem_types do |wo| 
+    column "处理意见", :processing_opinion do |wo|
+      if wo.processing_opinion.present?
+        status_class = case wo.processing_opinion
+                       when '可以通过'
+                         'green'
+                       when '无法通过'
+                         'red'
+                       else
+                         'orange'
+                       end
+        status_tag wo.processing_opinion, class: status_class
+      else
+        span "未填写", class: "empty"
+      end
+    end
+    column "问题类型", :problem_types do |wo|
       if wo.problem_types.any?
-        wo.problem_types.map(&:display_name).join(", ")
+        wo.problem_types.map { |pt| "#{pt.code} - #{pt.title}" }.join(", ")
       else
         # 兼容旧数据
-        wo.problem_type&.display_name
+        wo.problem_type ? "#{wo.problem_type.code} - #{wo.problem_type.title}" : nil
       end
     end
     column :creator

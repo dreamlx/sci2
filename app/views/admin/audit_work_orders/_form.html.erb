@@ -18,75 +18,27 @@
 
       <!-- 费用明细选择 -->
       <% if reimbursement %>
-        <div class="panel">
-          <h3>选择关联的费用明细</h3>
-          <div class="fee-details-selection">
-            <% reimbursement.fee_details.each do |fee_detail| %>
-              <div class="fee-detail-item">
-                <label for="fee_detail_<%= fee_detail.id %>">
-                  <div class="checkbox-container">
-                    <%= check_box_tag "audit_work_order[submitted_fee_detail_ids][]",
-                                    fee_detail.id,
-                                    f.object.submitted_fee_detail_ids&.include?(fee_detail.id.to_s),
-                                    id: "fee_detail_#{fee_detail.id}",
-                                    class: "fee-detail-checkbox",
-                                    data: { fee_type: fee_detail.fee_type, fee_detail_id: fee_detail.id } %>
-                  </div>
-                  <span class="fee-detail-id">#<%= fee_detail.id %></span>
-                  <span class="fee-detail-type"><%= fee_detail.fee_type %></span>
-                  <span class="fee-detail-amount"><%= number_to_currency(fee_detail.amount, unit: "¥") %></span>
-                  <span class="fee-detail-date"><%= fee_detail.fee_date %></span>
-                  <span class="fee-detail-status">
-                    <% arbre_context = Arbre::Context.new %>
-                    <%= arbre_context.status_tag(fee_detail.verification_status, class: case fee_detail.verification_status
-                                                                                  when FeeDetail::VERIFICATION_STATUS_VERIFIED
-                                                                                    'ok' # green
-                                                                                  when FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
-                                                                                    'error' # red
-                                                                                  else
-                                                                                    'warning' # orange
-                                                                                  end).to_s %>
-                  </span>
-                </label>
-              </div>
-            <% end %>
-          </div>
-          
-          <!-- 费用类型分组标签 -->
-          <div class="fee-type-tags" id="fee-type-tags">
-            <h4>已选费用类型</h4>
-            <div class="fee-type-tags-container"></div>
-          </div>
-          
-          <!-- 问题类型选择区域 -->
-          <div class="problem-types-container" id="problem-types-container">
-            <h4>选择问题类型（当处理意见为"无法通过"时，需选择问题类型或填写审核意见）</h4>
-            <div class="problem-types-wrapper"></div>
-          </div>
-          
-          <!-- 验证错误显示区域 -->
-          <div id="validation-errors" class="validation-error" style="display:none;"></div>
-        </div>
+        <%= render 'admin/shared/fee_details_selection', work_order: f.object, reimbursement: reimbursement %>
       <% else %>
         <%= f.inputs '费用明细' do %>
           <p>无法加载费用明细，未关联有效的报销单。</p>
         <% end %>
       <% end %>
 
-      <%= f.inputs '处理与反馈' do %>
+      <%= f.inputs '处理与反馈', id: 'processing-feedback-section' do %>
         <div class="input radio_buttons">
           <fieldset class="choices">
             <legend class="label">处理意见</legend>
             <ol class="choices-group">
               <li class="choice">
                 <label for="audit_work_order_processing_opinion_可以通过">
-                  <input type="radio" id="audit_work_order_processing_opinion_可以通过" name="audit_work_order[processing_opinion]" value="可以通过">
+                  <input type="radio" id="audit_work_order_processing_opinion_可以通过" name="audit_work_order[processing_opinion]" value="可以通过" class="processing-opinion-radio">
                   可以通过
                 </label>
               </li>
               <li class="choice">
                 <label for="audit_work_order_processing_opinion_无法通过">
-                  <input type="radio" id="audit_work_order_processing_opinion_无法通过" name="audit_work_order[processing_opinion]" value="无法通过">
+                  <input type="radio" id="audit_work_order_processing_opinion_无法通过" name="audit_work_order[processing_opinion]" value="无法通过" class="processing-opinion-radio">
                   无法通过
                 </label>
               </li>
@@ -96,7 +48,7 @@
         
         <!-- 审核意见输入框 -->
         <%= f.input :audit_comment, label: "审核意见",
-                input_html: { id: 'audit_comment_field' } %>
+                input_html: { id: 'audit_comment_field', class: 'audit-comment' } %>
       <% end %>
     </div>
   </div>

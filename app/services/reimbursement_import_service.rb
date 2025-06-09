@@ -24,7 +24,7 @@ class ReimbursementImportService
 
       headers = sheet.row(1).map { |h| h.to_s.strip }
       # Validate essential headers
-      expected_headers = ['报销单单号', '单据名称', '报销单申请人', '报销金额（单据币种）', '报销单状态'] # Add other absolutely essential headers
+      expected_headers = ['报销单单号', '单据名称', '报销单申请人', '报销单申请人工号', '申请人公司', '申请人部门', '报销金额（单据币种）', '报销单状态'] # Add other absolutely essential headers
       missing_headers = expected_headers - headers
       unless missing_headers.empty?
         return {
@@ -92,10 +92,18 @@ class ReimbursementImportService
       external_status: row['报销单状态'] || reimbursement.external_status, # Store external status
       approval_date: parse_datetime(row['报销单审核通过日期']) || reimbursement.approval_date,
       approver_name: row['审核通过人'] || reimbursement.approver_name,
-      # Optional add other fields
+      # Additional fields from CSV
       related_application_number: row['关联申请单号'] || reimbursement.related_application_number,
       accounting_date: parse_date(row['记账日期']) || reimbursement.accounting_date,
-      document_tags: row['单据标签'] || reimbursement.document_tags
+      document_tags: row['单据标签'] || reimbursement.document_tags,
+      
+      # ERP fields from CSV
+      erp_current_approval_node: row['当前审批节点'] || reimbursement.erp_current_approval_node,
+      erp_current_approver: row['当前审批人'] || reimbursement.erp_current_approver,
+      erp_flexible_field_2: row['弹性字段2'] || reimbursement.erp_flexible_field_2,
+      erp_node_entry_time: parse_datetime(row['当前审批节点转入时间']) || reimbursement.erp_node_entry_time,
+      erp_first_submitted_at: parse_datetime(row['首次提交时间']) || reimbursement.erp_first_submitted_at,
+      erp_flexible_field_8: row['弹性字段8'] || reimbursement.erp_flexible_field_8
     )
 
     # 根据外部状态设置内部状态

@@ -10,12 +10,18 @@
         <tr>
           <th>ID</th>
           <th>费用类型</th>
-          <th>金额</th>
+          <th>原始金额</th>
           <th>费用日期</th>
+          <th>单据名称</th>
+          <th>计划/预申请</th>
+          <th>产品</th>
+          <th>弹性字段11</th>
+          <th>弹性字段6</th>
+          <th>弹性字段7</th>
+          <th>费用对应计划</th>
           <th>验证状态</th>
+          <th>最新关联工单</th>
           <th>备注</th>
-          <th>创建时间</th>
-          <th>更新时间</th>
         </tr>
       </thead>
       <tbody>
@@ -25,6 +31,13 @@
             <td><%= fee_detail.fee_type %></td>
             <td><%= number_to_currency(fee_detail.amount, unit: "¥") %></td>
             <td><%= fee_detail.fee_date %></td>
+            <td><%= fee_detail.reimbursement&.document_name %></td>
+            <td><%= fee_detail.plan_or_pre_application %></td>
+            <td><%= fee_detail.product %></td>
+            <td><%= fee_detail.flex_field_11 %></td>
+            <td><%= fee_detail.flex_field_6 %></td>
+            <td><%= fee_detail.flex_field_7 %></td>
+            <td><%= fee_detail.expense_corresponding_plan %></td>
             <td>
               <% arbre_context = Arbre::Context.new %>
               <%= arbre_context.status_tag(fee_detail.verification_status, class: case fee_detail.verification_status
@@ -36,9 +49,40 @@
                                                                                'warning' # orange
                                                                              end).to_s %>
             </td>
+            <td>
+              <% latest_wo = fee_detail.latest_associated_work_order %>
+              <% if latest_wo %>
+                <% # 根据处理意见决定显示内容 %>
+                <% if latest_wo.respond_to?(:processing_opinion) %>
+                  <% case latest_wo.processing_opinion %>
+                  <% when '可以通过' %>
+                    <%= link_to "#{latest_wo.model_name.human} ##{latest_wo.id} (可以通过)", [:admin, latest_wo] %>
+                  <% when '无法通过' %>
+                    <% problem_titles = latest_wo.problem_types.map(&:title).join(", ") %>
+                    <% if problem_titles.present? %>
+                      <%= link_to "#{latest_wo.model_name.human} ##{latest_wo.id}: #{problem_titles}", [:admin, latest_wo] %>
+                    <% else %>
+                      <%= link_to "#{latest_wo.model_name.human} ##{latest_wo.id} (无法通过)", [:admin, latest_wo] %>
+                    <% end %>
+                  <% else %>
+                    <% problem_titles = latest_wo.problem_types.map(&:title).join(", ") %>
+                    <% hover_text = problem_titles.present? ? problem_titles : "无问题类型" %>
+                    <%= link_to "#{latest_wo.model_name.human} ##{latest_wo.id}", [:admin, latest_wo],
+                           class: "custom-tooltip",
+                           data: { tooltip: hover_text } %>
+                  <% end %>
+                <% else %>
+                  <% problem_titles = latest_wo.problem_types.map(&:title).join(", ") %>
+                  <% hover_text = problem_titles.present? ? problem_titles : "无问题类型" %>
+                  <%= link_to "#{latest_wo.model_name.human} ##{latest_wo.id}", [:admin, latest_wo],
+                         class: "custom-tooltip",
+                         data: { tooltip: hover_text } %>
+                <% end %>
+              <% else %>
+                N/A
+              <% end %>
+            </td>
             <td><%= fee_detail.notes %></td>
-            <td><%= fee_detail.created_at %></td>
-            <td><%= fee_detail.updated_at %></td>
           </tr>
         <% end %>
       </tbody>
@@ -46,53 +90,113 @@
   <% else %>
     <%# 新建模式：显示复选框 %>
     <div class="fee-details-selection">
-      <% reimbursement.fee_details.each do |fee_detail| %>
-        <div class="fee-detail-item">
-          <label for="fee_detail_<%= fee_detail.id %>">
-            <div class="checkbox-container">
-              <%
-                # For new work orders, determine the type from the controller name
-                if work_order.type.present?
-                  param_name = work_order.type.underscore.gsub('/', '_')
-                  Rails.logger.debug "Fee details selection: Using work_order.type for param_name: #{param_name}"
-                else
-                  # Extract from current path, e.g., /admin/audit_work_orders/new -> audit_work_order
-                  controller_path = request.path.split('/')[2]
-                  param_name = controller_path.present? ? controller_path.singularize : 'work_order'
-                  Rails.logger.debug "Fee details selection: Using controller_path for param_name: #{param_name}, path: #{request.path}, controller_path: #{controller_path}"
-                end
-                
-                # Force param_name to match the actual controller for communication work orders
-                if request.path.include?('communication_work_orders')
-                  param_name = 'communication_work_order'
-                  Rails.logger.debug "Fee details selection: Forcing param_name to communication_work_order"
-                end
-              %>
-              <%= check_box_tag "#{param_name}[submitted_fee_detail_ids][]",
-                              fee_detail.id,
-                              work_order.submitted_fee_detail_ids&.include?(fee_detail.id.to_s),
-                              id: "fee_detail_#{fee_detail.id}",
-                              class: "fee-detail-checkbox",
-                              data: { fee_type: fee_detail.fee_type } %>
-            </div>
-            <span class="fee-detail-id">#<%= fee_detail.id %></span>
-            <span class="fee-detail-type"><%= fee_detail.fee_type %></span>
-            <span class="fee-detail-amount"><%= number_to_currency(fee_detail.amount, unit: "¥") %></span>
-            <span class="fee-detail-date"><%= fee_detail.fee_date %></span>
-            <span class="fee-detail-status">
-              <% arbre_context = Arbre::Context.new %>
-              <%= arbre_context.status_tag(fee_detail.verification_status, class: case fee_detail.verification_status
-                                                                              when FeeDetail::VERIFICATION_STATUS_VERIFIED
-                                                                                'ok' # green
-                                                                              when FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
-                                                                                'error' # red
-                                                                              else
-                                                                                'warning' # orange
-                                                                              end).to_s %>
-            </span>
-          </label>
-        </div>
-      <% end %>
+      <table class="index_table fee-details-table">
+        <thead>
+          <tr>
+            <th class="checkbox-column"></th>
+            <th>ID</th>
+            <th>费用类型</th>
+            <th>原始金额</th>
+            <th>费用日期</th>
+            <th>单据名称</th>
+            <th>计划/预申请</th>
+            <th>产品</th>
+            <th>弹性字段11</th>
+            <th>弹性字段6</th>
+            <th>弹性字段7</th>
+            <th>费用对应计划</th>
+            <th>验证状态</th>
+            <th>最新关联工单</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% reimbursement.fee_details.each do |fee_detail| %>
+            <tr class="fee-detail-row">
+              <td class="checkbox-column">
+                <%
+                  # For new work orders, determine the type from the controller name
+                  if work_order.type.present?
+                    param_name = work_order.type.underscore.gsub('/', '_')
+                    Rails.logger.debug "Fee details selection: Using work_order.type for param_name: #{param_name}"
+                  else
+                    # Extract from current path, e.g., /admin/audit_work_orders/new -> audit_work_order
+                    controller_path = request.path.split('/')[2]
+                    param_name = controller_path.present? ? controller_path.singularize : 'work_order'
+                    Rails.logger.debug "Fee details selection: Using controller_path for param_name: #{param_name}, path: #{request.path}, controller_path: #{controller_path}"
+                  end
+                  
+                  # Force param_name to match the actual controller for communication work orders
+                  if request.path.include?('communication_work_orders')
+                    param_name = 'communication_work_order'
+                    Rails.logger.debug "Fee details selection: Forcing param_name to communication_work_order"
+                  end
+                %>
+                <%= check_box_tag "#{param_name}[submitted_fee_detail_ids][]",
+                                fee_detail.id,
+                                work_order.submitted_fee_detail_ids&.include?(fee_detail.id.to_s),
+                                id: "fee_detail_#{fee_detail.id}",
+                                class: "fee-detail-checkbox",
+                                data: { fee_type: fee_detail.fee_type } %>
+              </td>
+              <td><%= link_to fee_detail.id, admin_fee_detail_path(fee_detail) %></td>
+              <td><%= fee_detail.fee_type %></td>
+              <td><%= number_to_currency(fee_detail.amount, unit: "¥") %></td>
+              <td><%= fee_detail.fee_date %></td>
+              <td><%= fee_detail.reimbursement&.document_name %></td>
+              <td><%= fee_detail.plan_or_pre_application %></td>
+              <td><%= fee_detail.product %></td>
+              <td><%= fee_detail.flex_field_11 %></td>
+              <td><%= fee_detail.flex_field_6 %></td>
+              <td><%= fee_detail.flex_field_7 %></td>
+              <td><%= fee_detail.expense_corresponding_plan %></td>
+              <td>
+                <% arbre_context = Arbre::Context.new %>
+                <%= arbre_context.status_tag(fee_detail.verification_status, class: case fee_detail.verification_status
+                                                                                when FeeDetail::VERIFICATION_STATUS_VERIFIED
+                                                                                  'ok' # green
+                                                                                when FeeDetail::VERIFICATION_STATUS_PROBLEMATIC
+                                                                                  'error' # red
+                                                                                else
+                                                                                  'warning' # orange
+                                                                                end).to_s %>
+              </td>
+              <td>
+                <% latest_wo = fee_detail.latest_associated_work_order %>
+                <% if latest_wo %>
+                  <% # 根据处理意见决定显示内容 %>
+                  <% if latest_wo.respond_to?(:processing_opinion) %>
+                    <% case latest_wo.processing_opinion %>
+                    <% when '可以通过' %>
+                      <%= link_to "#{latest_wo.model_name.human} ##{latest_wo.id} (可以通过)", [:admin, latest_wo] %>
+                    <% when '无法通过' %>
+                      <% problem_titles = latest_wo.problem_types.map(&:title).join(", ") %>
+                      <% if problem_titles.present? %>
+                        <%= link_to "#{latest_wo.model_name.human} ##{latest_wo.id}: #{problem_titles}", [:admin, latest_wo] %>
+                      <% else %>
+                        <%= link_to "#{latest_wo.model_name.human} ##{latest_wo.id} (无法通过)", [:admin, latest_wo] %>
+                      <% end %>
+                    <% else %>
+                      <% problem_titles = latest_wo.problem_types.map(&:title).join(", ") %>
+                      <% hover_text = problem_titles.present? ? problem_titles : "无问题类型" %>
+                      <%= link_to "#{latest_wo.model_name.human} ##{latest_wo.id}", [:admin, latest_wo],
+                             class: "custom-tooltip",
+                             data: { tooltip: hover_text } %>
+                    <% end %>
+                  <% else %>
+                    <% problem_titles = latest_wo.problem_types.map(&:title).join(", ") %>
+                    <% hover_text = problem_titles.present? ? problem_titles : "无问题类型" %>
+                    <%= link_to "#{latest_wo.model_name.human} ##{latest_wo.id}", [:admin, latest_wo],
+                           class: "custom-tooltip",
+                           data: { tooltip: hover_text } %>
+                  <% end %>
+                <% else %>
+                  N/A
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
     </div>
     
     <%# 费用类型分组标签 - 默认隐藏 %>
@@ -114,46 +218,48 @@
 
 <style>
 .fee-details-selection {
-  max-height: 400px;
+  max-height: 600px;
   overflow-y: auto;
   border: 1px solid #ddd;
-  padding: 10px;
   margin: 10px 0;
 }
 
-.fee-detail-item {
-  margin: 5px 0;
-  padding: 5px;
-  border-bottom: 1px solid #eee;
+.fee-details-table {
+  width: 100%;
+  border-collapse: collapse;
 }
 
-.fee-detail-item:last-child {
-  border-bottom: none;
+.fee-details-table th,
+.fee-details-table td {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+  white-space: nowrap;
 }
 
-.fee-detail-item label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.fee-details-table th {
+  background-color: #f5f5f5;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.fee-details-table tbody tr:hover {
+  background-color: #f9f9f9;
+}
+
+.checkbox-column {
+  width: 30px;
+  text-align: center;
+}
+
+.fee-detail-row td {
+  vertical-align: middle;
+}
+
+.fee-detail-row input[type="checkbox"] {
   cursor: pointer;
 }
-
-.fee-detail-id {
-  font-weight: bold;
-  min-width: 50px;
-}
-
-.fee-detail-type {
-  min-width: 100px;
-}
-
-.fee-detail-amount {
-  min-width: 100px;
-  text-align: right;
-}
-
-.fee-detail-date {
-  min-width: 100px;
 }
 
 .fee-detail-status {
@@ -304,456 +410,4 @@
 }
 </style>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  // 获取DOM元素
-  const feeDetailCheckboxes = document.querySelectorAll('.fee-detail-checkbox');
-  const feeTypeTagsContainer = document.querySelector('.fee-type-tags-container');
-  const feeTypeTags = document.getElementById('fee-type-tags');
-  const problemTypesContainer = document.getElementById('problem-types-container');
-  const problemTypesWrapper = document.querySelector('.problem-types-wrapper');
-  const validationErrorsContainer = document.getElementById('validation-errors');
-  
-  // 支持两种工单类型的处理意见选择器
-  let processingOpinionSelect = document.getElementById('communication_work_order_processing_opinion');
-  if (!processingOpinionSelect) {
-    processingOpinionSelect = document.getElementById('audit_work_order_processing_opinion');
-    console.log('找到审核工单处理意见选择器');
-  } else {
-    console.log('找到沟通工单处理意见选择器');
-  }
-  
-  // 获取审核意见字段
-  const auditCommentField = document.getElementById('audit_comment_field');
-  
-  // 应用状态 - 单一数据源
-  const appState = {
-    // 数据
-    allFeeTypes: [],
-    allProblemTypes: [],
-    
-    // 用户选择
-    selectedFeeDetails: [],
-    feeTypeGroups: {},
-    processingOpinion: processingOpinionSelect ? processingOpinionSelect.value : null,
-    
-    // 映射关系
-    feeTypeNameToIdMap: {},
-    feeTypeIdToNameMap: {},
-    
-    // 验证状态
-    validationErrors: [],
-    isFormValid: true,
-    
-    // 加载状态
-    isLoading: {
-      feeTypes: false,
-      problemTypes: false
-    }
-  };
-  
-  // 初始化应用
-  initializeApp();
-  
-  // 主要初始化函数
-  function initializeApp() {
-    console.log('初始化应用...');
-    
-    // 加载费用类型数据
-    loadFeeTypes()
-      .then(() => {
-        // 初始化UI状态
-        updateSelectedFeeDetails();
-        renderFeeTypeTags();
-        
-        // 如果处理意见为"无法通过"，加载问题类型
-        if (appState.processingOpinion === '无法通过') {
-          renderProblemTypes();
-        }
-      })
-      .catch(error => console.error('初始化应用时出错:', error));
-    
-    // 添加事件监听器
-    setupEventListeners();
-  }
-  
-  // 设置事件监听器
-  function setupEventListeners() {
-    // 费用明细复选框变化
-    feeDetailCheckboxes.forEach(checkbox => {
-      checkbox.addEventListener('change', handleFeeDetailChange);
-    });
-    
-    // 处理意见变化
-    if (processingOpinionSelect) {
-      processingOpinionSelect.addEventListener('change', handleProcessingOpinionChange);
-    }
-    
-    // 审核意见字段变化
-    if (auditCommentField) {
-      auditCommentField.addEventListener('input', function() {
-        // 如果有验证错误，重新验证
-        if (appState.validationErrors.length > 0) {
-          validateFormState();
-          renderValidationErrors();
-        }
-      });
-    }
-    
-    // 表单提交验证 - 只添加一次
-    const form = document.querySelector('form.formtastic');
-    if (form && !form.dataset.validationAdded) {
-      form.addEventListener('submit', validateForm);
-      form.dataset.validationAdded = 'true';
-      console.log('已添加表单验证');
-    }
-  }
-  
-  // 加载费用类型数据
-  function loadFeeTypes() {
-    console.log('加载费用类型数据...');
-    appState.isLoading.feeTypes = true;
-    
-    return fetch('/admin/fee_types.json')
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('获取费用类型失败');
-        }
-        return response.json();
-      })
-      .then(data => {
-        console.log('获取到费用类型数据:', data);
-        appState.allFeeTypes = data;
-        
-        // 构建映射关系
-        data.forEach(feeType => {
-          // 使用title作为主键
-          appState.feeTypeNameToIdMap[feeType.title] = feeType.id;
-          
-          // 如果费用明细中使用的是code而不是title，也添加映射
-          if (feeType.code) {
-            appState.feeTypeNameToIdMap[feeType.code] = feeType.id;
-          }
-          
-          // 如果费用明细中使用的是完整的display_name，也添加映射
-          if (feeType.display_name) {
-            appState.feeTypeNameToIdMap[feeType.display_name] = feeType.id;
-          }
-          
-          // ID到名称的映射
-          appState.feeTypeIdToNameMap[feeType.id] = feeType.title;
-        });
-        
-        console.log('费用类型名称到ID映射:', appState.feeTypeNameToIdMap);
-        console.log('费用类型ID到名称映射:', appState.feeTypeIdToNameMap);
-        
-        appState.isLoading.feeTypes = false;
-      })
-      .catch(error => {
-        console.error('加载费用类型时出错:', error);
-        appState.isLoading.feeTypes = false;
-        throw error;
-      });
-  }
-  
-  // 加载问题类型数据
-  function loadProblemTypes() {
-    console.log('加载问题类型数据...');
-    appState.isLoading.problemTypes = true;
-    
-    return fetch('/admin/problem_types.json')
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('获取问题类型失败');
-        }
-        return response.json();
-      })
-      .then(data => {
-        console.log('获取到问题类型数据:', data);
-        appState.allProblemTypes = data;
-        appState.isLoading.problemTypes = false;
-      })
-      .catch(error => {
-        console.error('加载问题类型时出错:', error);
-        appState.isLoading.problemTypes = false;
-        throw error;
-      });
-  }
-  
-  // 处理费用明细选择变化
-  function handleFeeDetailChange() {
-    console.log('费用明细选择变更');
-    
-    // 更新选中的费用明细
-    updateSelectedFeeDetails();
-    
-    // 更新UI
-    renderFeeTypeTags();
-    
-    // 如果处理意见为"无法通过"，更新问题类型
-    if (appState.processingOpinion === '无法通过') {
-      renderProblemTypes();
-    }
-    
-    // 如果有验证错误，重新验证
-    if (appState.validationErrors.length > 0) {
-      validateFormState();
-      renderValidationErrors();
-    }
-  }
-  
-  // 处理处理意见变化
-  function handleProcessingOpinionChange() {
-    const newOpinion = processingOpinionSelect.value;
-    console.log('处理意见变更为:', newOpinion);
-    
-    // 更新状态
-    appState.processingOpinion = newOpinion;
-    
-    // 根据处理意见显示/隐藏相应区域
-    if (newOpinion === '无法通过') {
-      console.log('处理意见为"无法通过"，显示费用类型和问题类型区域');
-      
-      // 显示费用类型标签
-      feeTypeTags.style.display = 'block';
-      
-      // 显示并加载问题类型
-      problemTypesContainer.style.display = 'block';
-      renderProblemTypes();
-    } else if (newOpinion === '可以通过') {
-      console.log('处理意见为"可以通过"，只显示费用类型标签');
-      
-      // 显示费用类型标签，隐藏问题类型区域
-      feeTypeTags.style.display = 'block';
-      problemTypesContainer.style.display = 'none';
-    } else {
-      console.log('处理意见为其他值，隐藏费用类型和问题类型区域');
-      
-      // 隐藏费用类型和问题类型
-      feeTypeTags.style.display = 'none';
-      problemTypesContainer.style.display = 'none';
-    }
-    
-    // 如果有验证错误，重新验证
-    if (appState.validationErrors.length > 0) {
-      validateFormState();
-      renderValidationErrors();
-    }
-  }
-  
-  // 更新选中的费用明细
-  function updateSelectedFeeDetails() {
-    console.log('更新选中的费用明细...');
-    
-    // 重置状态
-    appState.selectedFeeDetails = [];
-    appState.feeTypeGroups = {};
-    
-    // 获取所有选中的费用明细
-    feeDetailCheckboxes.forEach(checkbox => {
-      if (checkbox.checked) {
-        const feeDetailId = checkbox.value;
-        const feeType = checkbox.dataset.feeType || '';
-        
-        console.log(`选中的费用明细 #${feeDetailId}, 费用类型: "${feeType}"`);
-        
-        // 如果费用类型为空，使用"未知费用类型"
-        const normalizedFeeType = (!feeType || feeType.trim() === '') ? '未知费用类型' : feeType;
-        
-        // 添加到选中的费用明细
-        appState.selectedFeeDetails.push({
-          id: feeDetailId,
-          feeType: normalizedFeeType
-        });
-        
-        // 按费用类型分组
-        if (!appState.feeTypeGroups[normalizedFeeType]) {
-          appState.feeTypeGroups[normalizedFeeType] = [];
-        }
-        appState.feeTypeGroups[normalizedFeeType].push(feeDetailId);
-      }
-    });
-    
-    console.log('更新后的费用类型分组:', appState.feeTypeGroups);
-  }
-  
-  // 渲染费用类型标签
-  function renderFeeTypeTags() {
-    console.log('渲染费用类型标签...');
-    
-    // 清空容器
-    feeTypeTagsContainer.innerHTML = '';
-    
-    // 检查是否有选择的费用明细
-    const feeTypeKeys = Object.keys(appState.feeTypeGroups);
-    if (feeTypeKeys.length === 0) {
-      // 没有选择费用明细，显示提示信息
-      feeTypeTagsContainer.innerHTML = '<p>未选择费用明细</p>';
-      console.log('未选择费用明细，显示提示信息');
-      
-      // 隐藏费用类型标签区域
-      feeTypeTags.style.display = 'none';
-      return;
-    }
-    
-    // 显示费用类型标签区域
-    feeTypeTags.style.display = 'block';
-    
-    // 有选择的费用明细，显示费用类型标签
-    console.log('已选择费用明细，显示费用类型标签');
-    feeTypeKeys.forEach(feeType => {
-      const tagDiv = document.createElement('div');
-      tagDiv.className = 'fee-type-tag';
-      tagDiv.dataset.feeType = feeType;
-      tagDiv.textContent = `${feeType} (${appState.feeTypeGroups[feeType].length}项)`;
-      feeTypeTagsContainer.appendChild(tagDiv);
-      
-      console.log(`添加费用类型标签: ${feeType} (${appState.feeTypeGroups[feeType].length}项)`);
-    });
-  }
-  
-  // 渲染问题类型
-  function renderProblemTypes() {
-    console.log('渲染问题类型...');
-    
-    // 清空问题类型容器
-    problemTypesWrapper.innerHTML = '';
-    
-    // 如果处理意见不是"无法通过"，隐藏问题类型区域并返回
-    if (appState.processingOpinion !== '无法通过') {
-      problemTypesContainer.style.display = 'none';
-      return;
-    }
-    
-    // 显示问题类型区域
-    problemTypesContainer.style.display = 'block';
-    
-    // 如果没有选择费用明细，显示提示信息
-    if (Object.keys(appState.feeTypeGroups).length === 0) {
-      problemTypesWrapper.innerHTML = '<p>请先选择费用明细，以加载相关的问题类型</p>';
-      console.log('未选择费用明细，显示问题类型提示信息');
-      return;
-    }
-    
-    // 如果问题类型数据尚未加载，先加载数据
-    if (appState.allProblemTypes.length === 0) {
-      // 显示加载中提示
-      problemTypesWrapper.innerHTML = '<p>正在加载问题类型数据...</p>';
-      
-      // 加载问题类型数据
-      loadProblemTypes()
-        .then(() => {
-          // 数据加载完成后重新渲染
-          renderProblemTypesContent();
-        })
-        .catch(error => {
-          // 显示错误信息
-          problemTypesWrapper.innerHTML = `<p>加载问题类型时出错: ${error.message}</p>`;
-        });
-    } else {
-      // 数据已加载，直接渲染
-      renderProblemTypesContent();
-    }
-  }
-  
-  // 渲染问题类型内容
-  function renderProblemTypesContent() {
-    console.log('渲染问题类型内容...');
-    
-    // 清空问题类型容器
-    problemTypesWrapper.innerHTML = '';
-    
-    // 获取已选费用类型
-    const selectedFeeTypes = Object.keys(appState.feeTypeGroups);
-    console.log('已选费用类型:', selectedFeeTypes);
-    
-    // 检查是否有未找到的费用类型
-    const missingFeeTypes = [];
-    for (const selectedFeeType of selectedFeeTypes) {
-      if (!appState.feeTypeNameToIdMap[selectedFeeType]) {
-        missingFeeTypes.push(selectedFeeType);
-      }
-    }
-    
-    // 如果有未找到的费用类型，显示提示信息
-    if (missingFeeTypes.length > 0) {
-      console.log(`未找到以下费用类型: ${missingFeeTypes.join(', ')}`);
-      const warningDiv = document.createElement('div');
-      warningDiv.className = 'missing-fee-types-warning';
-      warningDiv.innerHTML = `
-        <p class="warning-text">未找到以下费用类型: <strong>${missingFeeTypes.join(', ')}</strong></p>
-        <p>请先在系统中创建这些费用类型及相关的问题类型，然后再继续操作。</p>
-        <p><a href="/admin/fee_types/new" target="_blank" class="button">创建费用类型</a></p>
-      `;
-      problemTypesWrapper.appendChild(warningDiv);
-    }
-    
-    // 过滤出与已选费用类型相关的问题类型
-    const filteredProblemTypes = filterProblemTypesByFeeTypes(selectedFeeTypes);
-    console.log('过滤后的问题类型:', filteredProblemTypes);
-    
-    // 如果没有找到相关问题类型，显示提示信息
-    if (filteredProblemTypes.length === 0) {
-      const noDataDiv = document.createElement('div');
-      noDataDiv.textContent = `未找到与已选费用类型相关的问题类型`;
-      problemTypesWrapper.appendChild(noDataDiv);
-      return;
-    }
-    
-    // 创建一个分组容器
-    const sectionDiv = document.createElement('div');
-    sectionDiv.className = 'problem-type-section';
-    
-    // 创建费用类型标题
-    const feeTypeTitle = document.createElement('h5');
-    feeTypeTitle.textContent = `已选费用类型: ${selectedFeeTypes.join(', ')}`;
-    sectionDiv.appendChild(feeTypeTitle);
-    
-    // 创建问题类型复选框容器
-    const checkboxContainer = document.createElement('div');
-    checkboxContainer.className = 'problem-type-checkboxes';
-    
-    // 创建问题类型复选框
-    filteredProblemTypes.forEach(problemType => {
-      const checkboxDiv = document.createElement('div');
-      checkboxDiv.className = 'problem-type-checkbox';
-      
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.id = `problem_type_${problemType.id}`;
-      
-      // 根据工单类型设置正确的参数名
-      if (window.location.pathname.includes('communication_work_orders')) {
-        checkbox.name = 'communication_work_order[problem_type_ids][]';
-      } else {
-        checkbox.name = 'audit_work_order[problem_type_ids][]';
-      }
-      
-      checkbox.value = problemType.id;
-      
-      // 添加事件监听器，当选择问题类型时重新验证
-      checkbox.addEventListener('change', function() {
-        if (appState.validationErrors.length > 0) {
-          validateFormState();
-          renderValidationErrors();
-        }
-      });
-      
-      const label = document.createElement('label');
-      label.htmlFor = `problem_type_${problemType.id}`;
-      
-      // 构建显示名称
-      if (problemType.display_name) {
-        label.textContent = problemType.display_name;
-      } else if (problemType.code && problemType.title) {
-        label.textContent = `${problemType.code} - ${problemType.title}`;
-      } else {
-        label.textContent = problemType.title || `问题类型 #${problemType.id}`;
-      }
-      
-      checkboxDiv.appendChild(checkbox);
-      checkboxDiv.appendChild(label);
-      checkboxContainer.appendChild(checkboxDiv);
-    });
-    
-    // 添加到页面
+<!-- 这里不再包含内联JavaScript，使用外部work_order_form.js文件 -->

@@ -87,7 +87,9 @@ class Reimbursement < ApplicationRecord
     %w[id invoice_number document_name applicant applicant_id company department
        receipt_status receipt_date submission_date amount is_electronic status
        external_status approval_date approver_name related_application_number
-       accounting_date document_tags created_at updated_at current_assignee_id]
+       accounting_date document_tags created_at updated_at current_assignee_id
+       erp_current_approval_node erp_current_approver erp_flexible_field_2
+       erp_node_entry_time erp_first_submitted_at erp_flexible_field_8]
   end
   
   def self.ransackable_associations(auth_object = nil)

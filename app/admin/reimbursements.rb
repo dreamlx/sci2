@@ -1,7 +1,10 @@
 ActiveAdmin.register Reimbursement do
   permit_params :invoice_number, :document_name, :applicant, :applicant_id, :company, :department,
                 :amount, :receipt_status, :status, :receipt_date, :submission_date,
-                :is_electronic, :external_status, :approval_date, :approver_name
+                :is_electronic, :external_status, :approval_date, :approver_name,
+                :related_application_number, :accounting_date, :document_tags,
+                :erp_current_approval_node, :erp_current_approver, :erp_flexible_field_2,
+                :erp_node_entry_time, :erp_first_submitted_at, :erp_flexible_field_8
 
   menu priority: 2, label: "报销单管理"
 
@@ -117,8 +120,8 @@ ActiveAdmin.register Reimbursement do
       cancel_path: admin_reimbursements_path,
       instructions: [
         "请上传CSV格式文件",
-        "文件必须包含以下列：发票号码,文档名称,申请人,申请人ID,公司,部门,金额,收单状态,状态,收单日期,提交日期,是否电子发票,外部状态,审批日期,审批人,关联申请单号,记账日期,单据标签",
-        "如果报销单已存在（根据发票号码判断），将更新现有记录",
+        "文件必须包含以下列：报销单单号,单据名称,报销单申请人,报销单申请人工号,申请人公司,申请人部门,收单状态,收单日期,关联申请单号,提交报销日期,记账日期,报销单状态,当前审批节点,当前审批人,报销单审核通过日期,审核通过人,报销金额（单据币种）,弹性字段2,当前审批节点转入时间,首次提交时间,单据标签,弹性字段8",
+        "如果报销单已存在（根据报销单单号判断），将更新现有记录",
         "如果报销单不存在，将创建新记录"
       ]
     }
@@ -146,19 +149,23 @@ ActiveAdmin.register Reimbursement do
   index do
     selectable_column
     id_column
-    column :invoice_number
-    column :applicant
-    column :amount do |reimbursement| number_to_currency(reimbursement.amount, unit: "¥") end
+    column :invoice_number, label: "报销单号"
+    column :applicant, label: "申请人"
+    column :company, label: "申请公司"
+    column :department, label: "申请部门"
+    column :amount, label: "报销金额" do |reimbursement| number_to_currency(reimbursement.amount, unit: "¥") end
+    column :is_electronic, label: "是否电子发票"
+    column :external_status, label: "报销单状态"
+    column :accounting_date, label: "记账日期"
+    column :document_tags, label: "单据标签"
+    column :created_at, label: "创建时间"
     column "内部状态", :status do |reimbursement| status_tag reimbursement.status end
-    column "外部状态", :external_status
-    column :receipt_status do |reimbursement| status_tag reimbursement.receipt_status end
-    column :is_electronic
-    column :approval_date
-    column :current_assignee do |reimbursement|
+    column :current_assignee, label: "当前分配人员" do |reimbursement|
       reimbursement.current_assignee&.email || "未分配"
     end
-    column :created_at
-    actions
+    actions defaults: false do |reimbursement|
+      item "查看", admin_reimbursement_path(reimbursement), class: "member_link"
+    end
   end
 
   # 详情页
@@ -182,6 +189,15 @@ ActiveAdmin.register Reimbursement do
           row :is_electronic
           row :approval_date
           row :approver_name
+          row :related_application_number
+          row :accounting_date
+          row :document_tags
+          row :erp_current_approval_node
+          row :erp_current_approver
+          row :erp_flexible_field_2
+          row :erp_node_entry_time
+          row :erp_first_submitted_at
+          row :erp_flexible_field_8
           row :created_at
           row :updated_at
         end
@@ -196,11 +212,36 @@ ActiveAdmin.register Reimbursement do
             column "最新关联工单" do |fee_detail|
               latest_wo = fee_detail.latest_associated_work_order
               if latest_wo
-                problem_titles = latest_wo.problem_types.map(&:title).join(", ")
-                hover_text = problem_titles.present? ? problem_titles : "无问题类型"
-                link_to "#{latest_wo.model_name.human} ##{latest_wo.id}", [:admin, latest_wo],
-                       class: "custom-tooltip",
-                       data: { tooltip: hover_text }
+                # 根据处理意见决定显示内容
+                if latest_wo.respond_to?(:processing_opinion)
+                  case latest_wo.processing_opinion
+                  when '可以通过'
+                    # 如果处理意见是"可以通过"，只显示工单链接
+                    link_to "#{latest_wo.model_name.human} ##{latest_wo.id} (可以通过)", [:admin, latest_wo]
+                  when '无法通过'
+                    # 如果处理意见是"无法通过"，显示工单链接和问题类型
+                    problem_titles = latest_wo.problem_types.map(&:title).join(", ")
+                    if problem_titles.present?
+                      link_to "#{latest_wo.model_name.human} ##{latest_wo.id}: #{problem_titles}", [:admin, latest_wo]
+                    else
+                      link_to "#{latest_wo.model_name.human} ##{latest_wo.id} (无法通过)", [:admin, latest_wo]
+                    end
+                  else
+                    # 如果没有处理意见，显示工单链接和问题类型（悬停显示）
+                    problem_titles = latest_wo.problem_types.map(&:title).join(", ")
+                    hover_text = problem_titles.present? ? problem_titles : "无问题类型"
+                    link_to "#{latest_wo.model_name.human} ##{latest_wo.id}", [:admin, latest_wo],
+                           class: "custom-tooltip",
+                           data: { tooltip: hover_text }
+                  end
+                else
+                  # 如果工单类型没有处理意见字段，使用原来的显示方式
+                  problem_titles = latest_wo.problem_types.map(&:title).join(", ")
+                  hover_text = problem_titles.present? ? problem_titles : "无问题类型"
+                  link_to "#{latest_wo.model_name.human} ##{latest_wo.id}", [:admin, latest_wo],
+                         class: "custom-tooltip",
+                         data: { tooltip: hover_text }
+                end
               else
                 "N/A"
               end
@@ -313,7 +354,20 @@ ActiveAdmin.register Reimbursement do
       f.input :is_electronic
       f.input :approval_date, as: :datepicker
       f.input :approver_name
+      f.input :related_application_number
+      f.input :accounting_date, as: :datepicker
+      f.input :document_tags
     end
+    
+    f.inputs "ERP 系统字段" do
+      f.input :erp_current_approval_node
+      f.input :erp_current_approver
+      f.input :erp_flexible_field_2
+      f.input :erp_node_entry_time, as: :datepicker
+      f.input :erp_first_submitted_at, as: :datepicker
+      f.input :erp_flexible_field_8
+    end
+    
     f.actions
   end
 

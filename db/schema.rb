@@ -152,6 +152,12 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000009) do
     t.string "document_tags"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "erp_current_approval_node"
+    t.string "erp_current_approver"
+    t.string "erp_flexible_field_2"
+    t.datetime "erp_node_entry_time"
+    t.datetime "erp_first_submitted_at"
+    t.string "erp_flexible_field_8"
     t.index ["external_status"], name: "index_reimbursements_on_external_status"
     t.index ["invoice_number"], name: "index_reimbursements_on_invoice_number", unique: true
     t.index ["is_electronic"], name: "index_reimbursements_on_is_electronic"

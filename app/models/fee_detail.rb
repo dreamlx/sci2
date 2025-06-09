@@ -49,14 +49,31 @@ class FeeDetail < ApplicationRecord
   
   # ActiveAdmin configuration
   def self.ransackable_attributes(auth_object = nil)
-    %w[id document_number fee_type amount fee_date verification_status month_belonging 
-       first_submission_date created_at updated_at notes external_fee_id 
-       plan_or_pre_application product flex_field_11 expense_corresponding_plan 
+    %w[id document_number fee_type amount fee_date verification_status month_belonging
+       first_submission_date created_at updated_at notes external_fee_id
+       plan_or_pre_application product flex_field_11 expense_corresponding_plan
        expense_associated_application flex_field_6 flex_field_7]
   end
   
   def self.ransackable_associations(auth_object = nil)
     %w[reimbursement work_order_fee_details work_orders]
+  end
+  
+  # Custom ransackers for Reimbursement fields
+  ransacker :reimbursement_applicant do
+    Arel.sql('(SELECT applicant FROM reimbursements WHERE reimbursements.invoice_number = fee_details.document_number)')
+  end
+  
+  ransacker :reimbursement_applicant_id do
+    Arel.sql('(SELECT applicant_id FROM reimbursements WHERE reimbursements.invoice_number = fee_details.document_number)')
+  end
+  
+  ransacker :reimbursement_company do
+    Arel.sql('(SELECT company FROM reimbursements WHERE reimbursements.invoice_number = fee_details.document_number)')
+  end
+  
+  ransacker :reimbursement_department do
+    Arel.sql('(SELECT department FROM reimbursements WHERE reimbursements.invoice_number = fee_details.document_number)')
   end
   
   # Instance methods
