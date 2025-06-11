@@ -2,6 +2,9 @@
 <div class="inputs">
   <h3>报销单信息</h3>
   <div class="field" style="margin-bottom: 5px;">
+    <strong>报销单号:</strong> <%= link_to reimbursement.invoice_number, admin_reimbursement_path(reimbursement) %>
+  </div>
+  <div class="field" style="margin-bottom: 5px;">
     <strong>单据名称:</strong> <%= reimbursement.document_name %>
   </div>
   <div class="field" style="margin-bottom: 5px;">

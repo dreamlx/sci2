@@ -5,7 +5,7 @@ namespace :problem_codes do
     personal_csv_path = Rails.root.join('docs', 'user_data', '个人问题code.csv')
     if File.exist?(personal_csv_path)
       puts "Importing personal problem codes from #{personal_csv_path}..."
-      result = ProblemCodeImportService.new(personal_csv_path, "个人").import
+      result = ProblemCodeImportService.new(personal_csv_path).import
       
       if result[:success]
         puts "Personal problem codes imported successfully:"
@@ -24,7 +24,7 @@ namespace :problem_codes do
     academic_csv_path = Rails.root.join('docs', 'user_data', '学术问题code.csv')
     if File.exist?(academic_csv_path)
       puts "Importing academic problem codes from #{academic_csv_path}..."
-      result = ProblemCodeImportService.new(academic_csv_path, "学术论坛").import
+      result = ProblemCodeImportService.new(academic_csv_path).import
       
       if result[:success]
         puts "Academic problem codes imported successfully:"

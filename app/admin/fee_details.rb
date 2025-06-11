@@ -112,6 +112,13 @@ ActiveAdmin.register FeeDetail do
   index do
     selectable_column
     id_column
+    column "报销单号", :document_number do |fee_detail|
+      if fee_detail.reimbursement
+        link_to fee_detail.document_number, admin_reimbursement_path(fee_detail.reimbursement)
+      else
+        fee_detail.document_number
+      end
+    end
     column :fee_type
     column "金额", :amount do |fee_detail|
       number_to_currency(fee_detail.amount, unit: "¥")
@@ -122,15 +129,22 @@ ActiveAdmin.register FeeDetail do
     column "关联工单" do |fee_detail|
       latest_wo = fee_detail.latest_associated_work_order
       if latest_wo
-        if latest_wo.problem_types.any?
-          problem_titles = latest_wo.problem_types.map(&:title).join(", ")
-          link_text = "##{latest_wo.id}: #{problem_titles}"
-          link_to link_text, [:admin, latest_wo],
-            class: "work-order-with-problems",
-            title: problem_titles
-        else
-          link_to "##{latest_wo.id}", [:admin, latest_wo]
-        end
+        link_to "##{latest_wo.id}", [:admin, latest_wo]
+      else
+        "无"
+      end
+    end
+    
+    column "问题类型" do |fee_detail|
+      latest_wo = fee_detail.latest_associated_work_order
+      if latest_wo && latest_wo.problem_types.any?
+        problem_details = latest_wo.problem_types.map do |problem_type|
+          "#{problem_type.code}-#{problem_type.title}-#{problem_type.sop_description}+#{problem_type.standard_handling}"
+        end.join("\n")
+        
+        content_tag(:pre, problem_details,
+          class: "problem-type-plain-text",
+          style: "white-space: pre-wrap; margin: 0; font-family: monospace; font-size: 12px;")
       else
         "无"
       end

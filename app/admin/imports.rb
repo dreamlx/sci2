@@ -45,8 +45,7 @@ ActiveAdmin.register_page "Imports" do
     end
     
     begin
-      meeting_type = params[:meeting_type] || "个人"
-      service = ProblemCodeImportService.new(params[:file].path, meeting_type)
+      service = ProblemCodeImportService.new(params[:file].path)
       result = service.import
       
       if result[:success]

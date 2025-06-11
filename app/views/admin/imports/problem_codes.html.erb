@@ -7,7 +7,9 @@
   <div class="panel_contents">
     <p>通过CSV文件导入问题代码库。CSV文件应包含以下列：</p>
     <ul>
-      <li><strong>EN Code</strong> - 完整问题代码</li>
+      <li><strong>MN Code</strong> - 完整问题代码</li>
+      <li><strong>Meeting Code</strong> - 会议类型代码</li>
+      <li><strong>会议类型</strong> - 会议类型名称</li>
       <li><strong>Exp. Code</strong> - 费用类型代码</li>
       <li><strong>费用类型</strong> - 费用类型名称</li>
       <li><strong>Issue Code</strong> - 问题类型代码</li>
@@ -18,10 +20,10 @@
     
     <p>示例CSV格式：</p>
     <pre>
-EN Code,Exp. Code,费用类型,Issue Code,问题类型,SOP描述,标准处理方法
-EN000101,00,月度交通费,01,燃油费行程问题,根据SOP规定需提供行程,请补充行程信息
-EN000102,00,月度交通费,02,金额超标,检查金额是否超过规定限额,要求说明超标原因
-EN000201,01,住宿费,01,住宿天数与行程不符,核对住宿天数与行程安排,要求提供行程说明
+MN Code,Meeting Code,会议类型,Exp. Code,费用类型,Issue Code,问题类型,SOP描述,标准处理方法
+MN030101,03,学术论坛,01,会议讲课费,01,系统与签到人数不一致,系统实际内外部参会人数与签到表不一致,请确认实际内外部参会人数，并解释说明
+MN030102,03,学术论坛,01,会议讲课费,02,学术活动变更,学会活动变更会议时间、会议地点需提供企业微信变更流程或变更审批邮件,请提供
+MN030201,03,学术论坛,02,小型医学沟通会餐费,01,系统与会议议程不一致,会议议程内容与系统填报的实际会议情况不一致,请确认并提供更新的会议议程
     </pre>
   </div>
 </div>
@@ -35,15 +37,6 @@ EN000201,01,住宿费,01,住宿天数与行程不符,核对住宿天数与行程
           <li class="file input optional">
             <label for="file">CSV文件</label>
             <%= file_field_tag :file, accept: '.csv', class: 'file' %>
-          </li>
-          <li class="select input optional">
-            <label for="meeting_type">会议类型</label>
-            <%= select_tag :meeting_type, options_for_select([
-              ['个人', '个人'],
-              ['学术论坛', '学术论坛'],
-              ['其他', '其他']
-            ], '个人'), class: 'select' %>
-            <p class="inline-hints">选择导入数据的会议类型，CSV文件中不包含此信息</p>
           </li>
         </ol>
       </fieldset>
@@ -67,6 +60,7 @@ EN000201,01,住宿费,01,住宿天数与行程不符,核对住宿天数与行程
   <div class="panel_contents">
     <ul>
       <li>CSV文件必须使用UTF-8编码</li>
+      <li>CSV文件必须包含Meeting Code列，用于自动匹配会议类型</li>
       <li>如果费用类型代码已存在，将更新其名称</li>
       <li>如果问题代码在同一费用类型下已存在，将更新其信息</li>
       <li>所有导入的费用类型和问题类型默认为激活状态</li>

@@ -3,9 +3,8 @@ require 'csv'
 require 'digest'
 
 class ProblemCodeImportService
-  def initialize(file_path, meeting_type = "个人")
+  def initialize(file_path)
     @file_path = file_path
-    @meeting_type = meeting_type
   end
   
   def import
@@ -24,7 +23,7 @@ class ProblemCodeImportService
     
     begin
       ActiveRecord::Base.transaction do
-        puts "Starting import from #{@file_path} with meeting_type: #{@meeting_type}"
+        puts "Starting import from #{@file_path}"
         # Read file content and remove BOM if present
         content = File.read(@file_path)
         content = content.sub("\xEF\xBB\xBF", '') if content.start_with?("\xEF\xBB\xBF")
@@ -75,19 +74,23 @@ class ProblemCodeImportService
   private
   
   def process_row(row)
+    # Extract meeting type from Meeting Code
+    meeting_code = row['Meeting Code']&.strip
+    meeting_type = row['会议类型']&.strip
+    
     # Extract fee type information
     exp_code = row['Exp. Code']&.strip # Original Exp. Code from CSV
     fee_type_title = row['费用类型']&.strip # Use 费用类型 for the title field
     
     # Extract problem type information
-    en_code = row['EN Code']&.strip
+    mn_code = row['MN Code']&.strip
     problem_code = row['Issue Code']&.strip
     problem_title = row['问题类型']&.strip
     sop_description = row['SOP描述']&.strip
     standard_handling = row['标准处理方法']&.strip
     
     # Skip if essential data is missing
-    if exp_code.blank? || fee_type_title.blank? || en_code.blank? || problem_code.blank? || problem_title.blank?
+    if exp_code.blank? || fee_type_title.blank? || problem_code.blank? || problem_title.blank? || meeting_code.blank? || meeting_type.blank?
       puts "Skipping row due to missing data: #{row.inspect}"
       return [false, false, false, false]
     end
@@ -115,27 +118,27 @@ class ProblemCodeImportService
       fee_type = FeeType.create(
         code: fee_type_code,
         title: fee_type_title,
-        meeting_type: @meeting_type,
+        meeting_type: meeting_type,
         active: true
       )
       fee_type_created = true
     end
     
     # Update fee type if it exists but has different attributes
-    if !fee_type_created && (fee_type.title != fee_type_title || fee_type.meeting_type != @meeting_type)
+    if !fee_type_created && (fee_type.title != fee_type_title || fee_type.meeting_type != meeting_type)
       fee_type.update(
         title: fee_type_title,
-        meeting_type: @meeting_type
+        meeting_type: meeting_type
       )
       fee_type_updated = true
     else
       fee_type_updated = false
     end
     
-    # Find or create problem type using EN Code as the unique identifier
+    # Find or create problem type using MN Code as the unique identifier
     # If fee_type_code is blank, create problem type without fee_type association
     if fee_type_code.blank?
-      problem_type = ProblemType.find_or_create_by(code: en_code) do |pt|
+      problem_type = ProblemType.find_or_create_by(code: mn_code) do |pt|
         pt.title = problem_title
         pt.sop_description = sop_description || "标准操作流程待定"
         pt.standard_handling = standard_handling || "标准处理方法待定"
@@ -143,7 +146,7 @@ class ProblemCodeImportService
         problem_type_created = true
       end
     else
-      problem_type = ProblemType.find_or_initialize_by(code: en_code)
+      problem_type = ProblemType.find_or_initialize_by(code: mn_code)
       if problem_type.new_record?
         problem_type.assign_attributes(
           title: problem_title,

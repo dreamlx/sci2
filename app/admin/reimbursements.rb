@@ -11,10 +11,13 @@ ActiveAdmin.register Reimbursement do
   # 过滤器
   filter :invoice_number
   filter :applicant
+  filter :company, label: "公司", as: :string
+  filter :department, label: "部门", as: :string
   filter :status, label: "内部状态", as: :select, collection: Reimbursement.state_machines[:status].states.map(&:value)
   filter :external_status, label: "外部状态"
   filter :receipt_status, as: :select, collection: ["pending", "received"]
   filter :is_electronic, as: :boolean
+  filter :document_tags, label: "单据标签", as: :string
   filter :created_at
   filter :approval_date
   filter :current_assignee_id, as: :select, collection: -> { AdminUser.all.map { |u| [u.email, u.id] } }, label: "当前处理人"
@@ -154,9 +157,7 @@ ActiveAdmin.register Reimbursement do
     column :company, label: "申请公司"
     column :department, label: "申请部门"
     column :amount, label: "报销金额" do |reimbursement| number_to_currency(reimbursement.amount, unit: "¥") end
-    column :is_electronic, label: "是否电子发票"
     column :external_status, label: "报销单状态"
-    column :accounting_date, label: "记账日期"
     column :document_tags, label: "单据标签"
     column :created_at, label: "创建时间"
     column "内部状态", :status do |reimbursement| status_tag reimbursement.status end
@@ -219,10 +220,13 @@ ActiveAdmin.register Reimbursement do
             column "问题类型" do |fee_detail|
               latest_wo = fee_detail.latest_associated_work_order
               if latest_wo && latest_wo.problem_types.any?
-                problem_titles = latest_wo.problem_types.map(&:title).join(", ")
-                content_tag(:span, problem_titles,
-                  class: "problem-type-display",
-                  title: problem_titles)
+                problem_details = latest_wo.problem_types.map do |problem_type|
+                  "#{problem_type.code}-#{problem_type.title}-#{problem_type.sop_description}+#{problem_type.standard_handling}"
+                end.join("\n")
+                
+                content_tag(:pre, problem_details,
+                  class: "problem-type-plain-text",
+                  style: "white-space: pre-wrap; margin: 0; font-family: monospace; font-size: 12px;")
               else
                 "无"
               end
@@ -303,13 +307,60 @@ ActiveAdmin.register Reimbursement do
 
       tab "所有关联工单" do
         panel "所有关联工单信息" do
-          table_for resource.work_orders.includes(:creator).order(created_at: :desc) do
+          table_for resource.work_orders.includes(:creator, :problem_types).order(created_at: :desc) do
             column("工单ID") { |wo| link_to wo.id, [:admin, wo] } # Links to specific work order type show page
             column("工单类型") { |wo| wo.model_name.human } # Or wo.type if you prefer the raw type string
             column("状态") { |wo| status_tag wo.status }
             column "创建人", :creator
             column "创建时间", :created_at
+            column "问题详情" do |work_order|
+              if work_order.problem_types.any?
+                problem_details = work_order.problem_types.map do |problem_type|
+                  [
+                    "工单号: ##{work_order.id}",
+                    "问题类型: #{problem_type.code}",
+                    "标题: #{problem_type.title}",
+                    "SOP描述: #{problem_type.sop_description}",
+                    "处理方法: #{problem_type.standard_handling}"
+                  ].join("\n")
+                end
+                content_tag(:div, class: 'problem-details-container') do
+                  content_tag(:pre, problem_details.join("\n\n"), class: 'problem-details')
+                end
+              else
+                "无问题详情"
+              end
+            end
           end
+        end
+        
+        # Add custom CSS for problem details
+        style do
+          %Q{
+            .problem-details-container {
+              max-height: 200px;
+              overflow-y: auto;
+              background-color: #f9f9f9;
+              border: 1px solid #ddd;
+              border-radius: 4px;
+              padding: 8px;
+            }
+            .problem-details {
+              white-space: pre-wrap;
+              margin: 0;
+              font-family: monospace;
+              font-size: 12px;
+            }
+            .problem-type-display {
+              max-width: 300px;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            .problem-type-item {
+              display: inline-block;
+              margin-bottom: 3px;
+            }
+          }
         end
       end
     end
