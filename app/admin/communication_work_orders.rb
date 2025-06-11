@@ -268,9 +268,17 @@ ActiveAdmin.register CommunicationWorkOrder do
         wo.problem_type ? "#{wo.problem_type.code} - #{wo.problem_type.title}" : nil
       end
     end
+    column "费用明细", :fee_details do |wo|
+      if wo.fee_details.any?
+        wo.fee_details.map do |fd|
+          "##{fd.id} #{fd.fee_type} #{number_to_currency(fd.amount, unit: '¥')}"
+        end.join("<br>").html_safe
+      else
+        "无费用明细"
+      end
+    end
     column :creator
     column :created_at
-    column :updated_at
     column "操作" do |work_order|
       links = ActiveSupport::SafeBuffer.new
       links << link_to("查看", admin_communication_work_order_path(work_order), class: "member_link view_link")

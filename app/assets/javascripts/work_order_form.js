@@ -508,17 +508,41 @@ document.addEventListener('DOMContentLoaded', function() {
       const label = document.createElement('label');
       label.htmlFor = `problem_type_${problemType.id}`;
       
+      // 创建问题类型信息容器
+      const problemTypeInfoDiv = document.createElement('div');
+      problemTypeInfoDiv.className = 'problem-type-info';
+      
+      // 创建标题元素
+      const titleDiv = document.createElement('div');
+      titleDiv.className = 'problem-type-title';
+      
       // 构建显示名称
       if (problemType.display_name) {
-        label.textContent = problemType.display_name;
+        titleDiv.textContent = problemType.display_name;
       } else if (problemType.code && problemType.title) {
-        label.textContent = `${problemType.code} - ${problemType.title}`;
+        titleDiv.textContent = `${problemType.code} - ${problemType.title}`;
       } else {
-        label.textContent = problemType.title || `问题类型 #${problemType.id}`;
+        titleDiv.textContent = problemType.title || `问题类型 #${problemType.id}`;
       }
       
+      // 创建SOP描述元素
+      const sopDescDiv = document.createElement('div');
+      sopDescDiv.className = 'problem-type-sop-description';
+      sopDescDiv.innerHTML = `<strong>SOP描述:</strong> ${problemType.sop_description || '无'}`;
+      
+      // 创建标准处理元素
+      const standardHandlingDiv = document.createElement('div');
+      standardHandlingDiv.className = 'problem-type-standard-handling';
+      standardHandlingDiv.innerHTML = `<strong>标准处理:</strong> ${problemType.standard_handling || '无'}`;
+      
+      // 将所有元素添加到信息容器
+      problemTypeInfoDiv.appendChild(titleDiv);
+      problemTypeInfoDiv.appendChild(sopDescDiv);
+      problemTypeInfoDiv.appendChild(standardHandlingDiv);
+      
+      // 将复选框和信息容器添加到复选框div
       checkboxDiv.appendChild(checkbox);
-      checkboxDiv.appendChild(label);
+      checkboxDiv.appendChild(problemTypeInfoDiv);
       checkboxContainer.appendChild(checkboxDiv);
     });
     

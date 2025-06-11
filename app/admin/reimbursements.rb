@@ -207,46 +207,26 @@ ActiveAdmin.register Reimbursement do
             column(:id) { |fd| link_to fd.id, admin_fee_detail_path(fd) }
             column :fee_type
             column "金额", :amount do |fd| number_to_currency(fd.amount, unit: "¥") end
-            column :fee_date
             column "验证状态", :verification_status do |fd| status_tag fd.verification_status end
-            column "最新关联工单" do |fee_detail|
+            column "关联工单" do |fee_detail|
               latest_wo = fee_detail.latest_associated_work_order
               if latest_wo
-                # 根据处理意见决定显示内容
-                if latest_wo.respond_to?(:processing_opinion)
-                  case latest_wo.processing_opinion
-                  when '可以通过'
-                    # 如果处理意见是"可以通过"，只显示工单链接
-                    link_to "#{latest_wo.model_name.human} ##{latest_wo.id} (可以通过)", [:admin, latest_wo]
-                  when '无法通过'
-                    # 如果处理意见是"无法通过"，显示工单链接和问题类型
-                    problem_titles = latest_wo.problem_types.map(&:title).join(", ")
-                    if problem_titles.present?
-                      link_to "#{latest_wo.model_name.human} ##{latest_wo.id}: #{problem_titles}", [:admin, latest_wo]
-                    else
-                      link_to "#{latest_wo.model_name.human} ##{latest_wo.id} (无法通过)", [:admin, latest_wo]
-                    end
-                  else
-                    # 如果没有处理意见，显示工单链接和问题类型（悬停显示）
-                    problem_titles = latest_wo.problem_types.map(&:title).join(", ")
-                    hover_text = problem_titles.present? ? problem_titles : "无问题类型"
-                    link_to "#{latest_wo.model_name.human} ##{latest_wo.id}", [:admin, latest_wo],
-                           class: "custom-tooltip",
-                           data: { tooltip: hover_text }
-                  end
-                else
-                  # 如果工单类型没有处理意见字段，使用原来的显示方式
-                  problem_titles = latest_wo.problem_types.map(&:title).join(", ")
-                  hover_text = problem_titles.present? ? problem_titles : "无问题类型"
-                  link_to "#{latest_wo.model_name.human} ##{latest_wo.id}", [:admin, latest_wo],
-                         class: "custom-tooltip",
-                         data: { tooltip: hover_text }
-                end
+                link_to "##{latest_wo.id}", [:admin, latest_wo]
               else
-                "N/A"
+                "无"
               end
             end
-            column "创建时间", :created_at
+            column "问题类型" do |fee_detail|
+              latest_wo = fee_detail.latest_associated_work_order
+              if latest_wo && latest_wo.problem_types.any?
+                problem_titles = latest_wo.problem_types.map(&:title).join(", ")
+                content_tag(:span, problem_titles,
+                  class: "problem-type-display",
+                  title: problem_titles)
+              else
+                "无"
+              end
+            end
           end
         end
 

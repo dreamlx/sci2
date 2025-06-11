@@ -1,5 +1,6 @@
 # app/services/problem_code_import_service.rb
 require 'csv'
+require 'digest'
 
 class ProblemCodeImportService
   def initialize(file_path, meeting_type = "个人")
@@ -74,9 +75,9 @@ class ProblemCodeImportService
   private
   
   def process_row(row)
-    # Extract fee type information - use fee type title as the unique identifier since Exp. Code is not unique
-    fee_type_code = row['费用类型']&.strip # Using title as code since Exp. Code isn't unique
-    fee_type_title = row['费用类型']&.strip
+    # Extract fee type information
+    exp_code = row['Exp. Code']&.strip # Original Exp. Code from CSV
+    fee_type_title = row['费用类型']&.strip # Use 费用类型 for the title field
     
     # Extract problem type information
     en_code = row['EN Code']&.strip
@@ -86,7 +87,7 @@ class ProblemCodeImportService
     standard_handling = row['标准处理方法']&.strip
     
     # Skip if essential data is missing
-    if fee_type_code.blank? || fee_type_title.blank? || en_code.blank? || problem_code.blank? || problem_title.blank?
+    if exp_code.blank? || fee_type_title.blank? || en_code.blank? || problem_code.blank? || problem_title.blank?
       puts "Skipping row due to missing data: #{row.inspect}"
       return [false, false, false, false]
     end
@@ -97,26 +98,36 @@ class ProblemCodeImportService
     problem_type_created = false
     problem_type_updated = false
     
-    # Find or create fee type using title as the unique identifier
-    fee_type = FeeType.find_or_create_by(title: fee_type_title) do |ft|
-      ft.code = fee_type_code
-      ft.meeting_type = @meeting_type
-      ft.active = true
+    # Use the original Exp. Code directly as the fee type code
+    fee_type_code = exp_code
+    
+    # Find fee type by title first
+    fee_type = FeeType.find_by(title: fee_type_title)
+    
+    if fee_type
+      # Update the code if it doesn't match the original exp_code
+      if fee_type.code != fee_type_code
+        fee_type.update(code: fee_type_code)
+        fee_type_updated = true
+      end
+    else
+      # Create a new fee type with the original exp_code
+      fee_type = FeeType.create(
+        code: fee_type_code,
+        title: fee_type_title,
+        meeting_type: @meeting_type,
+        active: true
+      )
       fee_type_created = true
     end
     
     # Update fee type if it exists but has different attributes
     if !fee_type_created && (fee_type.title != fee_type_title || fee_type.meeting_type != @meeting_type)
-      # Find all fee types with the same code and update them
-      FeeType.where(code: fee_type_code).each do |ft|
-        if ft.title != fee_type_title || ft.meeting_type != @meeting_type
-          ft.update(
-            title: fee_type_title,
-            meeting_type: @meeting_type
-          )
-          fee_type_updated = true
-        end
-      end
+      fee_type.update(
+        title: fee_type_title,
+        meeting_type: @meeting_type
+      )
+      fee_type_updated = true
     else
       fee_type_updated = false
     end

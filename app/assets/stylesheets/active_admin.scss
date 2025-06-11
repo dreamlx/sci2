@@ -46,3 +46,13 @@ $info-color: #17a2b8;
   content: " *";
   color: $danger-color;
 }
+
+// 问题类型显示样式
+.problem-type-display, .work-order-with-problems {
+  display: inline-block;
+  max-width: 250px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}

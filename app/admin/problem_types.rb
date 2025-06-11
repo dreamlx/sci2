@@ -36,6 +36,8 @@ ActiveAdmin.register ProblemType do
     column :code
     column :title
     column :fee_type
+    column :sop_description
+    column :standard_handling
     column :active
     column :created_at
     column :updated_at

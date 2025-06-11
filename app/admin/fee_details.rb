@@ -112,26 +112,29 @@ ActiveAdmin.register FeeDetail do
   index do
     selectable_column
     id_column
-    column :reimbursement do |fee_detail|
-      link_to fee_detail.document_number, admin_reimbursement_path(fee_detail.reimbursement) if fee_detail.reimbursement
-    end
-    column "申请人", sortable: false do |fee_detail|
-      fee_detail.reimbursement&.applicant
-    end
-    column "申请人工号", sortable: false do |fee_detail|
-      fee_detail.reimbursement&.applicant_id
-    end
     column :fee_type
-    column :amount do |fee_detail|
+    column "金额", :amount do |fee_detail|
       number_to_currency(fee_detail.amount, unit: "¥")
     end
-    column :fee_date
-    column :month_belonging
-    column :external_fee_id
-    column :verification_status do |fee_detail|
+    column "验证状态", :verification_status do |fee_detail|
       status_tag fee_detail.verification_status
     end
-    column :created_at
+    column "关联工单" do |fee_detail|
+      latest_wo = fee_detail.latest_associated_work_order
+      if latest_wo
+        if latest_wo.problem_types.any?
+          problem_titles = latest_wo.problem_types.map(&:title).join(", ")
+          link_text = "##{latest_wo.id}: #{problem_titles}"
+          link_to link_text, [:admin, latest_wo],
+            class: "work-order-with-problems",
+            title: problem_titles
+        else
+          link_to "##{latest_wo.id}", [:admin, latest_wo]
+        end
+      else
+        "无"
+      end
+    end
     actions
     
     # 添加导出按钮到页面顶部

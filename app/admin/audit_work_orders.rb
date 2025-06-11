@@ -305,6 +305,15 @@ ActiveAdmin.register AuditWorkOrder do
         wo.problem_type ? "#{wo.problem_type.code} - #{wo.problem_type.title}" : nil
       end
     end
+    column "费用明细", :fee_details do |wo|
+      if wo.fee_details.any?
+        wo.fee_details.map do |fd|
+          "##{fd.id} #{fd.fee_type} #{number_to_currency(fd.amount, unit: '¥')}"
+        end.join("<br>").html_safe
+      else
+        "无费用明细"
+      end
+    end
     column :creator
     column :created_at
     # Explicitly define the actions column to prevent defaults from potentially being added elsewhere
