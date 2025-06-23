@@ -79,11 +79,11 @@ class ProblemCodeImportService
     meeting_type = row['会议类型']&.strip
     
     # Extract fee type information
-    exp_code = row['Exp. Code']&.strip # Original Exp. Code from CSV
+    exp_code = row['Expense Code']&.strip # Original Exp. Code from CSV
     fee_type_title = row['费用类型']&.strip # Use 费用类型 for the title field
     
     # Extract problem type information
-    mn_code = row['MN Code']&.strip
+    mn_code = row['Document Code']&.strip
     problem_code = row['Issue Code']&.strip
     problem_title = row['问题类型']&.strip
     sop_description = row['SOP描述']&.strip
