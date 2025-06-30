@@ -36,6 +36,10 @@
 
 sci2_development
 sci2_test
+sci2_development-shm
+sci2_development-wal
+sci2_test-shm
+sci2_test-wal
 
 .auto-coder/
 /actions/
