@@ -281,20 +281,31 @@ ActiveAdmin.register AuditWorkOrder do
   index do
     selectable_column
     id_column
-    column :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
+    column "报销单号", :reimbursement do |wo|
+      link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement)
+    end
     column "处理意见", :processing_opinion do |wo|
       if wo.processing_opinion.present?
         status_class = case wo.processing_opinion
                        when '可以通过'
-                         'green'
+                         'ok'
                        when '无法通过'
-                         'red'
+                         'error'
                        else
-                         'orange'
+                         'warning'
                        end
         status_tag wo.processing_opinion, class: status_class
       else
         span "未填写", class: "empty"
+      end
+    end
+    column "费用明细", :fee_details do |wo|
+      if wo.fee_details.any?
+        wo.fee_details.map do |fd|
+          link_to("##{fd.id}", admin_fee_detail_path(fd)) + " #{fd.fee_type} #{number_to_currency(fd.amount, unit: '¥')}"
+        end.join("<br>").html_safe
+      else
+        "无费用明细"
       end
     end
     column "问题类型", :problem_types do |wo|
@@ -305,18 +316,8 @@ ActiveAdmin.register AuditWorkOrder do
         wo.problem_type ? "#{wo.problem_type.code} - #{wo.problem_type.title}" : nil
       end
     end
-    column "费用明细", :fee_details do |wo|
-      if wo.fee_details.any?
-        wo.fee_details.map do |fd|
-          "##{fd.id} #{fd.fee_type} #{number_to_currency(fd.amount, unit: '¥')}"
-        end.join("<br>").html_safe
-      else
-        "无费用明细"
-      end
-    end
-    column :creator
-    column :created_at
-    # Explicitly define the actions column to prevent defaults from potentially being added elsewhere
+    column "创建人", :creator
+    column "创建时间", :created_at
     column "操作" do |work_order|
       links = ActiveSupport::SafeBuffer.new
       links << link_to("查看", admin_audit_work_order_path(work_order), class: "member_link view_link")
