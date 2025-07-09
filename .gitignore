@@ -44,3 +44,11 @@ sci2_test-wal
 .auto-coder/
 /actions/
 /output.txt
+
+# Ignore database dumps and sensitive data files
+*.sql
+*.dump
+docs/user_data/*.sql
+docs/user_data/*.dump
+docs/user_data/*.csv
+docs/user_data/*.xlsx
