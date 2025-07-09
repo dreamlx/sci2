@@ -7,23 +7,23 @@ ActiveAdmin.register_page "Dashboard" do
         panel "系统概览" do
           div class: 'dashboard-stats' do
             div class: 'stat-box' do
-              h4 "报销单总数"
-              h3 Reimbursement.count
+              h4 "今日导入报销单"
+              h3 Reimbursement.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).count
             end
 
             div class: 'stat-box' do
-              h4 "工单总数"
-              h3 WorkOrder.count
+              h4 "今日导入工单"
+              h3 WorkOrder.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).count
             end
 
             div class: 'stat-box' do
-              h4 "费用明细总数"
-              h3 FeeDetail.count
+              h4 "今日导入费用明细"
+              h3 FeeDetail.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).count
             end
 
             div class: 'stat-box' do
-              h4 "已验证费用明细"
-              h3 FeeDetail.where(verification_status: 'verified').count
+              h4 "今日已验证费用明细"
+              h3 FeeDetail.where(verification_status: 'verified', created_at: Date.current.beginning_of_day..Date.current.end_of_day).count
             end
           end
         end
@@ -77,8 +77,8 @@ ActiveAdmin.register_page "Dashboard" do
       end
 
       column do
-        panel "待处理审核工单" do
-          table_for AuditWorkOrder.pending.includes(:reimbursement).order(created_at: :desc).limit(10) do
+        panel "今日待处理审核工单" do
+          table_for AuditWorkOrder.pending.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).includes(:reimbursement).order(created_at: :desc).limit(10) do
             column("ID") { |wo| link_to(wo.id, admin_audit_work_order_path(wo)) }
             column("报销单") { |wo| link_to(wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement)) }
             column("问题类型") { |wo| wo.problem_type&.display_name }
@@ -89,8 +89,8 @@ ActiveAdmin.register_page "Dashboard" do
           end
         end
 
-        panel "待处理沟通工单" do
-          table_for CommunicationWorkOrder.pending.includes(:reimbursement).order(created_at: :desc).limit(10) do
+        panel "今日待处理沟通工单" do
+          table_for CommunicationWorkOrder.pending.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).includes(:reimbursement).order(created_at: :desc).limit(10) do
             column("ID") { |wo| link_to(wo.id, admin_communication_work_order_path(wo)) }
             column("报销单") { |wo| link_to(wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement)) }
             column("问题类型") { |wo| wo.problem_type&.display_name }
@@ -117,9 +117,10 @@ ActiveAdmin.register_page "Dashboard" do
 
     columns do
       column do
-        panel "我的报销单" do
+        panel "今日分配给我的报销单" do
           table_for Reimbursement.joins(:active_assignment)
                               .where(reimbursement_assignments: { assignee_id: current_admin_user.id })
+                              .where(created_at: Date.current.beginning_of_day..Date.current.end_of_day)
                               .order(created_at: :desc)
                               .limit(10) do
             column :invoice_number do |reimbursement|
@@ -137,9 +138,10 @@ ActiveAdmin.register_page "Dashboard" do
       end
       
       column do
-        panel "未分配的报销单" do
+        panel "今日未分配的报销单" do
           table_for Reimbursement.left_joins(:active_assignment)
                               .where(reimbursement_assignments: { id: nil })
+                              .where(created_at: Date.current.beginning_of_day..Date.current.end_of_day)
                               .order(created_at: :desc)
                               .limit(10) do
             column :invoice_number do |reimbursement|

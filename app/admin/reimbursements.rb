@@ -8,6 +8,29 @@ ActiveAdmin.register Reimbursement do
 
   menu priority: 2, label: "报销单管理"
 
+  # 重新添加scoped_collection方法来确保scope计数使用正确的基础集合
+  controller do
+    private
+    
+    # 确保scope计数和数据显示的正确逻辑
+    def scoped_collection
+      # 获取当前选择的scope
+      current_scope = params[:scope]
+      
+      # 只有在"分配给我的"scope时才过滤数据
+      # 其他所有scope都显示全部数据
+      if current_scope == 'assigned_to_me'
+        end_of_association_chain.assigned_to_user(current_admin_user.id)
+      elsif current_scope.blank?
+        # 空scope参数默认到"分配给我的"
+        end_of_association_chain.assigned_to_user(current_admin_user.id)
+      else
+        # 所有其他scope显示全部数据
+        end_of_association_chain
+      end
+    end
+  end
+
   # 过滤器
   filter :invoice_number
   filter :applicant
@@ -22,17 +45,31 @@ ActiveAdmin.register Reimbursement do
   filter :approval_date
   filter :current_assignee_id, as: :select, collection: -> { AdminUser.all.map { |u| [u.email, u.id] } }, label: "当前处理人"
 
-  # 列表页范围过滤器
-  scope :all, default: true
-  scope :pending
-  scope :processing
-  scope :closed
-  scope "分配给我的", :my_assignments, if: proc { true } do |reimbursements|
-    reimbursements.my_assignments(current_admin_user.id)
+  # 列表页范围过滤器 - 使用标准ActiveRecord scope确保计数一致性
+  scope :all, default: true, label: "全部"
+  
+  # 定义"分配给我的"为默认scope
+  scope "分配给我的", :assigned_to_me, default: true do |reimbursements|
+    reimbursements.assigned_to_user(current_admin_user.id)
   end
+  
+  # 其他scope显示所有数据
+  scope :all, label: "所有"
+  
+  scope :pending, label: "待处理" do |reimbursements|
+    reimbursements.where(status: 'pending')
+  end
+  
+  scope :processing, label: "处理中" do |reimbursements|
+    reimbursements.where(status: 'processing')
+  end
+  
+  scope :closed, label: "已关闭" do |reimbursements|
+    reimbursements.where(status: 'closed')
+  end
+  
   scope :unassigned, label: "未分配的" do |reimbursements|
-    reimbursements.left_joins(:active_assignment)
-                 .where(reimbursement_assignments: { id: nil })
+    reimbursements.left_joins(:active_assignment).where(reimbursement_assignments: { id: nil })
   end
 
   # 批量操作
@@ -53,17 +90,30 @@ ActiveAdmin.register Reimbursement do
      redirect_to collection_path, notice: "已尝试将选中的报销单标记为处理中"
   end
   
-  # 批量分配报销单 - 特别突出显示在未分配页面
+  # 批量分配报销单 - 直接进行权限检查
   batch_action :assign_to,
                title: "批量分配报销单",
-               if: proc { true },
-               class: proc { params[:scope] == 'unassigned' ? 'primary_action' : nil },
+               if: proc {
+                 true # 总是显示，但根据权限决定是否禁用
+               },
+               class: proc {
+                 if params[:scope] == 'unassigned'
+                   current_admin_user.super_admin? ? 'primary_action' : 'disabled_action'
+                 else
+                   current_admin_user.super_admin? ? nil : 'disabled_action'
+                 end
+               },
                form: -> {
     {
       assignee: AdminUser.all.map { |u| [u.email, u.id] },
       notes: :text
     }
   } do |ids, inputs|
+    unless current_admin_user.super_admin?
+      redirect_to collection_path, alert: '您没有权限执行分配操作，请联系超级管理员'
+      return
+    end
+    
     service = ReimbursementAssignmentService.new(current_admin_user)
     results = service.batch_assign(ids, inputs[:assignee], inputs[:notes])
     
@@ -79,8 +129,16 @@ ActiveAdmin.register Reimbursement do
     link_to "导入操作历史", operation_histories_admin_imports_path
   end
   
-  action_item :batch_assign, only: :index do
-    link_to "批量分配报销单", collection_path(action: :batch_assign)
+  action_item :batch_assign, only: :index, if: proc {
+    true # 总是显示，但根据权限决定是否禁用
+  } do
+    css_class = current_admin_user.super_admin? ? "button" : "button disabled_action"
+    title = current_admin_user.super_admin? ? nil : '您没有权限执行分配操作，请联系超级管理员'
+    
+    link_to "批量分配报销单",
+            collection_path(action: :batch_assign),
+            class: css_class,
+            title: title
   end
   
   # 移除默认的编辑和删除按钮
@@ -150,6 +208,28 @@ ActiveAdmin.register Reimbursement do
 
   # 列表页
   index do
+    # 添加角色和权限提示信息
+    div class: "role_notice_panel" do
+      role_display = case current_admin_user.role
+                     when 'admin'
+                       '普通管理员'
+                     when 'super_admin'
+                       '超级管理员'
+                     else
+                       '未知角色'
+                     end
+      
+      div class: "role_info" do
+        span "当前角色: #{role_display}", class: "role_badge"
+      end
+      
+      unless current_admin_user.super_admin?
+        div class: "permission_notice" do
+          span '您没有权限执行分配操作，请联系超级管理员', class: "warning_text"
+        end
+      end
+    end
+    
     selectable_column
     id_column
     column :invoice_number, label: "报销单号"
@@ -426,8 +506,13 @@ ActiveAdmin.register Reimbursement do
     end
   end
   
-  # 报销单分配相关的成员操作
+  # 报销单分配相关的成员操作 - 直接进行权限检查
   member_action :assign, method: :post do
+    unless current_admin_user.super_admin?
+      redirect_to admin_reimbursement_path(resource), alert: '您没有权限执行分配操作，请联系超级管理员'
+      return
+    end
+    
     service = ReimbursementAssignmentService.new(current_admin_user)
     assignment = service.assign(resource.id, params[:assignee_id], params[:notes])
     
@@ -439,6 +524,11 @@ ActiveAdmin.register Reimbursement do
   end
   
   member_action :transfer_assignment, method: :post do
+    unless current_admin_user.super_admin?
+      redirect_to admin_reimbursement_path(resource), alert: '您没有权限执行分配操作，请联系超级管理员'
+      return
+    end
+    
     service = ReimbursementAssignmentService.new(current_admin_user)
     assignment = service.transfer(resource.id, params[:assignee_id], params[:notes])
     
@@ -450,6 +540,11 @@ ActiveAdmin.register Reimbursement do
   end
   
   member_action :unassign, method: :post do
+    unless current_admin_user.super_admin?
+      redirect_to admin_reimbursement_path(resource), alert: '您没有权限执行分配操作，请联系超级管理员'
+      return
+    end
+    
     if resource.active_assignment.present?
       service = ReimbursementAssignmentService.new(current_admin_user)
       if service.unassign(resource.active_assignment.id)
@@ -462,7 +557,7 @@ ActiveAdmin.register Reimbursement do
     end
   end
   
-  # 批量分配相关的集合操作
+  # 批量分配相关的集合操作 - 直接进行权限检查
   collection_action :batch_assign, method: :get do
     # 获取未分配的报销单
     @reimbursements = Reimbursement.left_joins(:active_assignment)
@@ -473,6 +568,11 @@ ActiveAdmin.register Reimbursement do
   end
   
   collection_action :batch_assign, method: :post do
+    unless current_admin_user.super_admin?
+      redirect_to collection_path(action: :batch_assign), alert: '您没有权限执行分配操作，请联系超级管理员'
+      return
+    end
+    
     if params[:reimbursement_ids].blank?
       redirect_to collection_path(action: :batch_assign), alert: "请选择要分配的报销单"
       return
@@ -493,8 +593,13 @@ ActiveAdmin.register Reimbursement do
     end
   end
   
-  # 快速分配
+  # 快速分配 - 直接进行权限检查
   collection_action :quick_assign, method: :post do
+    unless current_admin_user.super_admin?
+      redirect_to admin_dashboard_path, alert: '您没有权限执行分配操作，请联系超级管理员'
+      return
+    end
+    
     if params[:reimbursement_id].blank?
       redirect_to admin_dashboard_path, alert: "请选择要分配的报销单"
       return
@@ -520,4 +625,5 @@ ActiveAdmin.register Reimbursement do
   collection_action :quick_assign_path, method: :get do
     render json: { path: collection_path(action: :quick_assign) }
   end
+  
 end

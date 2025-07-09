@@ -34,6 +34,8 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000010) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "role"
+    t.string "name"
+    t.string "telephone"
     t.index ["email"], name: "index_admin_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_admin_users_on_reset_password_token", unique: true
   end
@@ -84,7 +86,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000010) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["active"], name: "index_fee_types_on_active"
-    t.index ["code"], name: "index_fee_types_on_code"
+    t.index ["code"], name: "index_fee_types_on_code", unique: true
     t.index ["meeting_type"], name: "index_fee_types_on_meeting_type"
   end
 
