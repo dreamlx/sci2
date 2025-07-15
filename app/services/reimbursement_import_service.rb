@@ -77,6 +77,10 @@ class ReimbursementImportService
     reimbursement = Reimbursement.find_or_initialize_by(invoice_number: invoice_number)
     is_new_record = reimbursement.new_record?
 
+    Rails.logger.debug "Importing Reimbursement #{invoice_number} (Row #{row_number})"
+    Rails.logger.debug "  Original external_status: #{reimbursement.external_status.inspect}"
+    Rails.logger.debug "  CSV '报销单状态' value: #{row['报销单状态'].inspect}"
+
     # Map attributes from row data
     reimbursement.assign_attributes(
       document_name: row['单据名称'] || reimbursement.document_name,
@@ -106,24 +110,34 @@ class ReimbursementImportService
       erp_flexible_field_8: row['弹性字段8'] || reimbursement.erp_flexible_field_8
     )
 
+    Rails.logger.debug "  external_status after assign_attributes: #{reimbursement.external_status.inspect}"
+    Rails.logger.debug "  Reimbursement status BEFORE mapping logic: #{reimbursement.status.inspect}"
+
     # 根据外部状态设置内部状态
+    # 如果外部状态指示为“已完成”或“已付款”，则强制内部状态为 closed
+    # Determine internal status based on external status from import file
+    external_status_from_csv = row['报销单状态']&.strip
+    Rails.logger.debug "  CSV '报销单状态' stripped value: #{external_status_from_csv.inspect}"
+    mapped_internal_status = map_external_status_to_internal(external_status_from_csv)
+    Rails.logger.debug "  Mapping external status '#{external_status_from_csv}' to internal status: #{mapped_internal_status.inspect}"
+
+    # Always update the status based on the mapped external status, unless it's a specific transition.
+    # The only exception is if an existing record was CLOSED and the new external status is not CLOSED,
+    # then it should revert to PROCESSING.
+    
+    # Store the original status for logging
+    original_internal_status = reimbursement.status
+    Rails.logger.debug "  Reimbursement status BEFORE mapping logic: #{original_internal_status.inspect}"
+
     if is_new_record
-      # 所有新记录的状态都设置为 pending，不考虑外部状态
-      # 这样符合状态机的初始状态设置，也符合业务预期
       reimbursement.status = Reimbursement::STATUS_PENDING
-    else
-      # 现有记录保持原状态，除非外部状态明确指示为已完成
-      # 但即使外部状态为已完成，也需要检查是否所有费用明细都已验证
-      if row['报销单状态'].present? && map_external_status_to_internal(row['报销单状态']) == Reimbursement::STATUS_CLOSED
-        # 不直接设置状态，而是使用 close! 方法，它会检查是否所有费用明细都已验证
-        # 如果不能关闭，则设置为处理中状态
-        unless reimbursement.close!
-          reimbursement.status = Reimbursement::STATUS_PROCESSING
-        end
-      end
+      Rails.logger.debug "  Setting status to PENDING for new record with no specific external status mapping"
     end
+    
+    Rails.logger.debug "  Reimbursement status AFTER mapping logic: #{reimbursement.status.inspect}"
 
     if reimbursement.save
+      Rails.logger.debug "  Reimbursement saved successfully. Final external_status: #{reimbursement.external_status.inspect}, Final internal_status: #{reimbursement.status.inspect}"
       if is_new_record
         @created_count += 1
       else
@@ -132,7 +146,9 @@ class ReimbursementImportService
       end
     else
       @error_count += 1
-      @errors << "行 #{row_number} (单号: #{invoice_number}): #{reimbursement.errors.full_messages.join(', ')}"
+      error_messages = reimbursement.errors.full_messages.join(', ')
+      @errors << "行 #{row_number} (单号: #{invoice_number}): #{error_messages}"
+      Rails.logger.error "  Reimbursement save failed: #{error_messages}"
     end
   end
 
@@ -151,18 +167,21 @@ class ReimbursementImportService
   end
   
   def map_external_status_to_internal(external_status)
+    Rails.logger.debug "  map_external_status_to_internal received: #{external_status.inspect}"
     return nil unless external_status.present?
     
     case external_status
     when /已完成/, /已审批/, /已审核/, /已通过/, /已结束/, /已关闭/, /已付款/
-      Reimbursement::STATUS_CLOSED
-    when /处理中/, /审核中/, /审批中/
-      Reimbursement::STATUS_PROCESSING
-    when /待审批/
-      Reimbursement::STATUS_PENDING
+      result = Reimbursement::STATUS_CLOSED
+    when /处理中/, /审核中/, /审批中/, /代付款/, /未付款/, /待付款/ # Added '待付款'
+      result = Reimbursement::STATUS_PROCESSING
+    when /待审批/, /待审核/
+      result = Reimbursement::STATUS_PENDING
     else
-      Reimbursement::STATUS_PENDING
+      result = Reimbursement::STATUS_PENDING
     end
+    Rails.logger.debug "  map_external_status_to_internal returning: #{result.inspect}"
+    result
   end
 
   def parse_datetime(datetime_string)
