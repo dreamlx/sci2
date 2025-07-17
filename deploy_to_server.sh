@@ -17,33 +17,32 @@ fi
 echo "=== Preparing remote directory ==="
 ssh ${REMOTE_USER}@${REMOTE_HOST} <<EOF
   mkdir -p ${REMOTE_DIR}
-  # Preserve database files by moving them to a temporary location
-  mkdir -p ${REMOTE_DIR}_db_backup
-  if [ -d "${REMOTE_DIR}/db" ]; then
-    cp -r ${REMOTE_DIR}/db/*.sqlite3 ${REMOTE_DIR}_db_backup/ 2>/dev/null || true
-    cp -r ${REMOTE_DIR}/config/database.yml ${REMOTE_DIR}_db_backup/ 2>/dev/null || true
-  fi
   
-  # Remove all files except database files
+  # Remove all files
   rm -rf ${REMOTE_DIR}/*
   
-  # Create db directory if it doesn't exist
+  # Create required directories
   mkdir -p ${REMOTE_DIR}/db
   mkdir -p ${REMOTE_DIR}/config
-  
-  # Restore database files
-  if [ -d "${REMOTE_DIR}_db_backup" ]; then
-    cp -r ${REMOTE_DIR}_db_backup/*.sqlite3 ${REMOTE_DIR}/db/ 2>/dev/null || true
-    cp -r ${REMOTE_DIR}_db_backup/database.yml ${REMOTE_DIR}/config/ 2>/dev/null || true
-  fi
 EOF
 
-# Step 2: Copy files (excluding .git, node_modules, etc.)
+# Step 2: Initialize local database and run admin users seed
+echo "=== Initializing local database ==="
+bundle exec rails db:create db:migrate
+
+echo "=== Running admin users seed locally ==="
+bundle exec rails runner "load 'db/seeds/admin_users_seed.rb'"
+
+# Step 3: Copy files (excluding .git, node_modules, etc.)
 echo "=== Copying files to server ==="
 rsync -avz --progress --exclude='.git/' --exclude='node_modules/' --exclude='tmp/' \
   ${LOCAL_DIR}/ ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/
+  
+# Upload local SQLite database (with seeded admin users) to overwrite server database
+echo "=== Uploading seeded local database to server ==="
+rsync -avz --progress ${LOCAL_DIR}/db/*.sqlite3 ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/db/
 
-# Step 3: Setup environment with Chinese mirrors
+# Step 4: Setup environment with Chinese mirrors
 echo "=== Setting up environment with Chinese mirrors ==="
 ssh ${REMOTE_USER}@${REMOTE_HOST} <<EOF
   # Change to project directory

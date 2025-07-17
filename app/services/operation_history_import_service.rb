@@ -116,6 +116,10 @@ class OperationHistoryImportService
     
     if operation_history.save
       @imported_count += 1
+      if reimbursement.closed?
+        reimbursement.reopen_to_processing!
+        @updated_reimbursement_count += 1
+      end
     else
       @error_count += 1
       @errors << "行 #{row_number} (单号: #{document_number}): #{operation_history.errors.full_messages.join(', ')}"
