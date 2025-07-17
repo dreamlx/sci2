@@ -14,6 +14,12 @@ ActiveAdmin.register Reimbursement do
     
     # 确保scope计数和数据显示的正确逻辑
     def scoped_collection
+      # 如果是查看单个报销单（show action），则不应用任何scope，直接返回所有报销单
+      # 这样可以确保即使报销单未分配给当前用户，也能通过ID查看到
+      if params[:id].present?
+        return end_of_association_chain
+      end
+
       # 获取当前选择的scope
       current_scope = params[:scope]
       
@@ -37,7 +43,7 @@ ActiveAdmin.register Reimbursement do
   filter :company, label: "公司", as: :string
   filter :department, label: "部门", as: :string
   filter :status, label: "内部状态", as: :select, collection: Reimbursement.state_machines[:status].states.map(&:value)
-  filter :external_status, label: "外部状态"
+  filter :external_status, label: "外部状态", as: :select, collection: ["审批中", "已付款", "代付款", "待审核"]
   filter :receipt_status, as: :select, collection: ["pending", "received"]
   filter :is_electronic, as: :boolean
   filter :document_tags, label: "单据标签", as: :string
@@ -46,30 +52,30 @@ ActiveAdmin.register Reimbursement do
   filter :current_assignee_id, as: :select, collection: -> { AdminUser.all.map { |u| [u.email, u.id] } }, label: "当前处理人"
 
   # 列表页范围过滤器 - 使用标准ActiveRecord scope确保计数一致性
-  scope :all, default: true, label: "全部"
+  scope :all, default: true, label: "全部", show_count: false
   
   # 定义"分配给我的"为默认scope
-  scope "分配给我的", :assigned_to_me, default: true do |reimbursements|
+  scope "分配给我的", :assigned_to_me, default: true, show_count: false do |reimbursements|
     reimbursements.assigned_to_user(current_admin_user.id)
   end
   
   # 其他scope显示所有数据
-  scope :all, label: "所有"
+  #scope :all, label: "所有", show_count: false
   
-  scope :pending, label: "待处理" do |reimbursements|
+  scope :pending, label: "待处理", show_count: false do |reimbursements|
     reimbursements.where(status: 'pending')
   end
   
-  scope :processing, label: "处理中" do |reimbursements|
+  scope :processing, label: "处理中", show_count: false do |reimbursements|
     reimbursements.where(status: 'processing')
   end
   
-  scope :closed, label: "已关闭" do |reimbursements|
+  scope :closed, label: "已关闭", show_count: false do |reimbursements|
     reimbursements.where(status: 'closed')
   end
   
-  scope :unassigned, label: "未分配的" do |reimbursements|
-    reimbursements.left_joins(:active_assignment).where(reimbursement_assignments: { id: nil })
+  scope :unassigned, label: "未分配的", show_count: false do |reimbursements|
+    reimbursements.left_joins(:active_assignment).where(reimbursement_assignments: { id: nil }, status: 'pending')
   end
 
   # 批量操作
@@ -181,7 +187,7 @@ ActiveAdmin.register Reimbursement do
       cancel_path: admin_reimbursements_path,
       instructions: [
         "请上传CSV格式文件",
-        "文件必须包含以下列：报销单单号,单据名称,报销单申请人,报销单申请人工号,申请人公司,申请人部门,收单状态,收单日期,关联申请单号,提交报销日期,记账日期,报销单状态,当前审批节点,当前审批人,报销单审核通过日期,审核通过人,报销金额（单据币种）,弹性字段2,当前审批节点转入时间,首次提交时间,单据标签,弹性字段8",
+        "文件必须包含以下列：报销单单号,单据名称,报销单申请人,报销单申请人工号,申请人公司,申请人部门,收单状态,收单日期,关联申请单号,提交报销日期,记账日期,报销单状态 (此列的值将导入到外部状态字段),当前审批节点,当前审批人,报销单审核通过日期,审核通过人,报销金额（单据币种）,弹性字段2,当前审批节点转入时间,首次提交时间,单据标签,弹性字段8",
         "如果报销单已存在（根据报销单单号判断），将更新现有记录",
         "如果报销单不存在，将创建新记录"
       ]
@@ -263,7 +269,9 @@ ActiveAdmin.register Reimbursement do
           row :department
           row :amount do |reimbursement| number_to_currency(reimbursement.amount, unit: "¥") end
           row "内部状态", :status do |reimbursement| status_tag reimbursement.status end
-          row "外部状态", :external_status
+          row "外部状态", :external_status do |reimbursement|
+            reimbursement.external_status.presence || "空" # Display "空" if value is blank
+          end
           row :receipt_status do |reimbursement| status_tag reimbursement.receipt_status end
           row :receipt_date
           row :submission_date
@@ -458,7 +466,9 @@ ActiveAdmin.register Reimbursement do
       f.input :department
       f.input :amount, min: 0.01
       f.input :status, label: "内部状态", as: :select, collection: Reimbursement.state_machines[:status].states.map(&:value), include_blank: false
-      f.input :external_status, label: "外部状态", input_html: { readonly: true }
+      f.input :external_status, label: "外部状态", as: :select, 
+  collection: ["审批中", "已付款", "代付款", "待审核"],
+  include_blank: false
       f.input :receipt_status, as: :select, collection: ["pending", "received"]
       f.input :receipt_date, as: :datepicker
       f.input :submission_date, as: :datepicker

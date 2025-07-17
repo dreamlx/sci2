@@ -12,7 +12,7 @@ ActiveAdmin.register_page "Dashboard" do
             end
 
             div class: 'stat-box' do
-              h4 "今日导入工单"
+              h4 "今日导入快递收单"
               h3 WorkOrder.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).count
             end
 
@@ -22,8 +22,8 @@ ActiveAdmin.register_page "Dashboard" do
             end
 
             div class: 'stat-box' do
-              h4 "今日已验证费用明细"
-              h3 FeeDetail.where(verification_status: 'verified', created_at: Date.current.beginning_of_day..Date.current.end_of_day).count
+              h4 "今日导入操作历史记录"
+              h3 OperationHistory.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).count
             end
           end
         end
@@ -76,43 +76,7 @@ ActiveAdmin.register_page "Dashboard" do
 
       end
 
-      column do
-        panel "今日待处理审核工单" do
-          table_for AuditWorkOrder.pending.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).includes(:reimbursement).order(created_at: :desc).limit(10) do
-            column("ID") { |wo| link_to(wo.id, admin_audit_work_order_path(wo)) }
-            column("报销单") { |wo| link_to(wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement)) }
-            column("问题类型") { |wo| wo.problem_type&.display_name }
-            column("创建时间") { |wo| wo.created_at.strftime("%Y-%m-%d %H:%M") }
-          end
-          div class: 'panel-footer' do
-            link_to "查看全部", admin_audit_work_orders_path(scope: 'pending'), class: "button"
-          end
-        end
 
-        panel "今日待处理沟通工单" do
-          table_for CommunicationWorkOrder.pending.where(created_at: Date.current.beginning_of_day..Date.current.end_of_day).includes(:reimbursement).order(created_at: :desc).limit(10) do
-            column("ID") { |wo| link_to(wo.id, admin_communication_work_order_path(wo)) }
-            column("报销单") { |wo| link_to(wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement)) }
-            column("问题类型") { |wo| wo.problem_type&.display_name }
-            column("创建时间") { |wo| wo.created_at.strftime("%Y-%m-%d %H:%M") }
-          end
-          div class: 'panel-footer' do
-            link_to "查看全部", admin_communication_work_orders_path(scope: 'pending'), class: "button"
-          end
-        end
-
-        # panel "需要沟通的工单" do
-        #   table_for CommunicationWorkOrder.needs_communication.includes(:reimbursement).order(created_at: :desc).limit(10) do
-        #     column("ID") { |wo| link_to(wo.id, admin_communication_work_order_path(wo)) }
-        #     column("报销单") { |wo| link_to(wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement)) }
-        #     column("问题类型") { |wo| wo.problem_type }
-        #     column("创建时间") { |wo| wo.created_at.strftime("%Y-%m-%d %H:%M") }
-        #   end
-        #   div class: 'panel-footer' do
-        #     link_to "查看全部", admin_communication_work_orders_path(scope: 'needs_communication'), class: "button"
-        #   end
-        # end
-      end
     end
 
     columns do
@@ -159,7 +123,6 @@ ActiveAdmin.register_page "Dashboard" do
       end
     end
     
-
 
     # 移除了快速操作和最近验证的费用明细区块
   end
