@@ -18,13 +18,19 @@
       <li><strong>标准处理方法</strong> - 问题的标准处理方法</li>
     </ul>
     
+    <p><strong>注意：</strong> 费用类型代码将自动生成为 Meeting Code + Expense Code 的组合</p>
+    
     <p>示例CSV格式：</p>
     <pre>
-MN Code,Meeting Code,会议类型,Exp. Code,费用类型,Issue Code,问题类型,SOP描述,标准处理方法
-MN030101,03,学术论坛,01,会议讲课费,01,系统与签到人数不一致,系统实际内外部参会人数与签到表不一致,请确认实际内外部参会人数，并解释说明
-MN030102,03,学术论坛,01,会议讲课费,02,学术活动变更,学会活动变更会议时间、会议地点需提供企业微信变更流程或变更审批邮件,请提供
-MN030201,03,学术论坛,02,小型医学沟通会餐费,01,系统与会议议程不一致,会议议程内容与系统填报的实际会议情况不一致,请确认并提供更新的会议议程
+Document Code,Meeting Code,会议类型,Expense Code,费用类型,Issue Code,问题类型,SOP描述,标准处理方法
+EN000101,00,个人,01,月度交通费（销售/SMO/CO),01,燃油费行程问题,根据SOP规定，月度交通费报销燃油费需提供每张燃油费的使用时间区间，行程为医院的需具体到科室,请根据要求在评论区将行程补充完整
     </pre>
+    
+    <p><strong>在上面的例子中：</strong></p>
+    <ul>
+      <li>费用类型代码将为 "0001"（Meeting Code "00" + Expense Code "01"）</li>
+      <li>问题类型代码将为 "EN000101"（Document Code）</li>
+    </ul>
   </div>
 </div>
 
@@ -60,8 +66,9 @@ MN030201,03,学术论坛,02,小型医学沟通会餐费,01,系统与会议议程
   <div class="panel_contents">
     <ul>
       <li>CSV文件必须使用UTF-8编码</li>
-      <li>CSV文件必须包含Meeting Code列，用于自动匹配会议类型</li>
-      <li>如果费用类型代码已存在，将更新其名称</li>
+      <li>CSV文件必须包含Meeting Code列和Expense Code列，用于生成费用类型代码</li>
+      <li><strong>费用类型代码</strong>将自动生成为 Meeting Code + Expense Code 的组合</li>
+      <li>如果费用类型代码已存在，将更新其名称和会议类型</li>
       <li>如果问题代码在同一费用类型下已存在，将更新其信息</li>
       <li>所有导入的费用类型和问题类型默认为激活状态</li>
     </ul>

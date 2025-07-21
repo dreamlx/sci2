@@ -101,11 +101,11 @@ class ProblemCodeImportService
     problem_type_created = false
     problem_type_updated = false
     
-    # Use the original Exp. Code directly as the fee type code
-    fee_type_code = exp_code
+    # 使用 Meeting Code + Expense Code 作为费用类型代码
+    fee_type_code = "#{meeting_code}#{exp_code}"
     
-    # Find fee type by title first
-    fee_type = FeeType.find_by(title: fee_type_title)
+    # 优先按code查找费用类型，确保正确的更新或创建逻辑
+    fee_type = FeeType.find_by(code: fee_type_code)
     
     if fee_type
       # Update the code if it doesn't match the original exp_code
