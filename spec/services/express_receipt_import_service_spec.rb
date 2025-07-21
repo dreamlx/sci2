@@ -77,7 +77,7 @@ RSpec.describe ExpressReceiptImportService do
         expect(work_orders.all? { |wo| wo.status == 'completed' }).to be true
       end
       
-      it 'updates reimbursement status' do
+      it 'updates reimbursement receipt status but not internal status' do
         # Create a test spreadsheet
         spreadsheet = double('spreadsheet')
         
@@ -92,10 +92,13 @@ RSpec.describe ExpressReceiptImportService do
         reimbursement1.reload
         reimbursement2.reload
         
+        # 验证收单状态已更新
         expect(reimbursement1.receipt_status).to eq('received')
-        expect(reimbursement1.status).to eq('processing')
         expect(reimbursement2.receipt_status).to eq('received')
-        expect(reimbursement2.status).to eq('processing')
+        
+        # 验证内部状态保持不变
+        expect(reimbursement1.status).to eq('pending')
+        expect(reimbursement2.status).to eq('pending')
       end
       
       it 'tracks unmatched receipts' do

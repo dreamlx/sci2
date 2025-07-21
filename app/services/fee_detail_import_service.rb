@@ -72,9 +72,9 @@ class FeeDetailImportService
   private
   
   def import_fee_detail(row, row_number)
-    external_id = row['费用id']&.strip
-    document_number = row['报销单单号']&.strip
-    fee_type = row['费用类型']&.strip
+    external_id = row['费用id']&.to_s&.strip
+    document_number = row['报销单单号']&.to_s&.strip
+    fee_type = row['费用类型']&.to_s&.strip
     amount_str = row['原始金额']
     fee_date_str = row['费用发生日期']
     
@@ -91,7 +91,18 @@ class FeeDetailImportService
       return
     end
     
-    fee_detail = FeeDetail.find_or_initialize_by(external_fee_id: external_id)
+    # 检查是否已存在具有此external_id的费用明细
+    existing_fee_detail = FeeDetail.find_by(external_fee_id: external_id)
+    
+    # 检查现有费用明细是否具有不同的document_number
+    if existing_fee_detail && existing_fee_detail.document_number != document_number
+      @skipped_due_to_error_count += 1
+      @errors << "行 #{row_number} (费用ID: #{external_id}): 该费用ID已存在于系统中，但关联的报销单号不匹配。现有报销单号: #{existing_fee_detail.document_number}, 导入报销单号: #{document_number}"
+      return
+    end
+    
+    # 如果到达这里，要么费用明细不存在，要么它存在且具有相同的document_number
+    fee_detail = existing_fee_detail || FeeDetail.new(external_fee_id: external_id)
     is_new_record = fee_detail.new_record?
 
     attributes = {
@@ -100,16 +111,16 @@ class FeeDetailImportService
       amount: parse_decimal(amount_str),
       fee_date: parse_date(fee_date_str),
       verification_status: fee_detail.verification_status || FeeDetail::VERIFICATION_STATUS_PENDING, # Preserve status if existing, else default
-      month_belonging: row['所属月']&.strip,
-      first_submission_date: parse_datetime(row['首次提交日期']&.strip), # Ensure this is intended for fee_detail
+      month_belonging: row['所属月']&.to_s&.strip,
+      first_submission_date: parse_datetime(row['首次提交日期']&.to_s&.strip), # Ensure this is intended for fee_detail
       # New fields
-      plan_or_pre_application: row['计划/预申请']&.strip,
-      product: row['产品']&.strip,
-      flex_field_11: row['弹性字段11']&.strip,
-      flex_field_6: row['弹性字段6']&.strip,
-      flex_field_7: row['弹性字段7']&.strip,
-      expense_corresponding_plan: row['费用对应计划']&.strip,
-      expense_associated_application: row['费用关联申请单']&.strip,
+      plan_or_pre_application: row['计划/预申请']&.to_s&.strip,
+      product: row['产品']&.to_s&.strip,
+      flex_field_11: row['弹性字段11']&.to_s&.strip,
+      flex_field_6: row['弹性字段6']&.to_s&.strip,
+      flex_field_7: row['弹性字段7']&.to_s&.strip,
+      expense_corresponding_plan: row['费用对应计划']&.to_s&.strip,
+      expense_associated_application: row['费用关联申请单']&.to_s&.strip,
       # notes: fee_detail.notes # Preserve existing notes or update if CSV has notes
     }
     

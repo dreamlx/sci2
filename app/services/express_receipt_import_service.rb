@@ -113,7 +113,7 @@ class ExpressReceiptImportService
         @created_count += 1
         # 更新报销单状态
         reimbursement.mark_as_received(received_at) # 更新收单状态/日期
-        reimbursement.start_processing! if reimbursement.pending? # 更新内部状态
+        # 不再更新内部状态，根据新需求导入快递收单不改变报销单内部状态
       else
         @error_count += 1
         error_messages = work_order.errors.full_messages.join(', ')
