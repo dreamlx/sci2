@@ -50,6 +50,7 @@ class Reimbursement < ApplicationRecord
   scope :closed, -> { where(status: STATUS_CLOSED) }
   scope :electronic, -> { where(is_electronic: true) }
   scope :non_electronic, -> { where(is_electronic: false) }
+  scope :unassigned, -> { left_joins(:active_assignment).where(reimbursement_assignments: { id: nil }) }
   
   # Class methods for scopes (for shoulda-matchers compatibility)
   def self.pending
