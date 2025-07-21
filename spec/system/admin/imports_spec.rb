@@ -178,9 +178,9 @@ RSpec.describe "Admin CSV Imports", type: :system do
       reimbursement = Reimbursement.find_by(invoice_number: 'ER14228251')
       expect(reimbursement.express_receipt_work_orders).to include(work_order)
       
-      # Verify reimbursement status update
+      # Verify reimbursement receipt status update but internal status remains unchanged
       expect(reimbursement.receipt_status).to eq('received')
-      expect(reimbursement.status).to eq('processing')
+      expect(reimbursement.status).to eq('pending') # 根据新需求，导入快递收单不改变报销单内部状态
     end
     
     it "handles unmatched express receipts (IMP-E-002)" do

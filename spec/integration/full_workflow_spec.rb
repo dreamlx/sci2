@@ -56,8 +56,9 @@ RSpec.describe "Full Workflow Integration", type: :model do
     end
     expect(ExpressReceiptWorkOrder.count).to eq(10)
     expect(ExpressReceiptWorkOrder.all.pluck(:status).uniq).to eq(['completed'])
-    # 验证报销单状态未变
-    expect(Reimbursement.all.pluck(:status).uniq).to eq(['processing'])
+    # 验证报销单状态未变 - 根据新需求，导入快递收单不改变报销单内部状态
+    expect(Reimbursement.all.pluck(:status).uniq).to eq(['pending'])
+    expect(Reimbursement.all.pluck(:receipt_status).uniq).to eq(['received'])
     puts "快递收单导入完成，共 #{ExpressReceiptWorkOrder.count} 条工单，状态：#{ExpressReceiptWorkOrder.all.pluck(:status).uniq}"
 
     # 导入费用明细

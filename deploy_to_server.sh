@@ -85,6 +85,10 @@ ssh ${REMOTE_USER}@${REMOTE_HOST} <<EOF
   # Setup database (only run migrations, don't create or reset)
   echo "Setting up database (running migrations only)..."
   bundle exec rails db:migrate
+  
+  # Create sessions table for ActiveRecord session store
+  echo "Creating sessions table..."
+  bundle exec rails db:sessions:create
 
   # Start development server
   echo "Starting development server..."

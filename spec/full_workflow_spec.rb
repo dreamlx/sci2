@@ -128,9 +128,10 @@ RSpec.describe "Full Workflow Integration Test", type: :model do
         expect(work_order.creator).to eq(admin_user)
       end
 
-      # Verify Reimbursement status is updated to processing
+      # Verify Reimbursement receipt status is updated but internal status remains unchanged
       Reimbursement.all.each do |reimbursement|
-        expect(reimbursement.status).to eq('processing')
+        expect(reimbursement.receipt_status).to eq('received')
+        expect(reimbursement.status).to eq('pending') # 根据新需求，导入快递收单不改变报销单内部状态
       end
     end
 

@@ -21,12 +21,16 @@ RSpec.describe "Complete Business Flows", type: :integration do
       problem_description = create(:problem_description, problem_type: problem_type, description: "发票信息不完整")
       
       # 1. 导入快递收单，创建ExpressReceiptWorkOrder
-      # 创建快递收单工单应该自动触发报销单状态更新为processing
+      # 根据新需求，创建快递收单工单不再自动触发报销单状态更新为processing
       express_work_order = create(:express_receipt_work_order, reimbursement: reimbursement)
       
-      # 验证报销单状态已更新
+      # 验证报销单收单状态已更新，但内部状态保持不变
       reimbursement.reload
-      expect(reimbursement.status).to eq('processing')
+      expect(reimbursement.receipt_status).to eq('received')
+      expect(reimbursement.status).to eq('pending')
+      
+      # 手动更新状态以继续测试流程
+      reimbursement.start_processing!
       
       # 2. 创建审核工单
       # 先构建工单对象
@@ -102,12 +106,16 @@ RSpec.describe "Complete Business Flows", type: :integration do
       problem_description = create(:problem_description, problem_type: problem_type, description: "发票金额与申报金额不符")
       
       # 1. 导入快递收单，创建ExpressReceiptWorkOrder
-      # 创建快递收单工单应该自动触发报销单状态更新为processing
+      # 根据新需求，创建快递收单工单不再自动触发报销单状态更新为processing
       express_work_order = create(:express_receipt_work_order, reimbursement: reimbursement)
       
-      # 验证报销单状态已更新
+      # 验证报销单收单状态已更新，但内部状态保持不变
       reimbursement.reload
-      expect(reimbursement.status).to eq('processing')
+      expect(reimbursement.receipt_status).to eq('received')
+      expect(reimbursement.status).to eq('pending')
+      
+      # 手动更新状态以继续测试流程
+      reimbursement.start_processing!
       
       # 2. 创建审核工单
       # 先构建工单对象
