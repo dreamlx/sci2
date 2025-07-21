@@ -293,10 +293,7 @@ ActiveAdmin.register CommunicationWorkOrder do
   # 详情页
   show title: proc{|wo| "沟通工单 ##{wo.id}" } do
     
-    # reimbursement display partial (原"基本信息"Tab内容)
-    if resource.reimbursement.present?
-      render 'admin/reimbursements/reimbursement_display', reimbursement: resource.reimbursement
-    end
+
 
     # attributes_table (原"基本信息"Tab内容)
     attributes_table do
@@ -312,80 +309,35 @@ ActiveAdmin.register CommunicationWorkOrder do
     end
   
     # 工单相关信息专用显示区
-    panel "工单相关信息" do
-      columns do
-        column do
-          panel "费用类型" do
-            # 从费用明细中提取费用类型字符串
-            fee_type_strings = resource.fee_details.map(&:fee_type).compact.uniq
-            
-            if fee_type_strings.any?
-              # 显示费用类型字符串
-              table_for fee_type_strings do
-                column "费用类型名称" do |fee_type_string|
-                  fee_type_string
-                end
-                column "系统匹配" do |fee_type_string|
-                  # 尝试查找匹配的FeeType对象（仅匹配title）
-                  fee_type = FeeType.find_by(title: fee_type_string)
-                  if fee_type
-                    status_tag "已匹配", class: "green"
-                  else
-                    status_tag "未匹配", class: "red"
-                  end
-                end
-              end
-            else
-              para "无关联费用类型"
-            end
-          end
-        end
-        
-        column do
-          panel "问题类型" do
-            if resource.problem_types.any?
-              table_for resource.problem_types do
-                column "编码", :code
-                column "名称", :display_name
-                column "关联费用类型" do |problem_type|
-                  if problem_type.fee_type
-                    span do
-                      status_tag "已关联", class: "green"
-                      text_node " #{problem_type.fee_type.display_name}"
-                    end
-                  else
-                    status_tag "未关联费用类型", class: "orange"
-                  end
-                end
-              end
-            else
-              para "无问题类型"
-            end
-          end
-        end
+
+    panel "问题类型" do
+          # reimbursement display partial (原"基本信息"Tab内容)
+      if resource.reimbursement.present?
+        render 'admin/reimbursements/reimbursement_display', reimbursement: resource.reimbursement
       end
-      
-      panel "审核意见" do
-        attributes_table_for resource do
-          row :processing_opinion do |wo|
-            if wo.processing_opinion.present?
-              status_class = case wo.processing_opinion
-                             when '可以通过'
-                               'green'
-                             when '无法通过'
-                               'red'
-                             else
-                               'orange'
-                             end
-              status_tag wo.processing_opinion, class: status_class
+      if resource.problem_types.any?
+        table_for resource.problem_types do
+          column "编码", :code
+          column "名称", :display_name
+          column "问题描述" do |problem_type|
+            "#{problem_type.sop_description} | #{problem_type.standard_handling}"
+          end
+          column "关联费用类型" do |problem_type|
+            if problem_type.fee_type
+              span do
+                status_tag "已关联", class: "green"
+                text_node " #{problem_type.fee_type.display_name}"
+              end
             else
-              span "未填写", class: "empty"
+              status_tag "未关联费用类型", class: "orange"
             end
           end
-          row :audit_comment
         end
+      else
+        para "无问题类型"
       end
     end
+
 
     # panel for Fee Details (原"费用明细"Tab内容)
     panel "关联的费用明细" do

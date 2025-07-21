@@ -103,8 +103,7 @@ ActiveAdmin.register_page "Dashboard" do
       
       column do
         panel "今日未分配的报销单" do
-          table_for Reimbursement.left_joins(:active_assignment)
-                              .where(reimbursement_assignments: { id: nil })
+          table_for Reimbursement.unassigned
                               .where(created_at: Date.current.beginning_of_day..Date.current.end_of_day)
                               .order(created_at: :desc)
                               .limit(10) do
@@ -118,6 +117,8 @@ ActiveAdmin.register_page "Dashboard" do
           end
           div do
             link_to "查看所有未分配的报销单", admin_reimbursements_path(scope: 'unassigned'), class: "button"
+            span style: "margin: 0 5px;"
+            link_to "查看当天未分配的报销单", admin_reimbursements_path(scope: 'unassigned', q: { created_at_gteq: Date.current.beginning_of_day, created_at_lteq: Date.current.end_of_day }), class: "button"
           end
         end
       end

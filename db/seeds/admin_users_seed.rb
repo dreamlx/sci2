@@ -6,7 +6,7 @@ puts "Creating admin users from old system..."
 admin_users_data = [
   {
     email: 'alex.lu@think-bridge.com',
-    encrypted_password: '$2a$12$eyJtvA.5/Tjf.lh4A3EPbOoh//g5QbVZYttTrupZwVbU77izsJ6Ym',
+    encrypted_password: '$2a$12$j9k3NwjIe/mZiwh4Cnhyae7eC4OruznsN9m4Nu4KEZ71ytqRwnvAK',
     name: 'Alex Lu',
     telephone: '(021) 6375 8318 - 225',
     role: 'admin',
@@ -15,7 +15,7 @@ admin_users_data = [
   },
   {
     email: 'jojo.sun@think-bridge.com',
-    encrypted_password: '$2a$12$qKsMVW0NB0fr8ZN7qILqgeXlnKHGcnkVC8EXdkwfCOSHbQPcpCdjm',
+    encrypted_password: '$2a$12$j9k3NwjIe/mZiwh4Cnhyae7eC4OruznsN9m4Nu4KEZ71ytqRwnvAK',
     name: 'Jojo Sun',
     telephone: '(021) 6375 8318 - 307',
     role: 'admin',
@@ -25,7 +25,7 @@ admin_users_data = [
   },
   {
     email: 'steve.zhou@think-bridge.com',
-    encrypted_password: '$2a$12$ISbvUlLJPfqQa/HPe5eK8.NytA60VcdKWlFeEi4vMZfEizwa4HfGa',
+    encrypted_password: '$2a$12$j9k3NwjIe/mZiwh4Cnhyae7eC4OruznsN9m4Nu4KEZ71ytqRwnvAK',
     name: 'Steve Zhou',
     telephone: '(021) 6375 8318 - 296',
     role: 'admin',
@@ -35,7 +35,7 @@ admin_users_data = [
   },
   {
     email: 'cheng.qian@think-bridge.com',
-    encrypted_password: '$2a$12$XJTu132oJY2wZ8e.oBM/7OHUWr1.sib7kL3mWHdJ8Dy0isSWuIAhq',
+    encrypted_password: '$2a$12$j9k3NwjIe/mZiwh4Cnhyae7eC4OruznsN9m4Nu4KEZ71ytqRwnvAK',
     name: 'Cheng Qian',
     telephone: '(021) 6375 8318 - 308',
     role: 'admin',
@@ -44,7 +44,7 @@ admin_users_data = [
   },
   {
     email: 'ken.wang@think-bridge.com',
-    encrypted_password: '$2a$12$l30GaQhtBvKVU8wvSNWxoOAIWh2oU503co5/wWxQs7Y6ysZyNFiq2',
+    encrypted_password: '$2a$12$j9k3NwjIe/mZiwh4Cnhyae7eC4OruznsN9m4Nu4KEZ71ytqRwnvAK',
     name: 'Ken Wang',
     telephone: '',
     role: 'admin',
@@ -53,7 +53,7 @@ admin_users_data = [
   },
   {
     email: 'zedong.wu@think-bridge.com',
-    encrypted_password: '$2a$12$85HPuPnaaq0Zxc.haTYhYOGFCH92o08x0itZljHa0gea0bQ3PbpkG',
+    encrypted_password: '$2a$12$j9k3NwjIe/mZiwh4Cnhyae7eC4OruznsN9m4Nu4KEZ71ytqRwnvAK',
     name: 'Zedong Wu',
     telephone: '(021) 6375 8318 - 307',
     role: 'admin',
@@ -62,7 +62,7 @@ admin_users_data = [
   },
   {
     email: 'ada.qiu@think-bridge.com',
-    encrypted_password: '$2a$12$Z4mBzSCipRhIeq4CWA1dZ.7y1xb9ADW.7I2Suwl3lE4.LIvuRUoO.',
+    encrypted_password: '$2a$12$j9k3NwjIe/mZiwh4Cnhyae7eC4OruznsN9m4Nu4KEZ71ytqRwnvAK',
     name: 'Ada Qiu',
     telephone: '(021) 6375 8318 - 307',
     role: 'admin',
@@ -72,7 +72,7 @@ admin_users_data = [
   },
   {
     email: 'dora.yang@think-bridge.com',
-    encrypted_password: '$2a$12$RhKR3ggxSNahkFXbaRRfr.cqRaWVGt3scu6ksqNTh3QAeylIVaTZC',
+    encrypted_password: '$2a$12$j9k3NwjIe/mZiwh4Cnhyae7eC4OruznsN9m4Nu4KEZ71ytqRwnvAK',
     name: 'Dora Yang',
     telephone: '(021) 6375 8318 - 307',
     role: 'admin',
@@ -82,7 +82,7 @@ admin_users_data = [
   },
   {
     email: 'amy.wu@think-bridge.com',
-    encrypted_password: '$2a$12$9xKNx4kjLdMntMc94PzKZOHiZOSZFZHjxjkkeY4e9JM0Uc0j5dOO2',
+    encrypted_password: '$2a$12$j9k3NwjIe/mZiwh4Cnhyae7eC4OruznsN9m4Nu4KEZ71ytqRwnvAK',
     name: 'Amy Wu',
     telephone: '(021) 6375 8318 - 307',
     role: 'admin',
@@ -92,7 +92,7 @@ admin_users_data = [
   },
   {
     email: 'lily.dai@think-bridge.com',
-    encrypted_password: '$2a$12$G2Eg9nvGJIlYFTk92UnEH.6A37tBDlGZ2Wzu6mZYGaLx0dcqXKMia',
+    encrypted_password: '$2a$12$j9k3NwjIe/mZiwh4Cnhyae7eC4OruznsN9m4Nu4KEZ71ytqRwnvAK',
     name: 'Lily Dai',
     telephone: nil,
     role: 'admin',
@@ -101,7 +101,7 @@ admin_users_data = [
   },
   {
     email: 'jack.wang@think-bridge.com',
-    encrypted_password: '$2a$12$bjt0AQoKTRRiq7k/DNo2O.2W8VuzwM16SB7NevC6D9lqiMVzmk6SS',
+    encrypted_password: '$2a$12$j9k3NwjIe/mZiwh4Cnhyae7eC4OruznsN9m4Nu4KEZ71ytqRwnvAK',
     name: 'Jack Wang',
     telephone: '(021) 6375 8318 - 307',
     role: 'admin',
@@ -110,7 +110,7 @@ admin_users_data = [
   },
   {
     email: 'dshen.gu@think-bridge.com',
-    encrypted_password: '$2a$12$oSlXXxy9KwgFSWMnf8HKNudQaSJJ9hvQ0a83yXhGVYXf9h9u/kxOW',
+    encrypted_password: '$2a$12$j9k3NwjIe/mZiwh4Cnhyae7eC4OruznsN9m4Nu4KEZ71ytqRwnvAK',
     name: 'Dshen Gu',
     telephone: '(021) 6375 8318 - 307',
     role: 'admin',
@@ -119,7 +119,7 @@ admin_users_data = [
   },
   {
     email: 'bob.wang@think-bridge.com',
-    encrypted_password: '$2a$12$eMVQI7j4kAMpDrFpFEh.DOelfNTEKBALmjiVOsyGSCiQ5RP9KSP2y',
+    encrypted_password: '$2a$12$j9k3NwjIe/mZiwh4Cnhyae7eC4OruznsN9m4Nu4KEZ71ytqRwnvAK',
     name: 'Bob Wang',
     telephone: '(021) 6375 8318 - 307',
     role: 'admin',
@@ -129,7 +129,7 @@ admin_users_data = [
   },
   {
     email: 'amos.lin@think-bridge.com',
-    encrypted_password: '$2a$12$L/Jep7NJdtQoyXQiOhQL1.Czu5FH5KxoNlnm0iHfvrv3/1GgsnuUu',
+    encrypted_password: '$2a$12$j9k3NwjIe/mZiwh4Cnhyae7eC4OruznsN9m4Nu4KEZ71ytqRwnvAK',
     name: 'Amos Lin',
     telephone: '',
     role: 'admin',
