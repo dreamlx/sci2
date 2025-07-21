@@ -80,7 +80,9 @@ class Reimbursement < ApplicationRecord
       .distinct
   end
   
-  # 定义my_assignments scope
+  # 定义my_assignments scope作为assigned_to_user的别名
+  # 这是为了向后兼容，因为dashboard和其他地方使用了scope=my_assignments参数
+  # 推荐在新代码中使用assigned_to_user方法或assigned_to_me scope
   scope :my_assignments, ->(user_id) { assigned_to_user(user_id) }
   
   # ActiveAdmin configuration

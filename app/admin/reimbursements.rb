@@ -20,18 +20,52 @@ ActiveAdmin.register Reimbursement do
         return end_of_association_chain
       end
 
-      # 获取当前选择的scope
+      # 获取当前选择的scope和用户角色
       current_scope = params[:scope]
+      is_super_admin = current_admin_user.super_admin?
       
-      # 只有在"分配给我的"scope时才过滤数据
-      # 其他所有scope都显示全部数据
-      if current_scope == 'assigned_to_me'
+      # 根据不同的scope和用户角色应用相应的过滤器
+      case current_scope
+      when 'assigned_to_me', 'my_assignments'
+        # "分配给我的"或"我的报销单"scope - 显示分配给当前用户的报销单
+        # 对所有角色都一样
         end_of_association_chain.assigned_to_user(current_admin_user.id)
-      elsif current_scope.blank?
+      when 'pending'
+        if is_super_admin
+          # 超级管理员可以看到所有待处理的报销单
+          end_of_association_chain.where(status: 'pending')
+        else
+          # 普通管理员只能看到分配给自己的待处理报销单
+          end_of_association_chain.assigned_to_user(current_admin_user.id).where(status: 'pending')
+        end
+      when 'processing'
+        if is_super_admin
+          # 超级管理员可以看到所有处理中的报销单
+          end_of_association_chain.where(status: 'processing')
+        else
+          # 普通管理员只能看到分配给自己的处理中报销单
+          end_of_association_chain.assigned_to_user(current_admin_user.id).where(status: 'processing')
+        end
+      when 'closed'
+        if is_super_admin
+          # 超级管理员可以看到所有已关闭的报销单
+          end_of_association_chain.where(status: 'closed')
+        else
+          # 普通管理员只能看到分配给自己的已关闭报销单
+          end_of_association_chain.assigned_to_user(current_admin_user.id).where(status: 'closed')
+        end
+      when 'unassigned'
+        # "未分配的"scope - 显示未分配的报销单
+        # 所有角色都可以看到，但只有超级管理员可以分配（这在批量操作中控制）
+        end_of_association_chain.left_joins(:active_assignment).where(reimbursement_assignments: { id: nil }, status: 'pending')
+      when nil, ''
         # 空scope参数默认到"分配给我的"
         end_of_association_chain.assigned_to_user(current_admin_user.id)
+      when 'all'
+        # "全部"scope - 显示所有数据，不考虑角色
+        end_of_association_chain
       else
-        # 所有其他scope显示全部数据
+        # 其他scope - 显示所有数据
         end_of_association_chain
       end
     end
@@ -52,15 +86,17 @@ ActiveAdmin.register Reimbursement do
   filter :current_assignee_id, as: :select, collection: -> { AdminUser.all.map { |u| [u.email, u.id] } }, label: "当前处理人"
 
   # 列表页范围过滤器 - 使用标准ActiveRecord scope确保计数一致性
-  scope :all, default: true, label: "全部", show_count: false
+  scope :all, label: "全部", show_count: false
   
   # 定义"分配给我的"为默认scope
   scope "分配给我的", :assigned_to_me, default: true, show_count: false do |reimbursements|
     reimbursements.assigned_to_user(current_admin_user.id)
   end
   
-  # 其他scope显示所有数据
-  #scope :all, label: "所有", show_count: false
+  # 为了兼容性，添加my_assignments作为assigned_to_me的别名
+  scope "我的报销单", :my_assignments, show_count: false do |reimbursements|
+    reimbursements.assigned_to_user(current_admin_user.id)
+  end
   
   scope :pending, label: "待处理", show_count: false do |reimbursements|
     reimbursements.where(status: 'pending')
