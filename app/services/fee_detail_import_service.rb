@@ -9,6 +9,8 @@ class FeeDetailImportService
     @errors = [] # Stores detailed error messages for rows that couldn't be processed
     @unmatched_reimbursement_count = 0 # Renamed from unmatched_details.count
     @unmatched_reimbursement_details = [] # Renamed from unmatched_details
+    @reimbursement_number_updated_count = 0 # Track count of reimbursement number updates
+    @reimbursement_number_updates = [] # Track details of reimbursement number updates
     Current.admin_user = current_admin_user # 设置 Current.admin_user 用于回调
   end
   
@@ -51,6 +53,7 @@ class FeeDetailImportService
         success: @errors.empty?,
         created: @created_count,
         updated: @updated_count,
+        reimbursement_number_updated: @reimbursement_number_updated_count,
         unmatched_reimbursement: @unmatched_reimbursement_count,
         skipped_errors: @skipped_due_to_error_count,
         error_details: error_summary,
@@ -96,9 +99,27 @@ class FeeDetailImportService
     
     # 检查现有费用明细是否具有不同的document_number
     if existing_fee_detail && existing_fee_detail.document_number != document_number
-      @skipped_due_to_error_count += 1
-      @errors << "行 #{row_number} (费用ID: #{external_id}): 该费用ID已存在于系统中，但关联的报销单号不匹配。现有报销单号: #{existing_fee_detail.document_number}, 导入报销单号: #{document_number}"
-      return
+      # Check if the new reimbursement exists
+      new_reimbursement = Reimbursement.find_by(invoice_number: document_number)
+      unless new_reimbursement
+        @skipped_due_to_error_count += 1
+        @errors << "行 #{row_number} (费用ID: #{external_id}): 无法更新报销单号，新的报销单号 #{document_number} 不存在于系统中"
+        return
+      end
+      
+      # Store the old reimbursement for status update
+      old_reimbursement = Reimbursement.find_by(invoice_number: existing_fee_detail.document_number)
+      
+      # Track this change for reporting
+      @reimbursement_number_updated_count += 1
+      @reimbursement_number_updates << {
+        row: row_number,
+        fee_id: external_id,
+        old_number: existing_fee_detail.document_number,
+        new_number: document_number
+      }
+      
+      # Continue with the update (the document_number will be updated in the attributes assignment below)
     end
     
     # 如果到达这里，要么费用明细不存在，要么它存在且具有相同的document_number
@@ -138,6 +159,12 @@ class FeeDetailImportService
       
       # 更新报销单状态，确保与费用明细状态保持一致
       reimbursement.update_status_based_on_fee_details!
+      
+      # Update status of old reimbursement if we changed the document_number
+      if existing_fee_detail && existing_fee_detail.document_number != document_number && defined?(old_reimbursement) && old_reimbursement
+        # Update status of old reimbursement since a fee detail was removed
+        old_reimbursement.update_status_based_on_fee_details!
+      end
     else
       @skipped_due_to_error_count += 1
       @errors << "行 #{row_number} (费用ID: #{external_id}): 保存失败 - #{fee_detail.errors.full_messages.join(', ')}"

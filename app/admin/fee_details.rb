@@ -37,7 +37,7 @@ ActiveAdmin.register FeeDetail do
         "其他有用字段：所属月,首次提交日期,计划/预申请,产品,弹性字段6,弹性字段7,费用对应计划,费用关联申请单,备注",
         "系统会根据报销单号关联到已存在的报销单",
         "如果费用明细已存在（根据费用id判断）且报销单号相同，将更新现有记录",
-        "如果费用明细已存在但报销单号不同，将跳过该记录并报告错误",
+        "如果费用明细已存在但报销单号不同，将更新费用明细的报销单号（前提是新报销单号存在于系统中）",
         "如果费用明细不存在，将创建新记录"
       ]
     }
@@ -54,6 +54,7 @@ ActiveAdmin.register FeeDetail do
 
     if result[:success]
       notice_message = "导入成功: #{result[:created]} 创建, #{result[:updated]} 更新."
+      notice_message += " #{result[:reimbursement_number_updated]} 报销单号已更新." if result[:reimbursement_number_updated].to_i > 0
       notice_message += " #{result[:skipped_errors]} 错误." if result[:skipped_errors].to_i > 0
       notice_message += " #{result[:unmatched_count]} 未匹配的报销单." if result[:unmatched_count].to_i > 0
       redirect_to admin_fee_details_path, notice: notice_message
