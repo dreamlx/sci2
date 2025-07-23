@@ -106,6 +106,10 @@ ActiveAdmin.register FeeDetail do
       end
     end
     
+    # 添加 UTF-8 BOM，以便 Excel 正确识别 UTF-8 编码
+    bom = "\xEF\xBB\xBF"
+    csv_data = bom + csv_data
+    
     send_data csv_data,
               type: 'text/csv; charset=utf-8; header=present',
               disposition: "attachment; filename=费用明细_#{Time.current.strftime('%Y%m%d%H%M%S')}.csv"
