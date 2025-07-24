@@ -84,6 +84,7 @@ class WorkOrder < ApplicationRecord
   
   # 回调
   after_create :log_creation
+  after_create :update_reimbursement_status_on_create
   after_update :log_update
   after_save :process_submitted_fee_details, if: -> { @_direct_submitted_fee_ids.present? }
   after_save :process_problem_types, if: -> { @problem_type_ids.present? }
@@ -212,6 +213,27 @@ class WorkOrder < ApplicationRecord
         details: "更新: #{change_details}",
         admin_user_id: Current.admin_user&.id
       ) if defined?(WorkOrderOperation)
+    end
+  end
+  
+  # 根据工单类型更新报销单状态
+  def update_reimbursement_status_on_create
+    # 只为审核工单和沟通工单更新状态
+    if is_a?(AuditWorkOrder) || is_a?(CommunicationWorkOrder)
+      # 只有当报销单处于pending状态时才更新
+      if reimbursement.pending?
+        # 添加调试日志
+        Rails.logger.debug "WorkOrder#update_reimbursement_status_on_create: 更新报销单 ##{reimbursement.id} 状态，从 #{reimbursement.status} 到 processing"
+        
+        # 触发状态机事件，将状态更改为processing
+        reimbursement.start_processing
+        
+        Rails.logger.debug "WorkOrder#update_reimbursement_status_on_create: 报销单状态更新后: #{reimbursement.status}"
+      else
+        Rails.logger.debug "WorkOrder#update_reimbursement_status_on_create: 报销单 ##{reimbursement.id} 不是 pending 状态，当前状态: #{reimbursement.status}"
+      end
+    else
+      Rails.logger.debug "WorkOrder#update_reimbursement_status_on_create: 工单类型 #{self.class.name} 不需要更新报销单状态"
     end
   end
 end
