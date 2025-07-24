@@ -1,11 +1,34 @@
 #!/bin/bash
 set -e
 
-# Configuration
+# Default configuration
 REMOTE_USER="root"
 REMOTE_HOST="47.97.35.0"
 REMOTE_DIR="/var/www/sci2"
 LOCAL_DIR="."
+UPLOAD_DB=false
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --upload-db)
+      UPLOAD_DB=true
+      shift
+      ;;
+    -h|--help)
+      echo "Usage: $0 [options]"
+      echo "Options:"
+      echo "  --upload-db    Upload local database to server (default: false)"
+      echo "  -h, --help     Show this help message"
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1"
+      echo "Use -h or --help to see available options"
+      exit 1
+      ;;
+  esac
+done
 
 # Check if SSH is available
 if ! command -v ssh &> /dev/null; then
@@ -33,14 +56,24 @@ bundle exec rails db:create db:migrate
 echo "=== Running admin users seed locally ==="
 bundle exec rails runner "load 'db/seeds/admin_users_seed.rb'"
 
-# Step 3: Copy files (excluding .git, node_modules, etc.)
+# Step 3: Copy files (excluding .git, node_modules, databases, etc.)
 echo "=== Copying files to server ==="
 rsync -avz --progress --exclude='.git/' --exclude='node_modules/' --exclude='tmp/' \
+  --exclude='db/*.sqlite3' --exclude='sci2_development*' --exclude='sci2_test*' \
   ${LOCAL_DIR}/ ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/
   
-# Upload local SQLite database (with seeded admin users) to overwrite server database
-echo "=== Uploading seeded local database to server ==="
-rsync -avz --progress ${LOCAL_DIR}/db/*.sqlite3 ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/db/
+# Upload local SQLite database if requested
+if [ "$UPLOAD_DB" = true ]; then
+  echo "=== Uploading local database to server ==="
+  # Upload database files from db/ directory
+  rsync -avz --progress ${LOCAL_DIR}/db/*.sqlite3 ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/db/
+  
+  # Upload database files from root directory
+  rsync -avz --progress ${LOCAL_DIR}/sci2_development* ${LOCAL_DIR}/sci2_test* ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/
+  echo "=== Database upload completed ==="
+else
+  echo "=== Skipping database upload (use --upload-db to upload) ==="
+fi
 
 # Step 4: Setup environment with Chinese mirrors
 echo "=== Setting up environment with Chinese mirrors ==="
