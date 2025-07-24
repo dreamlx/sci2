@@ -438,6 +438,7 @@ DEPENDENCIES
   devise
   factory_bot_rails
   groupdate
+  inherited_resources (~> 1.7)
   jquery-rails
   jsbundling-rails
   puma (~> 6.1)

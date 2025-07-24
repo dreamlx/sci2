@@ -68,6 +68,7 @@ end
 gem 'devise'
 # Use ActiveAdmin for admin interface
 gem 'activeadmin'
+gem 'inherited_resources', '~> 1.7'
 # Use state_machines for state management
 gem 'state_machines'
 gem 'state_machines-activerecord'

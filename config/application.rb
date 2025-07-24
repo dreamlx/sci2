@@ -1,6 +1,8 @@
 require_relative "boot"
 
 require "rails/all"
+require 'inherited_resources'
+puts "InheritedResources loaded: #{defined?(InheritedResources::Base)}"
 
 # Require state_machines/active_record early
 require 'state_machines-activerecord'
