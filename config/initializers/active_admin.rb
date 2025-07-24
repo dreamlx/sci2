@@ -1,3 +1,5 @@
+require 'inherited_resources'
+
 ActiveAdmin.setup do |config|
   # == Site Title
   #

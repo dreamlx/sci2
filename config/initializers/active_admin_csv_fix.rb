@@ -12,8 +12,8 @@ Rails.application.config.after_initialize do
     
     # Add UTF-8 BOM for Excel compatibility
     alias_method :original_index, :index
-    def index(options={}, &block)
-      original_index(options, &block)
+    def index(&block)
+      original_index(&block)
       
       if request.format.csv?
         response.body = "\xEF\xBB\xBF" + response.body

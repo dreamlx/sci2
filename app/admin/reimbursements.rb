@@ -10,6 +10,12 @@ ActiveAdmin.register Reimbursement do
 
   # 重新添加scoped_collection方法来确保scope计数使用正确的基础集合
   controller do
+    # 当用户查看详情页面时，标记当前报销单为已查看
+    def show
+      resource.mark_all_as_viewed!
+      super
+    end
+    
     private
     
     # 确保scope计数和数据显示的正确逻辑
@@ -84,6 +90,7 @@ ActiveAdmin.register Reimbursement do
   filter :created_at
   filter :approval_date
   filter :current_assignee_id, as: :select, collection: -> { AdminUser.all.map { |u| [u.email, u.id] } }, label: "当前处理人"
+  filter :with_unviewed_records, label: '有新通知', as: :boolean
 
   # 列表页范围过滤器 - 使用标准ActiveRecord scope确保计数一致性
   scope :all, label: "全部", show_count: false
@@ -112,6 +119,11 @@ ActiveAdmin.register Reimbursement do
   
   scope :unassigned, label: "未分配的", show_count: false do |reimbursements|
     reimbursements.left_joins(:active_assignment).where(reimbursement_assignments: { id: nil }, status: 'pending')
+  end
+  
+  # 添加有新通知的scope
+  scope "有新通知", :with_unviewed_records, show_count: false do |reimbursements|
+    reimbursements.with_unviewed_records
   end
 
   # 批量操作
@@ -285,6 +297,21 @@ ActiveAdmin.register Reimbursement do
     column "内部状态", :status do |reimbursement| status_tag reimbursement.status end
     column :current_assignee, label: "当前分配人员" do |reimbursement|
       reimbursement.current_assignee&.email || "未分配"
+    end
+    column "通知状态", :sortable => false do |reimbursement|
+      span do
+        if reimbursement.has_unviewed_express_receipts?
+          status_tag "+快", class: "warning" # 使用现有的warning样式（橙色）
+        end
+        
+        if reimbursement.has_unviewed_operation_histories?
+          status_tag "+记", class: "error" # 使用现有的error样式（红色）
+        end
+        
+        unless reimbursement.has_unviewed_records?
+          status_tag "--", class: "completed" # 使用现有的completed样式（绿色）
+        end
+      end
     end
     actions defaults: false do |reimbursement|
       item "查看", admin_reimbursement_path(reimbursement), class: "member_link"

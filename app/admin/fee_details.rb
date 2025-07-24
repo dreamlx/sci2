@@ -1,5 +1,16 @@
 ActiveAdmin.register FeeDetail do
   actions :index, :show
+  
+  # 启用批量操作功能
+  config.batch_actions = true
+  
+  # 添加一个简单的批量操作
+  batch_action :mark_as_verified do |ids|
+    batch_action_collection.find(ids).each do |fee_detail|
+      fee_detail.update(verification_status: 'verified')
+    end
+    redirect_to collection_path, notice: "已将选中的费用明细标记为已验证"
+  end
   permit_params :reimbursement_id, :document_number, :fee_type, :amount, :fee_date,
                 :verification_status, :notes, :external_fee_id, :month_belonging,
                 :first_submission_date, :plan_or_pre_application, :product,

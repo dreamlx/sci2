@@ -3,6 +3,7 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
 
   menu priority: 3, label: "快递收单工单", parent: "工单管理"
   config.sort_order = 'created_at_desc'
+  actions :all, except: [:new]
 
   controller do
     def scoped_collection
