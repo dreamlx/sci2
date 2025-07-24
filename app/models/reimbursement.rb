@@ -85,6 +85,58 @@ class Reimbursement < ApplicationRecord
   # 推荐在新代码中使用assigned_to_user方法或assigned_to_me scope
   scope :my_assignments, ->(user_id) { assigned_to_user(user_id) }
   
+  # 通知相关方法和查询范围
+  
+  # 检查是否有未查看的操作历史
+  def has_unviewed_operation_histories?
+    return true if last_viewed_operation_histories_at.nil?
+    operation_histories.where('created_at > ?', last_viewed_operation_histories_at).exists?
+  end
+  
+  # 检查是否有未查看的快递收单
+  def has_unviewed_express_receipts?
+    return true if last_viewed_express_receipts_at.nil?
+    express_receipt_work_orders.where('created_at > ?', last_viewed_express_receipts_at).exists?
+  end
+  
+  # 检查是否有任何未查看的记录
+  def has_unviewed_records?
+    has_unviewed_operation_histories? || has_unviewed_express_receipts?
+  end
+  
+  # 标记操作历史为已查看
+  def mark_operation_histories_as_viewed!
+    update(last_viewed_operation_histories_at: Time.current)
+  end
+  
+  # 标记快递收单为已查看
+  def mark_express_receipts_as_viewed!
+    update(last_viewed_express_receipts_at: Time.current)
+  end
+  
+  # 标记所有记录为已查看
+  def mark_all_as_viewed!
+    update(
+      last_viewed_operation_histories_at: Time.current,
+      last_viewed_express_receipts_at: Time.current
+    )
+  end
+  
+  # 查询范围：有未查看操作历史的报销单
+  scope :with_unviewed_operation_histories, -> {
+    where('last_viewed_operation_histories_at IS NULL OR EXISTS (SELECT 1 FROM operation_histories WHERE operation_histories.document_number = reimbursements.invoice_number AND operation_histories.created_at > reimbursements.last_viewed_operation_histories_at)')
+  }
+  
+  # 查询范围：有未查看快递收单的报销单
+  scope :with_unviewed_express_receipts, -> {
+    where('last_viewed_express_receipts_at IS NULL OR EXISTS (SELECT 1 FROM work_orders WHERE work_orders.reimbursement_id = reimbursements.id AND work_orders.type = ? AND work_orders.created_at > reimbursements.last_viewed_express_receipts_at)', 'ExpressReceiptWorkOrder')
+  }
+  
+  # 查询范围：有任何未查看记录的报销单
+  scope :with_unviewed_records, -> {
+    with_unviewed_operation_histories.or(with_unviewed_express_receipts)
+  }
+  
   # ActiveAdmin configuration
   def self.ransackable_attributes(auth_object = nil)
     %w[id invoice_number document_name applicant applicant_id company department
@@ -98,6 +150,11 @@ class Reimbursement < ApplicationRecord
   def self.ransackable_associations(auth_object = nil)
     %w[fee_details work_orders audit_work_orders communication_work_orders
        express_receipt_work_orders operation_histories active_assignment current_assignee]
+  end
+  
+  # 定义可用于Ransack搜索的scope
+  def self.ransackable_scopes(auth_object = nil)
+    %w[with_unviewed_records]
   end
   
   # Custom ransacker for current_assignee_id
