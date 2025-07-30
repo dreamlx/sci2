@@ -81,12 +81,21 @@ class FeeDetailImportService
     amount_str = row['原始金额']
     fee_date_str = row['费用发生日期']
     
-    unless external_id.present? && document_number.present? && fee_type.present? && amount_str.present? && fee_date_str.present?
+    # 严格要求 external_fee_id 存在
+    if external_id.blank?
       @skipped_due_to_error_count += 1
-      @errors << "行 #{row_number}: 缺少必要字段 (费用id, 报销单单号, 费用类型, 金额, 费用发生日期)"
+      @errors << "行 #{row_number}: 缺少必要字段 (费用id)，请在源系统中补全后重新导入"
       return
     end
     
+    # 检查其他必要字段
+    unless document_number.present? && fee_type.present? && amount_str.present? && fee_date_str.present?
+      @skipped_due_to_error_count += 1
+      @errors << "行 #{row_number}: 缺少必要字段 (报销单单号, 费用类型, 金额, 费用发生日期)"
+      return
+    end
+    
+    # 检查报销单是否存在
     reimbursement = Reimbursement.find_by(invoice_number: document_number)
     unless reimbursement
       @unmatched_reimbursement_count += 1
@@ -94,12 +103,12 @@ class FeeDetailImportService
       return
     end
     
-    # 检查是否已存在具有此external_id的费用明细
+    # 简化重复检测逻辑：仅使用 external_fee_id 作为唯一标识符
     existing_fee_detail = FeeDetail.find_by(external_fee_id: external_id)
     
     # 检查现有费用明细是否具有不同的document_number
     if existing_fee_detail && existing_fee_detail.document_number != document_number
-      # Check if the new reimbursement exists
+      # 检查新的报销单是否存在
       new_reimbursement = Reimbursement.find_by(invoice_number: document_number)
       unless new_reimbursement
         @skipped_due_to_error_count += 1
@@ -107,10 +116,10 @@ class FeeDetailImportService
         return
       end
       
-      # Store the old reimbursement for status update
+      # 存储旧的报销单以更新状态
       old_reimbursement = Reimbursement.find_by(invoice_number: existing_fee_detail.document_number)
       
-      # Track this change for reporting
+      # 跟踪此变更以进行报告
       @reimbursement_number_updated_count += 1
       @reimbursement_number_updates << {
         row: row_number,
@@ -119,10 +128,11 @@ class FeeDetailImportService
         new_number: document_number
       }
       
-      # Continue with the update (the document_number will be updated in the attributes assignment below)
+      # 记录此重大变更
+      Rails.logger.info "费用明细 #{external_id} 正在从报销单 #{existing_fee_detail.document_number} 移动到 #{document_number}"
     end
     
-    # 如果到达这里，要么费用明细不存在，要么它存在且具有相同的document_number
+    # 如果找到现有记录，则更新；否则创建新记录
     fee_detail = existing_fee_detail || FeeDetail.new(external_fee_id: external_id)
     is_new_record = fee_detail.new_record?
 
@@ -131,10 +141,10 @@ class FeeDetailImportService
       fee_type: fee_type,
       amount: parse_decimal(amount_str),
       fee_date: parse_date(fee_date_str),
-      verification_status: fee_detail.verification_status || FeeDetail::VERIFICATION_STATUS_PENDING, # Preserve status if existing, else default
+      verification_status: fee_detail.verification_status || FeeDetail::VERIFICATION_STATUS_PENDING, # 保留现有状态，否则默认
       month_belonging: row['所属月']&.to_s&.strip,
-      first_submission_date: parse_datetime(row['首次提交日期']&.to_s&.strip), # Ensure this is intended for fee_detail
-      # New fields
+      first_submission_date: parse_datetime(row['首次提交日期']&.to_s&.strip),
+      # 新字段
       plan_or_pre_application: row['计划/预申请']&.to_s&.strip,
       product: row['产品']&.to_s&.strip,
       flex_field_11: row['弹性字段11']&.to_s&.strip,
@@ -142,32 +152,31 @@ class FeeDetailImportService
       flex_field_7: row['弹性字段7']&.to_s&.strip,
       expense_corresponding_plan: row['费用对应计划']&.to_s&.strip,
       expense_associated_application: row['费用关联申请单']&.to_s&.strip,
-      # notes: fee_detail.notes # Preserve existing notes or update if CSV has notes
     }
     
-    # Filter out nil values from attributes to prevent overwriting existing valid data with nil from CSV
-    # unless you specifically want to nil out fields based on CSV.
-    # For now, we'll assign all mapped attributes.
     fee_detail.assign_attributes(attributes)
     
     if fee_detail.save
       if is_new_record
         @created_count += 1
+        Rails.logger.info "创建新费用明细: external_fee_id=#{external_id}, document_number=#{document_number}"
       else
         @updated_count += 1
+        Rails.logger.info "更新现有费用明细: external_fee_id=#{external_id}, document_number=#{document_number}"
       end
       
       # 更新报销单状态，确保与费用明细状态保持一致
       reimbursement.update_status_based_on_fee_details!
       
-      # Update status of old reimbursement if we changed the document_number
+      # 如果我们更改了document_number，则更新旧报销单的状态
       if existing_fee_detail && existing_fee_detail.document_number != document_number && defined?(old_reimbursement) && old_reimbursement
-        # Update status of old reimbursement since a fee detail was removed
+        # 更新旧报销单的状态，因为费用明细已被移除
         old_reimbursement.update_status_based_on_fee_details!
       end
     else
       @skipped_due_to_error_count += 1
       @errors << "行 #{row_number} (费用ID: #{external_id}): 保存失败 - #{fee_detail.errors.full_messages.join(', ')}"
+      Rails.logger.error "保存费用明细失败: external_fee_id=#{external_id}, errors=#{fee_detail.errors.full_messages.join(', ')}"
     end
   end
   

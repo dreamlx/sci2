@@ -113,6 +113,14 @@ class ExpressReceiptImportService
         @created_count += 1
         # 更新报销单状态
         reimbursement.mark_as_received(received_at) # 更新收单状态/日期
+        
+        # 重置通知状态，确保新的快递收单工单会触发通知
+        # 如果last_viewed_express_receipts_at已设置，将其设为nil以触发通知
+        if reimbursement.last_viewed_express_receipts_at.present?
+          reimbursement.update_column(:last_viewed_express_receipts_at, nil)
+          Rails.logger.debug "ExpressReceiptImportService: 重置报销单 ##{reimbursement.id} 的通知状态"
+        end
+        
         # 不再更新内部状态，根据新需求导入快递收单不改变报销单内部状态
       else
         @error_count += 1

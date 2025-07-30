@@ -63,7 +63,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000011) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.text "notes"
-    t.string "external_fee_id"
+    t.string "external_fee_id", null: false
     t.string "plan_or_pre_application"
     t.string "product"
     t.string "flex_field_11"
@@ -73,6 +73,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000011) do
     t.string "flex_field_7"
     t.index ["document_number"], name: "index_fee_details_on_document_number"
     t.index ["external_fee_id"], name: "index_fee_details_on_external_fee_id", unique: true
+    t.index ["external_fee_id"], name: "index_fee_details_on_external_fee_id_unique", unique: true
     t.index ["fee_date"], name: "index_fee_details_on_fee_date"
     t.index ["verification_status"], name: "index_fee_details_on_verification_status"
   end

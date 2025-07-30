@@ -91,10 +91,11 @@ class OperationHistoryImportService
       )
       Rails.logger.info "Found #{potential_duplicates.count} potential duplicates."
 
-      # Check if any potential duplicate has an operation_time within a small time window
+      # Check if any potential duplicate has exactly the same operation_time
       is_duplicate = potential_duplicates.any? do |existing_history|
-        existing_history.operation_time.present? &&
-        (existing_history.operation_time - operation_time).abs <= 5.seconds # 5秒容差
+        result = existing_history.operation_time.present? && existing_history.operation_time == operation_time
+        Rails.logger.info "Checking duplicate: existing_time=#{existing_history.operation_time}, current_time=#{operation_time}, is_duplicate=#{result}"
+        result # 精确匹配，不使用时间窗口
       end
 
       if is_duplicate

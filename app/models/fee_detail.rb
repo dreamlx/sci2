@@ -18,7 +18,7 @@ class FeeDetail < ApplicationRecord
   # Validations
   validates :document_number, presence: true
   validates :verification_status, inclusion: { in: VERIFICATION_STATUSES }
-  validates :external_fee_id, uniqueness: true, allow_nil: true
+  validates :external_fee_id, presence: true, uniqueness: true
   validates :amount, numericality: { greater_than_or_equal_to: 0, allow_nil: true }
   
   # Callbacks
