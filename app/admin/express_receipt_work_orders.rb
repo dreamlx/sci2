@@ -86,6 +86,40 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
     column :creator
     column :created_at
     actions
+    
+    div class: "action_items" do
+      span class: "action_item" do
+        link_to "导出CSV", export_csv_admin_express_receipt_work_orders_path(q: params[:q]), class: "button"
+      end
+    end
+  end
+
+  collection_action :export_csv, method: :get do
+    work_orders = ExpressReceiptWorkOrder.includes(reimbursement: :fee_details)
+      .ransack(params[:q]).result
+      
+    csv_data = CSV.generate(headers: true, force_quotes: true) do |csv|
+      csv << ["ID", "报销单号", "快递单号", "快递公司", "收单日期", "状态", "创建人", "创建时间", "费用明细单号"]
+      
+      work_orders.find_each do |wo|
+        document_numbers = wo.reimbursement&.fee_details&.pluck(:document_number)&.uniq&.join(", ") || ""
+        csv << [
+          wo.id,
+          wo.reimbursement&.invoice_number,
+          wo.tracking_number,
+          wo.courier_name,
+          wo.received_at&.to_date,
+          wo.status,
+          wo.creator&.email,
+          wo.created_at,
+          document_numbers
+        ]
+      end
+    end
+    
+    send_data csv_data,
+              type: 'text/csv; charset=utf-8; header=present',
+              disposition: "attachment; filename=快递收单工单_#{Time.current.strftime('%Y%m%d%H%M%S')}.csv"
   end
 
   # 详情页

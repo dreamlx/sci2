@@ -288,6 +288,43 @@ ActiveAdmin.register CommunicationWorkOrder do
       end
       links
     end
+    
+    div class: "action_items" do
+      span class: "action_item" do
+        link_to "导出CSV", export_csv_admin_communication_work_orders_path(q: params[:q]), class: "button"
+      end
+    end
+  end
+
+  collection_action :export_csv, method: :get do
+    work_orders = CommunicationWorkOrder.includes(reimbursement: :fee_details)
+      .ransack(params[:q]).result
+      
+    csv_data = CSV.generate(headers: true, force_quotes: true) do |csv|
+      csv << ["ID", "报销单号", "处理意见", "问题类型", "创建人", "创建时间", "费用明细单号"]
+      
+      work_orders.find_each do |wo|
+        problem_types = wo.problem_types.any? ?
+          wo.problem_types.map { |pt| "#{pt.code}-#{pt.title}" }.join(", ") :
+          (wo.problem_type ? "#{wo.problem_type.code}-#{wo.problem_type.title}" : "")
+          
+        document_numbers = wo.reimbursement&.fee_details&.pluck(:document_number)&.uniq&.join(", ") || ""
+        
+        csv << [
+          wo.id,
+          wo.reimbursement&.invoice_number,
+          wo.processing_opinion,
+          problem_types,
+          wo.creator&.email,
+          wo.created_at,
+          document_numbers
+        ]
+      end
+    end
+    
+    send_data csv_data,
+              type: 'text/csv; charset=utf-8; header=present',
+              disposition: "attachment; filename=沟通工单_#{Time.current.strftime('%Y%m%d%H%M%S')}.csv"
   end
 
   # 详情页

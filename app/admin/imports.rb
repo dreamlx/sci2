@@ -18,7 +18,16 @@ ActiveAdmin.register_page "Imports" do
     if result[:success]
       notice_message = "导入成功: #{result[:imported]} 创建, #{result[:skipped]} 跳过."
       notice_message += " #{result[:updated_reimbursements]} 报销单状态已更新." if result[:updated_reimbursements].to_i > 0
-      notice_message += " #{result[:unmatched]} 未匹配." if result[:unmatched].to_i > 0
+      
+      if result[:unmatched].to_i > 0
+        unmatched_doc_numbers = result[:unmatched_histories].map { |h| h[:document_number] }
+        if unmatched_doc_numbers.size <= 5
+          notice_message += " #{result[:unmatched]} 未匹配: #{unmatched_doc_numbers.join(', ')}."
+        else
+          notice_message += " #{result[:unmatched]} 未匹配: #{unmatched_doc_numbers.first(5).join(', ')} 等."
+        end
+      end
+      
       notice_message += " #{result[:errors]} 错误." if result[:errors].to_i > 0
       redirect_to admin_reimbursements_path, notice: notice_message
     else
