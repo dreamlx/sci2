@@ -260,6 +260,36 @@ ActiveAdmin.register Reimbursement do
     end
   end
 
+  # CSV 导出配置
+  csv do
+    column("报销单单号") { |reimbursement| reimbursement.invoice_number }
+    column("单据名称") { |reimbursement| reimbursement.document_name }
+    column("报销单申请人") { |reimbursement| reimbursement.applicant }
+    column("报销单申请人工号") { |reimbursement| reimbursement.applicant_id }
+    column("申请人公司") { |reimbursement| reimbursement.company }
+    column("申请人部门") { |reimbursement| reimbursement.department }
+    column("收单状态") { |reimbursement| reimbursement.receipt_status == 'received' ? '已收单' : '未收单' }
+    column("收单日期") { |reimbursement| reimbursement.receipt_date&.strftime('%Y-%m-%d %H:%M:%S') || '0' }
+    column("关联申请单号") { |reimbursement| reimbursement.related_application_number }
+    column("提交报销日期") { |reimbursement| reimbursement.submission_date&.strftime('%Y-%m-%d %H:%M:%S') || '0' }
+    column("记账日期") { |reimbursement| reimbursement.accounting_date&.strftime('%Y-%m-%d') || '0' }
+    column("报销单状态") { |reimbursement| reimbursement.external_status }
+    column("当前审批节点") { |reimbursement| reimbursement.erp_current_approval_node || '0' }
+    column("当前审批人") { |reimbursement| reimbursement.erp_current_approver || '0' }
+    column("报销单审核通过日期") { |reimbursement| reimbursement.approval_date&.strftime('%Y-%m-%d %H:%M:%S') || '0' }
+    column("审核通过人") { |reimbursement| reimbursement.approver_name }
+    column("报销金额（单据币种）") { |reimbursement| reimbursement.amount }
+    column("弹性字段2") { |reimbursement| reimbursement.erp_flexible_field_2 }
+    column("当前审批节点转入时间") { |reimbursement| reimbursement.erp_node_entry_time&.strftime('%Y-%m-%d %H:%M:%S') || '0' }
+    column("首次提交时间") { |reimbursement| reimbursement.erp_first_submitted_at&.strftime('%Y-%m-%d %H:%M:%S') || '0' }
+    column("单据标签") { |reimbursement| reimbursement.document_tags }
+    column("弹性字段8") { |reimbursement| reimbursement.erp_flexible_field_8 || '0' }
+    column("内部状态") { |reimbursement| reimbursement.status.upcase }
+    column("Current Assignee") { |reimbursement| reimbursement.current_assignee&.email || "未分配" }
+    column("创建时间") { |reimbursement| reimbursement.created_at.strftime('%Y年%m月%d日 %H:%M') }
+    column("更新时间") { |reimbursement| reimbursement.updated_at.strftime('%Y年%m月%d日 %H:%M') }
+  end
+
   # 列表页
   index do
     # 添加角色和权限提示信息
@@ -285,17 +315,36 @@ ActiveAdmin.register Reimbursement do
     end
     
     selectable_column
-    id_column
-    column :invoice_number, label: "报销单号"
-    column :applicant, label: "申请人"
-    column :company, label: "申请公司"
-    column :department, label: "申请部门"
-    column :amount, label: "报销金额" do |reimbursement| number_to_currency(reimbursement.amount, unit: "¥") end
+    column :invoice_number, label: "报销单单号"
+    column :erp_flexible_field_2, label: "弹性字段2"
+    column :document_name, label: "单据名称"
+    column :applicant, label: "报销单申请人"
+    column :applicant_id, label: "报销单申请人工号"
+    column :company, label: "申请人公司"
+    column :department, label: "申请人部门"
+    column :amount, label: "报销金额（单据币种）" do |reimbursement| 
+      reimbursement.amount
+    end
+    column :receipt_status, label: "收单状态" do |reimbursement|
+      reimbursement.receipt_status == 'received' ? '已收单' : '未收单'
+    end
+    column :receipt_date, label: "收单日期" do |reimbursement|
+      reimbursement.receipt_date&.strftime('%Y-%m-%d %H:%M:%S') || '0'
+    end
     column :external_status, label: "报销单状态"
-    column :document_tags, label: "单据标签"
-    column :created_at, label: "创建时间"
-    column "内部状态", :status do |reimbursement| status_tag reimbursement.status end
-    column :current_assignee, label: "当前分配人员" do |reimbursement|
+    column :erp_current_approval_node, label: "当前审批节点" do |reimbursement|
+      reimbursement.erp_current_approval_node || '0'
+    end
+    column :erp_node_entry_time, label: "当前审批节点转入时间" do |reimbursement|
+      reimbursement.erp_node_entry_time&.strftime('%Y-%m-%d %H:%M:%S') || '0'
+    end
+    column :approval_date, label: "报销单审核通过日期" do |reimbursement|
+      reimbursement.approval_date&.strftime('%Y-%m-%d %H:%M:%S') || '0'
+    end
+    column "内部状态", :status do |reimbursement| 
+      status_tag reimbursement.status.upcase
+    end
+    column :current_assignee, label: "Current Assignee" do |reimbursement|
       reimbursement.current_assignee&.email || "未分配"
     end
     column "通知状态", :sortable => false do |reimbursement|
