@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_17_26_000011) do
+ActiveRecord::Schema[7.1].define(version: 2025_17_26_000012) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -101,9 +101,29 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000011) do
     t.string "operation_node"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "applicant"
+    t.string "employee_id"
+    t.string "employee_company"
+    t.string "employee_department"
+    t.text "employee_department_path"
+    t.string "document_company"
+    t.string "document_department"
+    t.text "document_department_path"
+    t.string "submitter"
+    t.string "document_name"
+    t.string "currency"
+    t.decimal "amount", precision: 10, scale: 2
+    t.datetime "created_date"
+    t.index ["applicant"], name: "index_operation_histories_on_applicant"
+    t.index ["created_date"], name: "index_operation_histories_on_created_date"
+    t.index ["currency"], name: "index_operation_histories_on_currency"
     t.index ["document_number", "operation_type", "operation_time", "operator"], name: "index_operation_histories_on_document_and_operation", unique: true
     t.index ["document_number"], name: "index_operation_histories_on_document_number"
+    t.index ["employee_company"], name: "index_operation_histories_on_employee_company"
+    t.index ["employee_department"], name: "index_operation_histories_on_employee_department"
+    t.index ["employee_id"], name: "index_operation_histories_on_employee_id"
     t.index ["operation_time"], name: "index_operation_histories_on_operation_time"
+    t.index ["submitter"], name: "index_operation_histories_on_submitter"
   end
 
   create_table "problem_types", force: :cascade do |t|
