@@ -28,6 +28,12 @@ ActiveAdmin.register FeeDetail do
   filter :product, as: :string, label: "产品"
   filter :plan_or_pre_application, as: :string, label: "计划/预申请"
   filter :expense_associated_application, as: :string, label: "费用关联申请单"
+  
+  # 添加弹性字段过滤器
+  filter :flex_field_11, as: :string, label: "弹性字段11"
+  filter :flex_field_6, as: :string, label: "弹性字段6(报销单)"
+  filter :flex_field_7, as: :string, label: "弹性字段7(报销单)"
+  
   filter :created_at
   
   # 添加关联报销单的过滤器
@@ -197,9 +203,15 @@ ActiveAdmin.register FeeDetail do
           row :first_submission_date
           row :plan_or_pre_application
           row :product
-          row :flex_field_11
-          row :flex_field_6
-          row :flex_field_7
+          row "弹性字段11" do |fee_detail|
+            fee_detail.flex_field_11.presence || "未设置"
+          end
+          row "弹性字段6(报销单)" do |fee_detail|
+            fee_detail.flex_field_6.presence || "未设置"
+          end
+          row "弹性字段7(报销单)" do |fee_detail|
+            fee_detail.flex_field_7.presence || "未设置"
+          end
           row :expense_corresponding_plan
           row :expense_associated_application
           row :notes

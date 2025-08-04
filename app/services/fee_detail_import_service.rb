@@ -148,8 +148,8 @@ class FeeDetailImportService
       plan_or_pre_application: row['计划/预申请']&.to_s&.strip,
       product: row['产品']&.to_s&.strip,
       flex_field_11: row['弹性字段11']&.to_s&.strip,
-      flex_field_6: row['弹性字段6']&.to_s&.strip,
-      flex_field_7: row['弹性字段7']&.to_s&.strip,
+      flex_field_6: row['弹性字段6(报销单)']&.to_s&.strip,
+      flex_field_7: row['弹性字段7(报销单)']&.to_s&.strip,
       expense_corresponding_plan: row['费用对应计划']&.to_s&.strip,
       expense_associated_application: row['费用关联申请单']&.to_s&.strip,
     }
