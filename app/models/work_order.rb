@@ -85,7 +85,9 @@ class WorkOrder < ApplicationRecord
   # 回调
   after_create :log_creation
   after_create :update_reimbursement_status_on_create
+  after_create :update_reimbursement_notification_status, if: :express_receipt_work_order?
   after_update :log_update
+  after_update :update_reimbursement_notification_status, if: :express_receipt_work_order?
   after_save :process_submitted_fee_details, if: -> { @_direct_submitted_fee_ids.present? }
   after_save :process_problem_types, if: -> { @problem_type_ids.present? }
   after_save :set_status_based_on_processing_opinion, if: -> { processing_opinion.present? && persisted? }
@@ -189,11 +191,14 @@ class WorkOrder < ApplicationRecord
   
   # 记录创建操作
   def log_creation
+    # 优先使用当前用户，如果没有则使用工单的创建者，最后使用默认值
+    admin_user_id = Current.admin_user&.id || created_by || 1
+    
     WorkOrderOperation.create!(
       work_order: self,
       operation_type: WorkOrderOperation::OPERATION_TYPE_CREATE,
       details: "创建#{self.class.name.underscore.humanize}",
-      admin_user_id: Current.admin_user&.id
+      admin_user_id: admin_user_id
     ) if defined?(WorkOrderOperation)
   end
   
@@ -235,12 +240,7 @@ class WorkOrder < ApplicationRecord
     else
       Rails.logger.debug "WorkOrder#update_reimbursement_status_on_create: 工单类型 #{self.class.name} 不需要更新报销单状态"
     end
-  
-  # 新增：快递收单创建后自动更新报销单通知状态
-  after_create :update_reimbursement_notification_status, if: :express_receipt_work_order?
-  after_update :update_reimbursement_notification_status, if: :express_receipt_work_order?
-  
-  private
+  end
   
   def express_receipt_work_order?
     type == 'ExpressReceiptWorkOrder'
@@ -250,6 +250,5 @@ class WorkOrder < ApplicationRecord
     return unless reimbursement
     
     reimbursement.update_notification_status!
-  end
   end
 end
