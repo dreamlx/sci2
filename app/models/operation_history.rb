@@ -9,6 +9,11 @@ class OperationHistory < ApplicationRecord
   validates :operation_time, presence: true
   validates :operator, presence: true
   
+  # 回调：创建操作历史记录后更新报销单通知状态
+  after_create :update_reimbursement_notification_status
+  after_update :update_reimbursement_notification_status
+  after_destroy :update_reimbursement_notification_status
+  
   # 新增字段验证
   validates :applicant, presence: true, allow_blank: true
   validates :employee_id, presence: true, allow_blank: true
@@ -52,10 +57,7 @@ class OperationHistory < ApplicationRecord
   
   def formatted_created_date
     created_date&.strftime('%Y-%m-%d %H:%M:%S') || '0'
-  
-  # 新增：创建后自动更新报销单通知状态
-  after_create :update_reimbursement_notification_status
-  after_update :update_reimbursement_notification_status
+  end
   
   private
   
@@ -63,6 +65,5 @@ class OperationHistory < ApplicationRecord
     return unless reimbursement
     
     reimbursement.update_notification_status!
-  end
   end
 end

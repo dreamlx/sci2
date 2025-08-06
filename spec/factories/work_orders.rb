@@ -21,6 +21,11 @@ FactoryBot.define do
       received_at { Time.current - 1.day }
       courier_name { "顺丰" }
       
+      # 明确设置共享字段为nil或合适的值
+      remark { nil }
+      processing_opinion { nil }
+      problem_type { nil }
+      
       # 覆盖基类的 initialize_with
       initialize_with { ExpressReceiptWorkOrder.new }
     end

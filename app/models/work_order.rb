@@ -29,6 +29,11 @@ class WorkOrder < ApplicationRecord
   validates :reimbursement_id, presence: true
   validates :status, presence: true
   
+  # 回调：创建工单后更新报销单通知状态
+  after_create :update_reimbursement_notification_status
+  after_update :update_reimbursement_notification_status
+  after_destroy :update_reimbursement_notification_status
+  
   # 虚拟属性，用于表单处理
   attr_accessor :submitted_fee_detail_ids, :problem_type_ids
   

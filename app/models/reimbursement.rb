@@ -123,9 +123,14 @@ class Reimbursement < ApplicationRecord
   end
   # === 新增：统一通知状态管理 ===
   
+  # 检查是否有任何更新（操作历史或快递工单）
+  def has_updates?
+    operation_histories.exists? || express_receipt_work_orders.exists?
+  end
+  
   # 统一的通知状态检查方法
   def has_unread_updates?
-    has_updates? && (last_viewed_at.nil? || last_update_at > last_viewed_at)
+    has_updates? && (last_viewed_at.nil? || (last_update_at && last_update_at > last_viewed_at))
   end
   
   # 计算最新更新时间
