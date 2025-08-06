@@ -235,5 +235,21 @@ class WorkOrder < ApplicationRecord
     else
       Rails.logger.debug "WorkOrder#update_reimbursement_status_on_create: 工单类型 #{self.class.name} 不需要更新报销单状态"
     end
+  
+  # 新增：快递收单创建后自动更新报销单通知状态
+  after_create :update_reimbursement_notification_status, if: :express_receipt_work_order?
+  after_update :update_reimbursement_notification_status, if: :express_receipt_work_order?
+  
+  private
+  
+  def express_receipt_work_order?
+    type == 'ExpressReceiptWorkOrder'
+  end
+  
+  def update_reimbursement_notification_status
+    return unless reimbursement
+    
+    reimbursement.update_notification_status!
+  end
   end
 end

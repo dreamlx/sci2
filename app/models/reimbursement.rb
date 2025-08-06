@@ -121,6 +121,51 @@ class Reimbursement < ApplicationRecord
       last_viewed_express_receipts_at: Time.current
     )
   end
+  # === 新增：统一通知状态管理 ===
+  
+  # 统一的通知状态检查方法
+  def has_unread_updates?
+    has_updates? && (last_viewed_at.nil? || last_update_at > last_viewed_at)
+  end
+  
+  # 计算最新更新时间
+  def calculate_last_update_time
+    times = []
+    
+    # 获取最新的操作记录时间
+    latest_operation = operation_histories.maximum(:created_at)
+    times << latest_operation if latest_operation
+    
+    # 获取最新的快递收单时间
+    latest_express = express_receipt_work_orders.maximum(:created_at)
+    times << latest_express if latest_express
+    
+    # 返回最新的时间，如果没有则返回更新时间
+    times.max || updated_at
+  end
+  
+  # 更新通知状态
+  def update_notification_status!
+    new_last_update_at = calculate_last_update_time
+    new_has_updates = (last_viewed_at.nil? || new_last_update_at > last_viewed_at)
+    
+    update_columns(
+      last_update_at: new_last_update_at,
+      has_updates: new_has_updates
+    )
+  end
+  
+  # 标记为已查看（统一方法）
+  def mark_as_viewed!
+    update!(
+      last_viewed_at: Time.current,
+      has_updates: false,
+      # 保持向后兼容
+      last_viewed_operation_histories_at: Time.current,
+      last_viewed_express_receipts_at: Time.current
+    )
+  end
+  
   
   # 查询范围：有未查看操作历史的报销单
   scope :with_unviewed_operation_histories, -> {
@@ -130,6 +175,26 @@ class Reimbursement < ApplicationRecord
   # 查询范围：有未查看快递收单的报销单
   scope :with_unviewed_express_receipts, -> {
     where('last_viewed_express_receipts_at IS NULL OR EXISTS (SELECT 1 FROM work_orders WHERE work_orders.reimbursement_id = reimbursements.id AND work_orders.type = ? AND work_orders.created_at > reimbursements.last_viewed_express_receipts_at)', 'ExpressReceiptWorkOrder')
+  }
+  
+  # === 新增：查询范围 ===
+  
+  # 有未读更新的报销单（替换原有的with_unviewed_records）
+  scope :with_unread_updates, -> {
+    where(has_updates: true)
+      .where('last_viewed_at IS NULL OR last_update_at > last_viewed_at')
+  }
+  
+  # 分配给用户且有未读更新的报销单
+  scope :assigned_with_unread_updates, ->(user_id) {
+    assigned_to_user(user_id).with_unread_updates
+  }
+  
+  # 按通知状态排序（有更新的优先，然后按最新更新时间倒序）
+  scope :ordered_by_notification_status, -> {
+    order(
+      Arel.sql('has_updates DESC, last_update_at DESC NULLS LAST')
+    )
   }
   
   # 查询范围：有任何未查看记录的报销单
@@ -154,7 +219,7 @@ class Reimbursement < ApplicationRecord
   
   # 定义可用于Ransack搜索的scope
   def self.ransackable_scopes(auth_object = nil)
-    %w[with_unviewed_records]
+    %w[with_unviewed_records with_unread_updates assigned_with_unread_updates]
   end
   
   # Custom ransacker for current_assignee_id
@@ -251,5 +316,26 @@ class Reimbursement < ApplicationRecord
     
     # Default
     "个人"
+  
+  # === 回调方法：自动更新通知状态 ===
+  
+  after_update :update_notification_status_if_needed
+  
+  private
+  
+  def update_notification_status_if_needed
+    # 如果相关字段发生变化，重新计算通知状态
+    if saved_change_to_last_viewed_operation_histories_at? || 
+       saved_change_to_last_viewed_express_receipts_at?
+      update_notification_status!
+    end
+  end
+  
+  public
+  
+  # === 保持向后兼容的方法 ===
+  
+  # 保留原有方法以确保向后兼容
+  alias_method :has_unviewed_records?, :has_unread_updates?
   end
 end

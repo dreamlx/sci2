@@ -52,5 +52,17 @@ class OperationHistory < ApplicationRecord
   
   def formatted_created_date
     created_date&.strftime('%Y-%m-%d %H:%M:%S') || '0'
+  
+  # 新增：创建后自动更新报销单通知状态
+  after_create :update_reimbursement_notification_status
+  after_update :update_reimbursement_notification_status
+  
+  private
+  
+  def update_reimbursement_notification_status
+    return unless reimbursement
+    
+    reimbursement.update_notification_status!
+  end
   end
 end

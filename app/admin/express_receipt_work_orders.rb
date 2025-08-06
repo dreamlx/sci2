@@ -77,14 +77,32 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
   # 列表页
   index do
     selectable_column
-    id_column
-    column :reimbursement do |wo| link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) end
-    column :tracking_number
-    column :courier_name
-    column :received_at
-    column :status do |wo| status_tag wo.status end
-    column :creator
-    column :created_at
+    column "Filling ID", :id
+    column "报销单单号", :reimbursement do |wo|
+      link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement)
+    end
+    column "单据名称" do |wo|
+      wo.reimbursement.document_name
+    end
+    column "报销单申请人" do |wo|
+      wo.reimbursement.applicant
+    end
+    column "报销单申请人工号" do |wo|
+      wo.reimbursement.applicant_id
+    end
+    column "申请人部门" do |wo|
+      wo.reimbursement.department
+    end
+    column "快递单号", :tracking_number
+    column "收单时间", :received_at do |wo|
+      wo.received_at&.strftime('%Y-%m-%d %H:%M:%S')
+    end
+    column "创建人", :creator do |wo|
+      wo.creator&.name || wo.creator&.email
+    end
+    column "创建时间", :created_at do |wo|
+      wo.created_at.strftime('%Y年%m月%d日 %H:%M')
+    end
     actions
     
     div class: "action_items" do
@@ -95,24 +113,39 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
   end
 
   collection_action :export_csv, method: :get do
-    work_orders = ExpressReceiptWorkOrder.includes(reimbursement: :fee_details)
-      .ransack(params[:q]).result
+    work_orders = ExpressReceiptWorkOrder.includes(
+      :creator,
+      reimbursement: [:current_assignee, :active_assignment]
+    ).ransack(params[:q]).result
       
     csv_data = CSV.generate(headers: true, force_quotes: true) do |csv|
-      csv << ["ID", "报销单号", "快递单号", "快递公司", "收单日期", "状态", "创建人", "创建时间", "费用明细单号"]
+      csv << [
+        "Filling ID",
+        "报销单单号",
+        "单据名称",
+        "报销单申请人",
+        "报销单申请人工号",
+        "申请人部门",
+        "快递单号",
+        "收单时间",
+        "创建人",
+        "创建时间",
+        "Current Assignee"
+      ]
       
       work_orders.find_each do |wo|
-        document_numbers = wo.reimbursement&.fee_details&.pluck(:document_number)&.uniq&.join(", ") || ""
         csv << [
           wo.id,
           wo.reimbursement&.invoice_number,
+          wo.reimbursement&.document_name,
+          wo.reimbursement&.applicant,
+          wo.reimbursement&.applicant_id,
+          wo.reimbursement&.department,
           wo.tracking_number,
-          wo.courier_name,
-          wo.received_at&.to_date,
-          wo.status,
-          wo.creator&.email,
-          wo.created_at,
-          document_numbers
+          wo.received_at&.strftime('%Y-%m-%d %H:%M:%S'),
+          wo.creator&.name || wo.creator&.email,
+          wo.created_at.strftime('%Y年%m月%d日 %H:%M'),
+          wo.reimbursement&.current_assignee&.name || wo.reimbursement&.current_assignee&.email || "未分配"
         ]
       end
     end

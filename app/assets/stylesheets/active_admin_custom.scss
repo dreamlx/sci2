@@ -295,3 +295,34 @@
     overflow-x: auto;
   }
 }
+// === 通知状态样式 ===
+
+// 通知状态标签样式
+.status_tag {
+  &.warning {
+    background-color: #ff9800 !important;
+    color: white !important;
+  }
+  
+  &.completed {
+    background-color: #4caf50 !important;
+    color: white !important;
+  }
+}
+
+// 通知状态列的特殊样式
+.col-has_updates {
+  text-align: center;
+  
+  .status_tag {
+    font-weight: bold;
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+}
+
+// 最新更新时间列样式
+.col-last_update_at {
+  font-size: 0.9em;
+  color: #666;
+}

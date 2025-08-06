@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_17_26_000012) do
+ActiveRecord::Schema[7.1].define(version: 2025_17_26_000013) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -184,9 +184,16 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000012) do
     t.string "erp_flexible_field_8"
     t.datetime "last_viewed_operation_histories_at"
     t.datetime "last_viewed_express_receipts_at"
+    t.boolean "has_updates", default: false, null: false
+    t.datetime "last_update_at"
+    t.datetime "last_viewed_at"
     t.index ["external_status"], name: "index_reimbursements_on_external_status"
+    t.index ["has_updates", "last_update_at"], name: "index_reimbursements_on_notification_status"
+    t.index ["has_updates"], name: "index_reimbursements_on_has_updates"
     t.index ["invoice_number"], name: "index_reimbursements_on_invoice_number", unique: true
     t.index ["is_electronic"], name: "index_reimbursements_on_is_electronic"
+    t.index ["last_update_at"], name: "index_reimbursements_on_last_update_at"
+    t.index ["last_viewed_at"], name: "index_reimbursements_on_last_viewed_at"
     t.index ["last_viewed_express_receipts_at"], name: "index_reimbursements_on_last_viewed_express_receipts_at"
     t.index ["last_viewed_operation_histories_at"], name: "index_reimbursements_on_last_viewed_operation_histories_at"
     t.index ["status"], name: "index_reimbursements_on_status"

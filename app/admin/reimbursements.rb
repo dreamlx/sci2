@@ -12,7 +12,7 @@ ActiveAdmin.register Reimbursement do
   controller do
     # 当用户查看详情页面时，标记当前报销单为已查看
     def show
-      resource.mark_all_as_viewed!
+      resource.mark_as_viewed! if resource.has_unread_updates?
       super
     end
     
@@ -67,6 +67,9 @@ ActiveAdmin.register Reimbursement do
       when nil, ''
         # 空scope参数默认到"分配给我的"
         end_of_association_chain.assigned_to_user(current_admin_user.id)
+      when 'with_unread_updates'  # 新增：修复URL问题
+        # 只显示分配给当前用户且有未读更新的报销单
+        end_of_association_chain.assigned_with_unread_updates(current_admin_user.id)
       when 'all'
         # "全部"scope - 显示所有数据，不考虑角色
         end_of_association_chain
@@ -90,7 +93,7 @@ ActiveAdmin.register Reimbursement do
   filter :created_at
   filter :approval_date
   filter :current_assignee_id, as: :select, collection: -> { AdminUser.all.map { |u| [u.email, u.id] } }, label: "当前处理人"
-  filter :with_unviewed_records, label: '有新通知', as: :boolean
+  filter :with_unread_updates, label: '有新通知', as: :boolean
 
   # 列表页范围过滤器 - 使用标准ActiveRecord scope确保计数一致性
   scope :all, label: "全部", show_count: false
@@ -121,9 +124,9 @@ ActiveAdmin.register Reimbursement do
     reimbursements.left_joins(:active_assignment).where(reimbursement_assignments: { id: nil }, status: 'pending')
   end
   
-  # 添加有新通知的scope
-  scope "有新通知", :with_unviewed_records, show_count: false do |reimbursements|
-    reimbursements.with_unviewed_records
+  # 修改：有新通知的scope - 修复URL问题并限制为分配给当前用户的
+  scope "有新通知", :with_unread_updates, show_count: false do |reimbursements|
+    reimbursements.assigned_with_unread_updates(current_admin_user.id)
   end
 
   # 批量操作
@@ -290,6 +293,11 @@ ActiveAdmin.register Reimbursement do
     column("更新时间") { |reimbursement| reimbursement.updated_at.strftime('%Y年%m月%d日 %H:%M') }
   end
 
+  # === 修改默认排序 ===
+  
+  # 设置默认排序：有更新的优先，然后按最新更新时间
+  config.sort_order = 'has_updates_desc,last_update_at_desc'
+  
   # 列表页
   index do
     # 添加角色和权限提示信息
@@ -333,13 +341,13 @@ ActiveAdmin.register Reimbursement do
     end
     column :external_status, label: "报销单状态"
     column :erp_current_approval_node, label: "当前审批节点" do |reimbursement|
-      reimbursement.erp_current_approval_node || '0'
+      reimbursement.erp_current_approval_node || '-'
     end
     column :erp_node_entry_time, label: "当前审批节点转入时间" do |reimbursement|
-      reimbursement.erp_node_entry_time&.strftime('%Y-%m-%d %H:%M:%S') || '0'
+      reimbursement.erp_node_entry_time&.strftime('%Y-%m-%d %H:%M:%S') || '-'
     end
     column :approval_date, label: "报销单审核通过日期" do |reimbursement|
-      reimbursement.approval_date&.strftime('%Y-%m-%d %H:%M:%S') || '0'
+      reimbursement.approval_date&.strftime('%Y-%m-%d') || '-'
     end
     column "内部状态", :status do |reimbursement| 
       status_tag reimbursement.status.upcase
@@ -347,19 +355,21 @@ ActiveAdmin.register Reimbursement do
     column :current_assignee, label: "Current Assignee" do |reimbursement|
       reimbursement.current_assignee&.email || "未分配"
     end
-    column "通知状态", :sortable => false do |reimbursement|
-      span do
-        if reimbursement.has_unviewed_express_receipts?
-          status_tag "+快", class: "warning" # 使用现有的warning样式（橙色）
-        end
-        
-        if reimbursement.has_unviewed_operation_histories?
-          status_tag "+记", class: "error" # 使用现有的error样式（红色）
-        end
-        
-        unless reimbursement.has_unviewed_records?
-          status_tag "--", class: "completed" # 使用现有的completed样式（绿色）
-        end
+    # 修改：统一的通知状态列，支持排序
+    column "通知状态", :has_updates, sortable: true do |reimbursement|
+      if reimbursement.has_unread_updates?
+        status_tag "有更新", class: "warning"
+      else
+        status_tag "无更新", class: "completed"
+      end
+    end
+    
+    # 新增：最新更新时间列，支持排序
+    column "最新更新", :last_update_at, sortable: true do |reimbursement|
+      if reimbursement.last_update_at
+        time_ago_in_words(reimbursement.last_update_at) + "前"
+      else
+        "-"
       end
     end
     actions defaults: false do |reimbursement|

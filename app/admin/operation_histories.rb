@@ -28,24 +28,24 @@ ActiveAdmin.register OperationHistory do
   
   # CSV 导出配置
   csv do
-    column("表单类型") { |operation_history| operation_history.form_type || '0' }
+    column("表单类型") { |operation_history| operation_history.form_type || '-' }
     column("单据编号") { |operation_history| operation_history.document_number }
-    column("申请人") { |operation_history| operation_history.applicant || '0' }
-    column("员工工号") { |operation_history| operation_history.employee_id || '0' }
-    column("员工公司") { |operation_history| operation_history.employee_company || '0' }
-    column("员工部门") { |operation_history| operation_history.employee_department || '0' }
-    column("员工部门路径") { |operation_history| operation_history.employee_department_path || '0' }
-    column("员工单据公司") { |operation_history| operation_history.document_company || '0' }
-    column("员工单据部门") { |operation_history| operation_history.document_department || '0' }
-    column("员工单据部门路径") { |operation_history| operation_history.document_department_path || '0' }
-    column("提交人") { |operation_history| operation_history.submitter || '0' }
-    column("单据名称") { |operation_history| operation_history.document_name || '0' }
-    column("币种") { |operation_history| operation_history.currency || '0' }
+    column("申请人") { |operation_history| operation_history.applicant || '-' }
+    column("员工工号") { |operation_history| operation_history.employee_id || '-' }
+    column("员工公司") { |operation_history| operation_history.employee_company || '-' }
+    column("员工部门") { |operation_history| operation_history.employee_department || '-' }
+    column("员工部门路径") { |operation_history| operation_history.employee_department_path || '-' }
+    column("员工单据公司") { |operation_history| operation_history.document_company || '-' }
+    column("员工单据部门") { |operation_history| operation_history.document_department || '-' }
+    column("员工单据部门路径") { |operation_history| operation_history.document_department_path || '-' }
+    column("提交人") { |operation_history| operation_history.submitter || '-' }
+    column("单据名称") { |operation_history| operation_history.document_name || '-' }
+    column("币种") { |operation_history| operation_history.currency || '-' }
     column("金额") { |operation_history| operation_history.formatted_amount }
     column("创建日期") { |operation_history| operation_history.formatted_created_date }
-    column("操作节点") { |operation_history| operation_history.operation_node || '0' }
+    column("操作节点") { |operation_history| operation_history.operation_node || '-' }
     column("操作类型") { |operation_history| operation_history.operation_type }
-    column("操作意见") { |operation_history| operation_history.notes || '0' }
+    column("操作意见") { |operation_history| operation_history.notes || '-' }
     column("操作日期") { |operation_history| operation_history.formatted_operation_time }
     column("操作人") { |operation_history| operation_history.operator }
   end
