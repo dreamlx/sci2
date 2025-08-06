@@ -101,22 +101,6 @@ ActiveAdmin.register Reimbursement do
   end
 
   # 批量操作
-  batch_action :mark_as_received do |ids|
-     batch_action_collection.find(ids).each do |reimbursement|
-        reimbursement.update(receipt_status: 'received', receipt_date: Time.current)
-     end
-     redirect_to collection_path, notice: "已将选中的报销单标记为已收单"
-  end
-  batch_action :start_processing, if: proc { params[:scope] == 'pending' || params[:q].blank? } do |ids|
-     batch_action_collection.find(ids).each do |reimbursement|
-        begin
-          reimbursement.start_processing!
-        rescue StateMachines::InvalidTransition => e
-          Rails.logger.warn "Batch action start_processing failed for Reimbursement #{reimbursement.id}: #{e.message}"
-        end
-     end
-     redirect_to collection_path, notice: "已尝试将选中的报销单标记为处理中"
-  end
   
   # 批量分配报销单 - 直接进行权限检查
   batch_action :assign_to,
@@ -157,17 +141,6 @@ ActiveAdmin.register Reimbursement do
     link_to "导入操作历史", operation_histories_admin_imports_path
   end
   
-  action_item :batch_assign, only: :index, if: proc {
-    true # 总是显示，但根据权限决定是否禁用
-  } do
-    css_class = current_admin_user.super_admin? ? "button" : "button disabled_action"
-    title = current_admin_user.super_admin? ? nil : '您没有权限执行分配操作，请联系超级管理员'
-    
-    link_to "批量分配报销单",
-            collection_path(action: :batch_assign),
-            class: css_class,
-            title: title
-  end
   
   # 移除默认的编辑和删除按钮
   config.action_items.delete_if { |item| item.name == :edit || item.name == :destroy }
@@ -747,41 +720,6 @@ ActiveAdmin.register Reimbursement do
     end
   end
   
-  # 批量分配相关的集合操作 - 直接进行权限检查
-  collection_action :batch_assign, method: :get do
-    # 获取未分配的报销单
-    @reimbursements = Reimbursement.left_joins(:active_assignment)
-                                  .where(reimbursement_assignments: { id: nil })
-                                  .order(created_at: :desc)
-    
-    render "admin/reimbursements/batch_assign"
-  end
-  
-  collection_action :batch_assign, method: :post do
-    unless current_admin_user.super_admin?
-      redirect_to collection_path(action: :batch_assign), alert: '您没有权限执行分配操作，请联系超级管理员'
-      return
-    end
-    
-    if params[:reimbursement_ids].blank?
-      redirect_to collection_path(action: :batch_assign), alert: "请选择要分配的报销单"
-      return
-    end
-    
-    if params[:assignee_id].blank?
-      redirect_to collection_path(action: :batch_assign), alert: "请选择审核人员"
-      return
-    end
-    
-    service = ReimbursementAssignmentService.new(current_admin_user)
-    results = service.batch_assign(params[:reimbursement_ids], params[:assignee_id], params[:notes])
-    
-    if results.any?
-      redirect_to admin_reimbursements_path, notice: "成功分配 #{results.size} 个报销单给 #{AdminUser.find(params[:assignee_id]).email}"
-    else
-      redirect_to collection_path(action: :batch_assign), alert: "报销单分配失败"
-    end
-  end
   
   # 快速分配 - 直接进行权限检查
   collection_action :quick_assign, method: :post do
