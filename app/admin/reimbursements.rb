@@ -18,7 +18,7 @@ ActiveAdmin.register Reimbursement do
     
     private
     
-    # 确保scope计数和数据显示的正确逻辑
+    # 简化的scope逻辑 - 统一所有角色的权限处理
     def scoped_collection
       # 如果是查看单个报销单（show action），则不应用任何scope，直接返回所有报销单
       # 这样可以确保即使报销单未分配给当前用户，也能通过ID查看到
@@ -26,55 +26,28 @@ ActiveAdmin.register Reimbursement do
         return end_of_association_chain
       end
 
-      # 获取当前选择的scope和用户角色
+      # 获取当前选择的scope
       current_scope = params[:scope]
-      is_super_admin = current_admin_user.super_admin?
       
-      # 根据不同的scope和用户角色应用相应的过滤器
+      # 根据不同的scope应用相应的过滤器
       case current_scope
-      when 'assigned_to_me', 'my_assignments'
-        # "分配给我的"或"我的报销单"scope - 显示分配给当前用户的报销单
-        # 对所有角色都一样
+      when 'assigned_to_me'
+        # "分配给我的"scope - 显示分配给当前用户的报销单
         end_of_association_chain.assigned_to_user(current_admin_user.id)
-      when 'pending'
-        if is_super_admin
-          # 超级管理员可以看到所有待处理的报销单
-          end_of_association_chain.where(status: 'pending')
-        else
-          # 普通管理员只能看到分配给自己的待处理报销单
-          end_of_association_chain.assigned_to_user(current_admin_user.id).where(status: 'pending')
-        end
-      when 'processing'
-        if is_super_admin
-          # 超级管理员可以看到所有处理中的报销单
-          end_of_association_chain.where(status: 'processing')
-        else
-          # 普通管理员只能看到分配给自己的处理中报销单
-          end_of_association_chain.assigned_to_user(current_admin_user.id).where(status: 'processing')
-        end
-      when 'closed'
-        if is_super_admin
-          # 超级管理员可以看到所有已关闭的报销单
-          end_of_association_chain.where(status: 'closed')
-        else
-          # 普通管理员只能看到分配给自己的已关闭报销单
-          end_of_association_chain.assigned_to_user(current_admin_user.id).where(status: 'closed')
-        end
-      when 'unassigned'
-        # "未分配的"scope - 显示未分配的报销单
-        # 所有角色都可以看到，但只有超级管理员可以分配（这在批量操作中控制）
-        end_of_association_chain.left_joins(:active_assignment).where(reimbursement_assignments: { id: nil }, status: 'pending')
-      when nil, ''
-        # 空scope参数默认到"分配给我的"
-        end_of_association_chain.assigned_to_user(current_admin_user.id)
-      when 'with_unread_updates'  # 新增：修复URL问题
-        # 只显示分配给当前用户且有未读更新的报销单
+      when 'with_unread_updates'
+        # "有新通知"scope - 只显示分配给当前用户且有未读更新的报销单
         end_of_association_chain.assigned_with_unread_updates(current_admin_user.id)
-      when 'all'
-        # "全部"scope - 显示所有数据，不考虑角色
+      when 'pending', 'processing', 'closed'
+        # 状态相关的scope - 只显示分配给当前用户且状态匹配的报销单
+        end_of_association_chain.assigned_to_user(current_admin_user.id).where(status: current_scope)
+      when 'unassigned'
+        # "未分配的"scope - 显示未分配的报销单，所有角色都可以看到
+        end_of_association_chain.left_joins(:active_assignment).where(reimbursement_assignments: { id: nil }, status: 'pending')
+      when 'all', nil, ''
+        # "所有"scope或空参数 - 显示所有报销单
         end_of_association_chain
       else
-        # 其他scope - 显示所有数据
+        # 其他scope - 默认显示所有报销单
         end_of_association_chain
       end
     end
@@ -96,37 +69,35 @@ ActiveAdmin.register Reimbursement do
   filter :with_unread_updates, label: '有新通知', as: :boolean
 
   # 列表页范围过滤器 - 使用标准ActiveRecord scope确保计数一致性
-  scope :all, label: "全部", show_count: false
+  # 设置"所有"为默认scope，让用户默认看到所有报销单
+  scope :all, default: true, show_count: false
   
-  # 定义"分配给我的"为默认scope
-  scope "分配给我的", :assigned_to_me, default: true, show_count: false do |reimbursements|
+  # 分配给当前用户的报销单
+  scope :assigned_to_me, show_count: false do |reimbursements|
     reimbursements.assigned_to_user(current_admin_user.id)
   end
   
-  # 为了兼容性，添加my_assignments作为assigned_to_me的别名
-  scope "我的报销单", :my_assignments, show_count: false do |reimbursements|
-    reimbursements.assigned_to_user(current_admin_user.id)
-  end
-  
-  scope :pending, label: "待处理", show_count: false do |reimbursements|
-    reimbursements.where(status: 'pending')
-  end
-  
-  scope :processing, label: "处理中", show_count: false do |reimbursements|
-    reimbursements.where(status: 'processing')
-  end
-  
-  scope :closed, label: "已关闭", show_count: false do |reimbursements|
-    reimbursements.where(status: 'closed')
-  end
-  
-  scope :unassigned, label: "未分配的", show_count: false do |reimbursements|
-    reimbursements.left_joins(:active_assignment).where(reimbursement_assignments: { id: nil }, status: 'pending')
-  end
-  
-  # 修改：有新通知的scope - 修复URL问题并限制为分配给当前用户的
+  # 有新通知的scope - 只显示分配给当前用户且有未读更新的报销单
   scope "有新通知", :with_unread_updates, show_count: false do |reimbursements|
     reimbursements.assigned_with_unread_updates(current_admin_user.id)
+  end
+  
+  # 状态相关的scope - 只显示分配给当前用户且状态匹配的报销单
+  scope :pending, show_count: false do |reimbursements|
+    reimbursements.assigned_to_user(current_admin_user.id).where(status: 'pending')
+  end
+  
+  scope :processing, show_count: false do |reimbursements|
+    reimbursements.assigned_to_user(current_admin_user.id).where(status: 'processing')
+  end
+  
+  scope :closed, show_count: false do |reimbursements|
+    reimbursements.assigned_to_user(current_admin_user.id).where(status: 'closed')
+  end
+  
+  # 未分配的报销单 - 所有人都可以看到
+  scope :unassigned, show_count: false do |reimbursements|
+    reimbursements.left_joins(:active_assignment).where(reimbursement_assignments: { id: nil }, status: 'pending')
   end
 
   # 批量操作
@@ -340,12 +311,12 @@ ActiveAdmin.register Reimbursement do
       reimbursement.receipt_date&.strftime('%Y-%m-%d %H:%M:%S') || '0'
     end
     column :external_status, label: "报销单状态"
-    column :erp_current_approval_node, label: "当前审批节点" do |reimbursement|
-      reimbursement.erp_current_approval_node || '-'
-    end
-    column :erp_node_entry_time, label: "当前审批节点转入时间" do |reimbursement|
-      reimbursement.erp_node_entry_time&.strftime('%Y-%m-%d %H:%M:%S') || '-'
-    end
+    # column :erp_current_approval_node, label: "当前审批节点" do |reimbursement|
+    #   reimbursement.erp_current_approval_node || '-'
+    # end
+    # column :erp_node_entry_time, label: "当前审批节点转入时间" do |reimbursement|
+    #   reimbursement.erp_node_entry_time&.strftime('%Y-%m-%d %H:%M:%S') || '-'
+    # end
     column :approval_date, label: "报销单审核通过日期" do |reimbursement|
       reimbursement.approval_date&.strftime('%Y-%m-%d') || '-'
     end
@@ -365,13 +336,13 @@ ActiveAdmin.register Reimbursement do
     end
     
     # 新增：最新更新时间列，支持排序
-    column "最新更新", :last_update_at, sortable: true do |reimbursement|
-      if reimbursement.last_update_at
-        time_ago_in_words(reimbursement.last_update_at) + "前"
-      else
-        "-"
-      end
-    end
+    # column "最新更新", :last_update_at, sortable: true do |reimbursement|
+    #   if reimbursement.last_update_at
+    #     time_ago_in_words(reimbursement.last_update_at) + "前"
+    #   else
+    #     "-"
+    #   end
+    # end
     actions defaults: false do |reimbursement|
       item "查看", admin_reimbursement_path(reimbursement), class: "member_link"
     end
