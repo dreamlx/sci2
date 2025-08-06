@@ -33,6 +33,6 @@ class ExpressReceiptWorkOrder < WorkOrder
   private
   
   def set_default_status
-    self.status ||= 'completed'
+    self.status = 'completed'  # Always set to completed, don't use ||= because state machine sets initial value
   end
 end
