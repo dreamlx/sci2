@@ -385,9 +385,15 @@ ActiveAdmin.register Reimbursement do
         end
 
         panel "费用明细信息" do
-          table_for resource.fee_details.includes(:work_orders).order(created_at: :desc) do
+          table_for resource.fee_details.includes(:work_orders).order(
+            Arel.sql("CASE WHEN verification_status = 'problematic' THEN 0 ELSE 1 END"),
+            created_at: :desc
+          ) do
             column(:id) { |fd| link_to fd.id, admin_fee_detail_path(fd) }
             column :fee_type
+            column "费用日期", :fee_date do |fd|
+              fd.fee_date&.strftime("%Y-%m-%d") || "未设置"
+            end
             column "金额", :amount do |fd| number_to_currency(fd.amount, unit: "¥") end
             column "验证状态", :verification_status do |fd| status_tag fd.verification_status end
             column "关联工单" do |fee_detail|
@@ -408,6 +414,15 @@ ActiveAdmin.register Reimbursement do
                 content_tag(:pre, problem_details,
                   class: "problem-type-plain-text",
                   style: "white-space: pre-wrap; margin: 0; font-family: monospace; font-size: 12px;")
+              else
+                "无"
+              end
+            end
+            column "审核意见" do |fee_detail|
+              latest_wo = fee_detail.latest_associated_work_order
+              if latest_wo&.processing_opinion.present?
+                content_tag(:div, latest_wo.processing_opinion,
+                  style: "max-width: 200px; word-wrap: break-word; font-size: 12px;")
               else
                 "无"
               end
