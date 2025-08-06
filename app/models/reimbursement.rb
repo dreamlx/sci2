@@ -293,6 +293,54 @@ class Reimbursement < ApplicationRecord
     update(status: STATUS_PROCESSING)
   end
   
+  # Manual status change with override protection
+  def manual_status_change!(new_status, user = nil)
+    update!(
+      status: new_status,
+      manual_override: true,
+      manual_override_at: Time.current
+    )
+    Rails.logger.info "Manual status change by #{user&.email || 'system'}: #{invoice_number} -> #{new_status}"
+  end
+  
+  # Reset manual override flag
+  def reset_manual_override!
+    update!(
+      manual_override: false,
+      manual_override_at: nil
+    )
+  end
+  
+  # Check if external status should force closure
+  def should_close_based_on_external_status?
+    return false unless external_status.present?
+    external_status.match?(/已付款|待付款/)
+  end
+  
+  # Check if reimbursement has active work orders
+  def has_active_work_orders?
+    audit_work_orders.exists? || communication_work_orders.exists?
+  end
+  
+  # Determine internal status based on business rules
+  def determine_internal_status_from_external(external_status_value)
+    # Check manual override protection first
+    return status if manual_override?
+    
+    # External status priority: 已付款/待付款 -> closed
+    if external_status_value&.match?(/已付款|待付款/)
+      return STATUS_CLOSED
+    end
+    
+    # Work order driven status: has work orders -> processing
+    if has_active_work_orders?
+      return STATUS_PROCESSING
+    end
+    
+    # Default status
+    STATUS_PENDING
+  end
+  
   # Check if work orders can be created for this reimbursement
   def can_create_work_orders?
     !closed?

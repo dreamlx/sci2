@@ -59,7 +59,7 @@ ActiveAdmin.register Reimbursement do
   filter :company, label: "公司", as: :string
   filter :department, label: "部门", as: :string
   filter :status, label: "内部状态", as: :select, collection: Reimbursement.state_machines[:status].states.map(&:value)
-  filter :external_status, label: "外部状态", as: :select, collection: ["审批中", "已付款", "代付款", "待审核"]
+  filter :external_status, label: "外部状态", as: :select, collection: ["审批中", "已付款", "待付款", "待审核"]
   filter :receipt_status, as: :select, collection: ["pending", "received"]
   filter :is_electronic, as: :boolean
   filter :document_tags, label: "单据标签", as: :string
@@ -199,6 +199,34 @@ ActiveAdmin.register Reimbursement do
   # ADDED: "取消完成" (Reopen) button
   action_item :reopen_reimbursement, label: "取消完成", only: :show, priority: 4, if: proc { resource.closed? } do
     link_to "取消完成", reopen_reimbursement_admin_reimbursement_path(resource), method: :put, data: { confirm: "确定要取消完成此报销单吗 (状态将变为 Processing)?" }
+  end
+
+  # Manual Override Controls - 手动状态覆盖控制按钮
+  action_item :manual_override_section, label: "手动状态控制", only: :show, priority: 10, if: proc { current_admin_user.super_admin? } do
+    content_tag :div, class: "manual-override-controls", style: "margin: 10px 0; padding: 10px; border: 2px solid #ff6b35; border-radius: 5px; background-color: #fff3f0;" do
+      content_tag(:h4, "⚠️ 手动状态覆盖控制", style: "margin: 0 0 10px 0; color: #ff6b35;") +
+      content_tag(:p, "注意：手动状态更改将覆盖系统自动逻辑，请谨慎使用！", style: "margin: 0 0 10px 0; font-size: 12px; color: #666;") +
+      content_tag(:div, class: "button-group") do
+        [
+          link_to("设为待处理", manual_set_pending_admin_reimbursement_path(resource),
+                  method: :put, class: "button",
+                  data: { confirm: "确定要手动设置状态为'待处理'吗？这将覆盖系统逻辑。" },
+                  style: "margin-right: 5px; background-color: #ffa500; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px;"),
+          link_to("设为处理中", manual_set_processing_admin_reimbursement_path(resource),
+                  method: :put, class: "button",
+                  data: { confirm: "确定要手动设置状态为'处理中'吗？这将覆盖系统逻辑。" },
+                  style: "margin-right: 5px; background-color: #007bff; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px;"),
+          link_to("设为已关闭", manual_set_closed_admin_reimbursement_path(resource),
+                  method: :put, class: "button",
+                  data: { confirm: "确定要手动设置状态为'已关闭'吗？这将覆盖系统逻辑。" },
+                  style: "margin-right: 5px; background-color: #28a745; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px;"),
+          (link_to("重置手动覆盖", reset_manual_override_admin_reimbursement_path(resource),
+                   method: :put, class: "button",
+                   data: { confirm: "确定要重置手动覆盖吗？状态将根据系统逻辑自动确定。" },
+                   style: "background-color: #6c757d; color: white; padding: 5px 10px; text-decoration: none; border-radius: 3px;") if resource.manual_override?)
+        ].compact.join(" ").html_safe
+      end
+    end
   end
 
   # 导入操作
@@ -574,8 +602,8 @@ ActiveAdmin.register Reimbursement do
       f.input :department
       f.input :amount, min: 0.01
       f.input :status, label: "内部状态", as: :select, collection: Reimbursement.state_machines[:status].states.map(&:value), include_blank: false
-      f.input :external_status, label: "外部状态", as: :select, 
-  collection: ["审批中", "已付款", "代付款", "待审核"],
+      f.input :external_status, label: "外部状态", as: :select,
+  collection: ["审批中", "已付款", "待付款", "待审核"],
   include_blank: false
       f.input :receipt_status, as: :select, collection: ["pending", "received"]
       f.input :receipt_date, as: :datepicker
@@ -586,6 +614,13 @@ ActiveAdmin.register Reimbursement do
       f.input :related_application_number
       f.input :accounting_date, as: :datepicker
       f.input :document_tags
+    end
+    
+    f.inputs "手动覆盖状态信息", class: "manual-override-info" do
+      f.input :manual_override, label: "手动覆盖状态", input_html: { readonly: true }
+      f.input :manual_override_at, label: "手动覆盖时间", input_html: { readonly: true }
+      f.input :last_external_status, label: "最后外部状态", input_html: { readonly: true }
+      f.li "注意：手动覆盖字段为只读，请使用页面上的手动控制按钮进行修改", class: "manual-override-note"
     end
     
     f.inputs "ERP 系统字段" do
@@ -621,6 +656,43 @@ ActiveAdmin.register Reimbursement do
       redirect_to admin_reimbursement_path(resource), alert: "操作失败: #{e.message}"
     rescue => e
       redirect_to admin_reimbursement_path(resource), alert: "发生未知错误: #{e.message}"
+    end
+  end
+
+  # Manual Override Controls - 手动状态覆盖控制
+  member_action :manual_set_pending, method: :put do
+    begin
+      resource.manual_status_change!('pending')
+      redirect_to admin_reimbursement_path(resource), notice: "状态已手动设置为：待处理 (手动覆盖)"
+    rescue => e
+      redirect_to admin_reimbursement_path(resource), alert: "手动状态更改失败: #{e.message}"
+    end
+  end
+
+  member_action :manual_set_processing, method: :put do
+    begin
+      resource.manual_status_change!('processing')
+      redirect_to admin_reimbursement_path(resource), notice: "状态已手动设置为：处理中 (手动覆盖)"
+    rescue => e
+      redirect_to admin_reimbursement_path(resource), alert: "手动状态更改失败: #{e.message}"
+    end
+  end
+
+  member_action :manual_set_closed, method: :put do
+    begin
+      resource.manual_status_change!('closed')
+      redirect_to admin_reimbursement_path(resource), notice: "状态已手动设置为：已关闭 (手动覆盖)"
+    rescue => e
+      redirect_to admin_reimbursement_path(resource), alert: "手动状态更改失败: #{e.message}"
+    end
+  end
+
+  member_action :reset_manual_override, method: :put do
+    begin
+      resource.reset_manual_override!
+      redirect_to admin_reimbursement_path(resource), notice: "手动覆盖已重置，状态将根据系统逻辑自动确定"
+    rescue => e
+      redirect_to admin_reimbursement_path(resource), alert: "重置手动覆盖失败: #{e.message}"
     end
   end
   

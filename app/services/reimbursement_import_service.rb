@@ -113,28 +113,36 @@ class ReimbursementImportService
     Rails.logger.debug "  external_status after assign_attributes: #{reimbursement.external_status.inspect}"
     Rails.logger.debug "  Reimbursement status BEFORE mapping logic: #{reimbursement.status.inspect}"
 
-    # 根据外部状态设置内部状态
-    # 如果外部状态指示为“已完成”或“已付款”，则强制内部状态为 closed
-    # Determine internal status based on external status from import file
+    # 应用新的状态逻辑：外部状态优先，手动覆盖保护
     external_status_from_csv = row['报销单状态']&.strip
     Rails.logger.debug "  CSV '报销单状态' stripped value: #{external_status_from_csv.inspect}"
-    mapped_internal_status = map_external_status_to_internal(external_status_from_csv)
-    Rails.logger.debug "  Mapping external status '#{external_status_from_csv}' to internal status: #{mapped_internal_status.inspect}"
-
-    # Always update the status based on the mapped external status, unless it's a specific transition.
-    # The only exception is if an existing record was CLOSED and the new external status is not CLOSED,
-    # then it should revert to PROCESSING.
     
     # Store the original status for logging
     original_internal_status = reimbursement.status
-    Rails.logger.debug "  Reimbursement status BEFORE mapping logic: #{original_internal_status.inspect}"
+    Rails.logger.debug "  Reimbursement status BEFORE new logic: #{original_internal_status.inspect}"
 
+    # Apply new status determination logic
     if is_new_record
+      # For new records, start with pending and then apply business rules
       reimbursement.status = Reimbursement::STATUS_PENDING
-      Rails.logger.debug "  Setting status to PENDING for new record with no specific external status mapping"
+      Rails.logger.debug "  Setting initial status to PENDING for new record"
     end
     
-    Rails.logger.debug "  Reimbursement status AFTER mapping logic: #{reimbursement.status.inspect}"
+    # Apply the new status determination logic
+    new_status = reimbursement.determine_internal_status_from_external(external_status_from_csv)
+    
+    # Only update status if it's different and not manually overridden
+    if new_status != reimbursement.status && !reimbursement.manual_override?
+      reimbursement.status = new_status
+      Rails.logger.debug "  Updated status from #{original_internal_status} to #{new_status} based on external status"
+    elsif reimbursement.manual_override?
+      Rails.logger.debug "  Status change blocked by manual override flag"
+    end
+    
+    # Update last_external_status for tracking
+    reimbursement.last_external_status = external_status_from_csv
+    
+    Rails.logger.debug "  Reimbursement status AFTER new logic: #{reimbursement.status.inspect}"
 
     if reimbursement.save
       Rails.logger.debug "  Reimbursement saved successfully. Final external_status: #{reimbursement.external_status.inspect}, Final internal_status: #{reimbursement.status.inspect}"
@@ -166,23 +174,6 @@ class ReimbursementImportService
     end
   end
   
-  def map_external_status_to_internal(external_status)
-    Rails.logger.debug "  map_external_status_to_internal received: #{external_status.inspect}"
-    return nil unless external_status.present?
-    
-    case external_status
-    when /已完成/, /已审批/, /已审核/, /已通过/, /已结束/, /已关闭/, /已付款/
-      result = Reimbursement::STATUS_CLOSED
-    when /处理中/, /审核中/, /审批中/, /代付款/, /未付款/, /待付款/ # Added '待付款'
-      result = Reimbursement::STATUS_PROCESSING
-    when /待审批/, /待审核/
-      result = Reimbursement::STATUS_PENDING
-    else
-      result = Reimbursement::STATUS_PENDING
-    end
-    Rails.logger.debug "  map_external_status_to_internal returning: #{result.inspect}"
-    result
-  end
 
   def parse_datetime(datetime_string)
     return nil unless datetime_string.present?
