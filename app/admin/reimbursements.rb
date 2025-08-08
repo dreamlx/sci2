@@ -390,13 +390,7 @@ ActiveAdmin.register Reimbursement do
             Arel.sql("CASE WHEN verification_status = 'problematic' THEN 0 ELSE 1 END"),
             created_at: :desc
           ) do
-            column(:id) { |fd| link_to fd.id, admin_fee_detail_path(fd) }
-            column :fee_type
-            column "费用日期", :fee_date do |fd|
-              fd.fee_date&.strftime("%Y-%m-%d") || "未设置"
-            end
-            column "金额", :amount do |fd| number_to_currency(fd.amount, unit: "¥") end
-            column "验证状态", :verification_status do |fd| status_tag fd.verification_status end
+            column("费用明细id") { |fd| link_to fd.id, admin_fee_detail_path(fd) }
             column "关联工单" do |fee_detail|
               latest_wo = fee_detail.latest_associated_work_order
               if latest_wo
@@ -405,6 +399,12 @@ ActiveAdmin.register Reimbursement do
                 "无"
               end
             end
+            column "验证状态", :verification_status do |fd| status_tag fd.verification_status end
+            column :fee_type
+            column "费用日期", :fee_date do |fd|
+              fd.fee_date&.strftime("%Y-%m-%d") || "未设置"
+            end
+            column "金额", :amount do |fd| number_to_currency(fd.amount, unit: "¥") end
             column "问题类型" do |fee_detail|
               latest_wo = fee_detail.latest_associated_work_order
               if latest_wo && latest_wo.problem_types.any?
@@ -421,8 +421,8 @@ ActiveAdmin.register Reimbursement do
             end
             column "审核意见" do |fee_detail|
               latest_wo = fee_detail.latest_associated_work_order
-              if latest_wo&.processing_opinion.present?
-                content_tag(:div, latest_wo.processing_opinion,
+              if latest_wo&.audit_comment.present?
+                content_tag(:div, latest_wo.audit_comment,
                   style: "max-width: 200px; word-wrap: break-word; font-size: 12px;")
               else
                 "无"
@@ -510,6 +510,22 @@ ActiveAdmin.register Reimbursement do
             column("状态") { |wo| status_tag wo.status }
             column "创建人", :creator
             column "创建时间", :created_at
+            column "审核结果" do |work_order|
+              if work_order.audit_result.present?
+                content_tag(:div, work_order.audit_result,
+                  style: "max-width: 150px; word-wrap: break-word; font-size: 12px;")
+              else
+                "无"
+              end
+            end
+            column "审核意见" do |work_order|
+              if work_order.audit_comment.present?
+                content_tag(:div, work_order.audit_comment,
+                  style: "max-width: 200px; word-wrap: break-word; font-size: 12px;")
+              else
+                "无"
+              end
+            end
             column "问题详情" do |work_order|
               if work_order.problem_types.any?
                 problem_details = work_order.problem_types.map do |problem_type|
