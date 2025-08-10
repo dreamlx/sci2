@@ -1,5 +1,9 @@
 ActiveAdmin.register FeeDetail do
-  actions :index, :show
+  actions :index, :show, :edit, :update
+  
+  # 允许附件参数
+  permit_params :document_number, :fee_type, :amount, :fee_date,
+                :verification_status, :notes, attachments: []
   
   # 启用批量操作功能
   config.batch_actions = true
@@ -324,6 +328,71 @@ ActiveAdmin.register FeeDetail do
           end
         end
       end
+      
+      tab "附件信息 (#{resource.attachment_count})" do
+        panel "附件列表" do
+          if resource.attachments.attached?
+            div class: "attachments-grid", style: "display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin: 20px 0;" do
+              resource.attachments.each do |attachment|
+                div class: "attachment-item", style: "border: 1px solid #ddd; padding: 15px; border-radius: 5px;" do
+                  div style: "margin-bottom: 10px;" do
+                    if attachment.image?
+                      image_tag attachment.variant(resize_to_limit: [200, 200]),
+                               style: "max-width: 100%; height: auto; border-radius: 3px;"
+                    else
+                      div style: "text-align: center; padding: 40px; background: #f5f5f5; border-radius: 3px;" do
+                        case attachment.content_type
+                        when 'application/pdf'
+                          span "📄 PDF文档", style: "font-size: 24px;"
+                        when /word/
+                          span "📝 Word文档", style: "font-size: 24px;"
+                        when /excel|sheet/
+                          span "📊 Excel文档", style: "font-size: 24px;"
+                        else
+                          span "📎 文档", style: "font-size: 24px;"
+                        end
+                      end
+                    end
+                  end
+                  
+                  div do
+                    strong attachment.filename.to_s
+                  end
+                  
+                  div style: "color: #666; font-size: 12px; margin: 5px 0;" do
+                    "大小: #{number_to_human_size(attachment.byte_size)}"
+                  end
+                  
+                  div style: "color: #666; font-size: 12px; margin: 5px 0;" do
+                    "类型: #{attachment.content_type}"
+                  end
+                  
+                  div style: "margin-top: 10px;" do
+                    link_to "下载", rails_blob_path(attachment, disposition: "attachment"),
+                            class: "button small", style: "margin-right: 5px;"
+                    if attachment.image?
+                      link_to "预览", rails_blob_path(attachment),
+                              class: "button small", target: "_blank"
+                    end
+                  end
+                end
+              end
+            end
+            
+            div style: "margin-top: 20px; padding: 10px; background: #f0f8ff; border-radius: 5px;" do
+              strong "附件统计："
+              br
+              span "总数量: #{resource.attachment_count}个"
+              br
+              span "总大小: #{number_to_human_size(resource.attachment_total_size)}"
+              br
+              span "类型分布: #{resource.attachment_types_summary}"
+            end
+          else
+            para "该费用明细暂无附件", style: "text-align: center; color: #999; padding: 40px;"
+          end
+        end
+      end
     end
   end
 
@@ -345,6 +414,35 @@ ActiveAdmin.register FeeDetail do
       f.input :expense_associated_application
       f.input :notes
     end
+    
+    f.inputs "附件管理" do
+      f.input :attachments, as: :file, input_html: {
+        multiple: true,
+        accept: "image/*,.pdf,.doc,.docx,.xls,.xlsx",
+        class: "attachment-upload"
+      }, hint: "支持图片、PDF、Word、Excel文件，单个文件最大10MB"
+      
+      if f.object.persisted? && f.object.attachments.attached?
+        div class: "current-attachments" do
+          h4 "当前附件："
+          ul do
+            f.object.attachments.each do |attachment|
+              li do
+                if attachment.image?
+                  image_tag attachment.variant(resize_to_limit: [100, 100]),
+                           style: "max-width: 100px; margin-right: 10px;"
+                end
+                span attachment.filename.to_s
+                span " (#{number_to_human_size(attachment.byte_size)})"
+                link_to "下载", rails_blob_path(attachment, disposition: "attachment"),
+                        class: "button small", style: "margin-left: 10px;"
+              end
+            end
+          end
+        end
+      end
+    end
+    
     f.actions
   end
 end

@@ -15,11 +15,17 @@ class FeeDetail < ApplicationRecord
   has_many :work_order_fee_details, dependent: :destroy
   has_many :work_orders, through: :work_order_fee_details
   
+  # Active Storage attachments
+  has_many_attached :attachments
+  
   # Validations
   validates :document_number, presence: true
   validates :verification_status, inclusion: { in: VERIFICATION_STATUSES }
   validates :external_fee_id, presence: true, uniqueness: true
   validates :amount, numericality: { greater_than_or_equal_to: 0, allow_nil: true }
+  
+  # Attachment validations - using Active Storage validate method
+  validate :validate_attachments
   
   # Callbacks
   after_save :update_reimbursement_status, if: -> { saved_change_to_verification_status? }
@@ -171,7 +177,67 @@ class FeeDetail < ApplicationRecord
     "个人"
   end
   
+  # Attachment related methods
+  def has_attachments?
+    attachments.attached?
+  end
+  
+  def attachment_count
+    attachments.count
+  end
+  
+  def attachment_total_size
+    attachments.sum(&:byte_size)
+  end
+  
+  def attachment_summary
+    return "无附件" unless has_attachments?
+    "#{attachment_count}个文件 (#{ActionController::Base.helpers.number_to_human_size(attachment_total_size)})"
+  end
+  
+  def image_attachments
+    attachments.select { |attachment| attachment.image? }
+  end
+  
+  def document_attachments
+    attachments.reject { |attachment| attachment.image? }
+  end
+  
+  def attachment_types_summary
+    types = []
+    types << "#{image_attachments.count}张图片" if image_attachments.any?
+    types << "#{document_attachments.count}个文档" if document_attachments.any?
+    types.join(", ")
+  end
+  
   private
+  
+  # Custom validation for attachments
+  def validate_attachments
+    return unless attachments.attached?
+    
+    # Define allowed content types
+    allowed_types = %w[
+      image/jpeg image/png image/gif image/webp
+      application/pdf
+      application/msword
+      application/vnd.openxmlformats-officedocument.wordprocessingml.document
+      application/vnd.ms-excel
+      application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+    ]
+    
+    attachments.each do |attachment|
+      # Validate content type
+      unless allowed_types.include?(attachment.content_type)
+        errors.add(:attachments, "文件 #{attachment.filename} 的格式不支持")
+      end
+      
+      # Validate file size (10MB limit)
+      if attachment.byte_size > 10.megabytes
+        errors.add(:attachments, "文件 #{attachment.filename} 大小超过10MB限制")
+      end
+    end
+  end
   
   # Update the reimbursement status when the verification status changes
   def update_reimbursement_status

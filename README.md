@@ -7,7 +7,7 @@ SCI2 是一个基于 Rails 7 + ActiveAdmin 的企业报销单管理系统，提�
 ## 🛠️ 技术栈
 
 - **后端框架**: Ruby on Rails 7.x
-- **Ruby版本**: 2.6.10
+- **Ruby版本**: ruby 3.4.2(rbenv)
 - **管理界面**: ActiveAdmin
 - **数据库**: PostgreSQL/MySQL
 - **测试框架**: RSpec

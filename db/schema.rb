@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_17_26_000013) do
+ActiveRecord::Schema[7.1].define(version: 2025_17_26_000014) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -23,6 +23,34 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000013) do
     t.index ["author_type", "author_id"], name: "index_active_admin_comments_on_author"
     t.index ["namespace"], name: "index_active_admin_comments_on_namespace"
     t.index ["resource_type", "resource_id"], name: "index_active_admin_comments_on_resource"
+  end
+
+  create_table "active_storage_attachments", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "record_type", null: false
+    t.bigint "record_id", null: false
+    t.bigint "blob_id", null: false
+    t.datetime "created_at", null: false
+    t.index ["blob_id"], name: "index_active_storage_attachments_on_blob_id"
+    t.index ["record_type", "record_id", "name", "blob_id"], name: "index_active_storage_attachments_uniqueness", unique: true
+  end
+
+  create_table "active_storage_blobs", force: :cascade do |t|
+    t.string "key", null: false
+    t.string "filename", null: false
+    t.string "content_type"
+    t.text "metadata"
+    t.string "service_name", null: false
+    t.bigint "byte_size", null: false
+    t.string "checksum"
+    t.datetime "created_at", null: false
+    t.index ["key"], name: "index_active_storage_blobs_on_key", unique: true
+  end
+
+  create_table "active_storage_variant_records", force: :cascade do |t|
+    t.bigint "blob_id", null: false
+    t.string "variation_digest", null: false
+    t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
   create_table "admin_users", force: :cascade do |t|
@@ -71,10 +99,20 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000013) do
     t.string "expense_associated_application"
     t.string "flex_field_6"
     t.string "flex_field_7"
+    t.boolean "is_attachment", default: false, null: false
+    t.string "attachment_file_name", limit: 255
+    t.string "attachment_file_path", limit: 500
+    t.string "attachment_content_type", limit: 100
+    t.integer "attachment_file_size"
+    t.text "attachment_description"
+    t.integer "uploaded_by"
+    t.index ["document_number", "is_attachment"], name: "idx_fee_details_document_attachment"
     t.index ["document_number"], name: "index_fee_details_on_document_number"
     t.index ["external_fee_id"], name: "index_fee_details_on_external_fee_id", unique: true
     t.index ["external_fee_id"], name: "index_fee_details_on_external_fee_id_unique", unique: true
     t.index ["fee_date"], name: "index_fee_details_on_fee_date"
+    t.index ["is_attachment"], name: "index_fee_details_on_is_attachment"
+    t.index ["uploaded_by"], name: "index_fee_details_on_uploaded_by"
     t.index ["verification_status"], name: "index_fee_details_on_verification_status"
   end
 
@@ -289,7 +327,10 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000013) do
     t.index ["type"], name: "index_work_orders_on_type"
   end
 
+  add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "communication_records", "work_orders", column: "communication_work_order_id"
+  add_foreign_key "fee_details", "admin_users", column: "uploaded_by", on_delete: :nullify
   add_foreign_key "problem_types", "fee_types"
   add_foreign_key "reimbursement_assignments", "admin_users", column: "assignee_id"
   add_foreign_key "reimbursement_assignments", "admin_users", column: "assigner_id"
