@@ -1,4 +1,34 @@
 ActiveAdmin.register Reimbursement do
+  # 添加附件上传的成员动作
+  member_action :upload_attachment, method: :post do
+    begin
+      # 生成唯一的 external_fee_id，使用 ATTACHMENT_ 前缀确保不与导入数据冲突
+      external_fee_id = "ATTACHMENT_#{resource.invoice_number}_#{Time.current.strftime('%Y%m%d%H%M%S')}_#{SecureRandom.hex(3).upcase}"
+      
+      # 创建费用明细记录
+      fee_detail = FeeDetail.new(
+        document_number: resource.invoice_number,
+        external_fee_id: external_fee_id,
+        fee_type: 'ATTACHMENT_EVIDENCE',
+        amount: 0.00,
+        verification_status: 'pending',
+        notes: params[:notes]
+      )
+      
+      # 添加附件
+      if params[:attachments].present?
+        fee_detail.attachments.attach(params[:attachments])
+      end
+      
+      if fee_detail.save
+        redirect_to admin_reimbursement_path(resource), notice: "附件上传成功！已创建费用明细 ##{fee_detail.id}"
+      else
+        redirect_to admin_reimbursement_path(resource), alert: "上传失败：#{fee_detail.errors.full_messages.join(', ')}"
+      end
+    rescue => e
+      redirect_to admin_reimbursement_path(resource), alert: "上传出错：#{e.message}"
+    end
+  end
   permit_params :invoice_number, :document_name, :applicant, :applicant_id, :company, :department,
                 :amount, :receipt_status, :status, :receipt_date, :submission_date,
                 :is_electronic, :external_status, :approval_date, :approver_name,
@@ -574,6 +604,111 @@ ActiveAdmin.register Reimbursement do
               margin-bottom: 3px;
             }
           }
+        end
+      end
+      
+      tab "附件管理 (#{resource.fee_details.joins(:attachments_attachments).distinct.count})" do
+        panel "上传新附件" do
+          form action: upload_attachment_admin_reimbursement_path(resource), method: :post, enctype: "multipart/form-data" do
+            input type: :hidden, name: :authenticity_token, value: form_authenticity_token
+            div class: "inputs" do
+              ol do
+                li do
+                  label "选择文件", for: "attachments"
+                  input type: :file, name: "attachments[]", id: "attachments", multiple: true, required: true
+                end
+                li do
+                  label "附件说明", for: "notes"
+                  textarea name: "notes", id: "notes", placeholder: "可填写附件描述信息"
+                end
+              end
+            end
+            div class: "actions" do
+              input type: :submit, value: "上传附件", class: "button"
+            end
+          end
+        end
+        
+        panel "报销单附件总览" do
+          fee_details_with_attachments = resource.fee_details.includes(attachments_attachments: :blob).select { |fd| fd.attachments.attached? }
+          
+          if fee_details_with_attachments.any?
+            div class: "attachments-overview", style: "margin-bottom: 20px; padding: 15px; background: #f0f8ff; border-radius: 5px;" do
+              strong "附件统计："
+              br
+              span "总费用明细数: #{resource.fee_details.count}个"
+              br
+              span "有附件的费用明细: #{fee_details_with_attachments.count}个"
+              br
+              total_attachments = fee_details_with_attachments.sum(&:attachment_count)
+              total_size = fee_details_with_attachments.sum(&:attachment_total_size)
+              span "总附件数: #{total_attachments}个"
+              br
+              span "总大小: #{number_to_human_size(total_size)}"
+            end
+            
+            table_for fee_details_with_attachments do
+              column "费用明细ID" do |fd|
+                link_to fd.id, admin_fee_detail_path(fd)
+              end
+              column "费用类型", :fee_type
+              column "金额", :amount do |fd|
+                number_to_currency(fd.amount, unit: "¥")
+              end
+              column "附件概览" do |fd|
+                div class: "attachment-preview", style: "display: flex; flex-wrap: wrap; gap: 10px;" do
+                  fd.attachments.limit(3).each do |attachment|
+                    div class: "attachment-item", style: "border: 1px solid #ddd; padding: 8px; border-radius: 3px; max-width: 120px;" do
+                      if attachment.image?
+                        image_tag attachment.variant(resize_to_limit: [60, 60]),
+                                 style: "max-width: 60px; height: auto; display: block; margin-bottom: 5px;"
+                      else
+                        div style: "text-align: center; padding: 15px; background: #f5f5f5;" do
+                          case attachment.content_type
+                          when 'application/pdf'
+                            span "📄", style: "font-size: 20px;"
+                          when /word/
+                            span "📝", style: "font-size: 20px;"
+                          when /excel|sheet/
+                            span "📊", style: "font-size: 20px;"
+                          else
+                            span "📎", style: "font-size: 20px;"
+                          end
+                        end
+                      end
+                      
+                      div style: "font-size: 11px; text-align: center;" do
+                        div truncate(attachment.filename.to_s, length: 15)
+                        div "#{number_to_human_size(attachment.byte_size)}", style: "color: #666;"
+                      end
+                      
+                      div style: "text-align: center; margin-top: 5px;" do
+                        link_to "下载", rails_blob_path(attachment, disposition: "attachment"),
+                                class: "button small", style: "font-size: 10px; padding: 2px 6px;"
+                      end
+                    end
+                  end
+                  
+                  if fd.attachment_count > 3
+                    div style: "display: flex; align-items: center; color: #666; font-size: 12px;" do
+                      "还有 #{fd.attachment_count - 3} 个附件..."
+                    end
+                  end
+                end
+              end
+              column "附件统计" do |fd|
+                div do
+                  strong "#{fd.attachment_count}个文件"
+                  br
+                  span "#{number_to_human_size(fd.attachment_total_size)}"
+                  br
+                  small fd.attachment_types_summary, style: "color: #666;"
+                end
+              end
+            end
+          else
+            para "该报销单暂无附件", style: "text-align: center; color: #999; padding: 40px;"
+          end
         end
       end
     end

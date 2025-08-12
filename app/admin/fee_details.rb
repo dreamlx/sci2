@@ -1,12 +1,35 @@
 ActiveAdmin.register FeeDetail do
-  actions :index, :show, :edit, :update
+  actions :index, :show, :edit, :update, :create, :new
   
   # 允许附件参数
   permit_params :document_number, :fee_type, :amount, :fee_date,
-                :verification_status, :notes, attachments: []
+                :verification_status, :notes, :external_fee_id,
+                :month_belonging, :first_submission_date, :plan_or_pre_application,
+                :product, :flex_field_6, :flex_field_7, :expense_corresponding_plan,
+                :expense_associated_application, attachments: []
   
   # 启用批量操作功能
   config.batch_actions = true
+  
+  # 控制器配置
+  controller do
+    def create
+      super do |success, failure|
+        success.html do
+          # 如果是从报销单页面创建的附件，重定向回报销单详情页
+          if params[:fee_detail][:document_number].present?
+            reimbursement = Reimbursement.find_by(invoice_number: params[:fee_detail][:document_number])
+            if reimbursement
+              redirect_to admin_reimbursement_path(reimbursement), notice: '附件上传成功！'
+              return
+            end
+          end
+          # 默认重定向到费用明细详情页
+          redirect_to admin_fee_detail_path(resource), notice: '费用明细创建成功！'
+        end
+      end
+    end
+  end
   
   # 添加一个简单的批量操作
   batch_action :mark_as_verified do |ids|

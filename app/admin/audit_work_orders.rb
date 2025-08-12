@@ -428,6 +428,18 @@ ActiveAdmin.register AuditWorkOrder do
           number_to_currency(fee_detail.amount, unit: "¥")
         end
         column "费用日期", :fee_date
+        column "附件", :attachments do |fee_detail|
+          if fee_detail.attachments.attached?
+            div class: "attachment-summary" do
+              span "📎 #{fee_detail.attachment_count}个文件",
+                   style: "color: #2e8b57; font-weight: bold;"
+              br
+              small fee_detail.attachment_types_summary, style: "color: #666;"
+            end
+          else
+            span "无附件", style: "color: #999;"
+          end
+        end
         column "备注", :notes
         column "创建时间", :created_at
         column "更新时间", :updated_at
