@@ -23,6 +23,21 @@ append :linked_files, "config/database.yml", "config/master.key"
 # Default value for linked_dirs is []
 append :linked_dirs, "log", "tmp/pids", "tmp/cache", "tmp/sockets", "public/system", "storage"
 
+# Exclude SQLite database files from deployment
+set :copy_exclude, %w[
+  .git
+  .gitignore
+  README.md
+  db/*.sqlite3
+  db/sci2_development.sqlite3
+  db/sci2_test.sqlite3
+  db/sci2_production.sqlite3
+  tmp/
+  log/
+  spec/
+  test/
+]
+
 # Bundler options
 set :bundle_flags, '--quiet'
 set :bundle_jobs, 4
@@ -61,11 +76,51 @@ namespace :deploy do
     end
   end
 
+  desc 'Setup environment variables'
+  task :setup_environment do
+    on roles(:app) do
+      # Create environment file with database credentials
+      execute :mkdir, "-p #{shared_path}/config"
+      
+      # Check if environment variables are set, if not prompt for them
+      db_username = fetch(:database_username, nil)
+      db_password = fetch(:database_password, nil)
+      
+      if db_username.nil? || db_password.nil?
+        puts "Database credentials not set. Please set them in config/deploy/production.rb:"
+        puts "set :database_username, 'your_mysql_username'"
+        puts "set :database_password, 'your_mysql_password'"
+        exit 1
+      end
+      
+      # Create environment file
+      env_content = <<~ENV
+        export SCI2_DATABASE_USERNAME='#{db_username}'
+        export SCI2_DATABASE_PASSWORD='#{db_password}'
+        export RAILS_ENV=production
+      ENV
+      
+      upload! StringIO.new(env_content), "#{shared_path}/config/environment"
+      execute :chmod, "600 #{shared_path}/config/environment"
+    end
+  end
+
   desc 'Upload config files'
   task :upload_config_files do
     on roles(:app) do
       upload! 'config/database.yml', "#{shared_path}/config/database.yml"
       upload! 'config/master.key', "#{shared_path}/config/master.key"
+    end
+  end
+
+  desc 'Setup database'
+  task :setup_database do
+    on roles(:db) do
+      within release_path do
+        # Source environment variables
+        execute :bash, "-c 'source #{shared_path}/config/environment && cd #{release_path} && bundle exec rails db:create RAILS_ENV=production'"
+        execute :bash, "-c 'source #{shared_path}/config/environment && cd #{release_path} && bundle exec rails db:migrate RAILS_ENV=production'"
+      end
     end
   end
 
@@ -79,6 +134,8 @@ namespace :deploy do
   end
 
   before :starting, :upload_config_files
+  before :starting, :setup_environment
+  after 'deploy:migrate', :setup_database
   after :finishing, :open_firewall_port
 end
 

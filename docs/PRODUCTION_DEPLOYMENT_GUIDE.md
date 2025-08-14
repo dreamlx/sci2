@@ -11,6 +11,7 @@
 - [阶段一：联网环境初始化](#阶段一联网环境初始化)
 - [阶段二：内网环境迁移](#阶段二内网环境迁移)
 - [日常维护](#日常维护)
+- [数据库配置修复](#数据库配置修复)
 - [故障排除](#故障排除)
 - [备份和恢复](#备份和恢复)
 
@@ -554,6 +555,33 @@ case $ACTION in
 esac
 ```
 
+## 数据库配置修复
+
+### 重要提醒：数据库部署问题修复
+
+如果你在部署过程中遇到生产环境数据库包含开发数据的问题，这通常是由于数据库配置问题导致的。我们已经创建了专门的修复方案。
+
+**📋 详细修复指南**: [CAPISTRANO_DATABASE_FIX.md](CAPISTRANO_DATABASE_FIX.md)
+
+#### 问题症状
+- 生产环境显示开发环境的数据（如大量测试报销单）
+- 数据库记录数与本地开发环境一致
+- 应该为空的生产数据库包含了开发数据
+
+#### 根本原因
+1. MySQL环境变量 `SCI2_DATABASE_USERNAME` 和 `SCI2_DATABASE_PASSWORD` 未设置
+2. Rails无法连接MySQL时回退到SQLite3
+3. 开发环境的SQLite数据库文件被部署到生产环境
+
+#### 快速修复步骤
+1. **修改数据库凭据** - 在 `config/deploy/production.rb` 中设置正确的MySQL用户名和密码
+2. **重新部署** - 使用 `cap production deploy`，新配置会自动处理数据库设置
+3. **验证结果** - 确认生产环境使用MySQL且数据为空
+
+> ⚠️ **注意**: 修复后的部署流程会自动排除SQLite文件，创建MySQL数据库，并确保环境变量正确设置。
+
+---
+
 ## 故障排除
 
 ### 4.1 常见问题
@@ -578,6 +606,9 @@ bundle exec cap production puma:restart
 ```
 
 #### 数据库连接问题
+
+> **重要更新**: 如果遇到数据库配置问题（如生产环境显示开发数据），请参考 [数据库配置修复](#数据库配置修复) 章节的专门解决方案。
+
 ```bash
 # 检查数据库文件权限
 ssh deploy@SERVER_IP "ls -la /opt/sci2/shared/db/"
@@ -721,7 +752,25 @@ set :assets_roles, []
 
 **解决方案**: 删除空的服务文件或确保文件包含正确的类定义
 
-#### 问题4: 数据库迁移兼容性问题
+#### 问题4: 数据库配置和环境问题
+
+> **🔥 最新修复**: 针对生产环境数据库显示开发数据的问题，我们已提供完整的自动化修复方案。详见 [CAPISTRANO_DATABASE_FIX.md](CAPISTRANO_DATABASE_FIX.md)
+
+##### 4.1 生产环境显示开发数据
+**问题症状**: 生产环境 `http://8.136.10.88:3000/admin/reimbursements` 显示大量开发数据（如34,449条报销单）
+
+**根本原因**:
+- MySQL环境变量未设置，Rails回退到SQLite3
+- 开发SQLite数据库文件被部署到生产环境
+
+**解决方案**: 使用新的Capistrano配置自动修复
+```bash
+# 1. 修改 config/deploy/production.rb 中的数据库凭据
+# 2. 重新部署
+cap production deploy
+```
+
+##### 4.2 数据库迁移兼容性问题
 
 ##### 4.1 外键约束错误
 **错误信息**: `Cannot drop index 'fk_rails_xxx': needed in a foreign key constraint`

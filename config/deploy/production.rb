@@ -22,6 +22,10 @@ set :puma_bind, "tcp://0.0.0.0:3000"
 set :docker_enabled, false  # Set to true if using Docker in production
 set :deploy_to, "/opt/sci2"
 
+# Database credentials - CHANGE THESE TO YOUR ACTUAL MYSQL CREDENTIALS
+set :database_username, 'sci2_user'  # Change this to your MySQL username
+set :database_password, 'sci2_password'  # Change this to your MySQL password
+
 # More conservative settings for production
 set :keep_releases, 3
 set :puma_workers, 4
