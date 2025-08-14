@@ -1,6 +1,10 @@
 {
+  "scripts": {
+    "build": "esbuild app/javascript/application.js --bundle --sourcemap --outdir=app/assets/builds --public-path=/assets"
+  },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.7.2",
-    "chart.js": "^4.4.9"
+    "chart.js": "^4.4.9",
+    "esbuild": "^0.19.0"
   }
 }
