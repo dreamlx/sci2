@@ -11,7 +11,7 @@ gem 'sqlite3', group: %i[development test]
 # Use PostgreSQL as the database for Active Record
 # gem 'pg', '~> 1.1'
 # Use MySQL as the database for Active Record
-# gem 'mysql2', '~> 0.5'
+gem 'mysql2', '~> 0.5', groups: [:production, :development]
 
 # Use the Puma web server [https://github.com/puma/puma]
 gem 'puma', '~> 6.1'
@@ -47,6 +47,9 @@ group :development do
   gem 'capistrano-rvm', '~> 0.1'
   gem 'capistrano3-puma', '~> 6.0'
   gem 'sshkit', '~> 1.22'
+  # ED25519 SSH key support for net-ssh
+  gem 'ed25519', '>= 1.2', '< 2.0'
+  gem 'bcrypt_pbkdf', '>= 1.0', '< 2.0'
 end
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem

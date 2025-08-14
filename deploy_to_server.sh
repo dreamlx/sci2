@@ -3,7 +3,7 @@ set -e
 
 # Default configuration
 REMOTE_USER="root"
-REMOTE_HOST="47.97.35.0"
+REMOTE_HOST="8.136.10.88"
 REMOTE_DIR="/var/www/sci2"
 LOCAL_DIR="."
 UPLOAD_DB=false

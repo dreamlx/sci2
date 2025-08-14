@@ -31,7 +31,7 @@ set :bundle_path, -> { shared_path.join('bundle') }
 set :bundle_binstubs, -> { shared_path.join('bin') }
 set :bundle_roles, :all
 set :bundle_bins, %w(gem rake rails)
-set :bundle_env_variables, { BUNDLE_IGNORE_CONFIG: '1' }
+set :bundle_env_variables, { BUNDLE_IGNORE_CONFIG: '1', RAILS_ENV: 'production' }
 
 # RVM Configuration
 set :rvm_type, :system

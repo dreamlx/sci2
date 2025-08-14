@@ -1,5 +1,5 @@
 # Define the server and user for production environment
-server 'YOUR_PRODUCTION_IP', user: 'deploy', roles: %w{app db web}
+server '8.136.10.88', user: 'deploy', roles: %w{app db web}
 
 # Production-specific settings
 set :stage, :production
@@ -20,7 +20,7 @@ set :puma_bind, "tcp://0.0.0.0:3000"
 
 # Custom settings for production
 set :docker_enabled, false  # Set to true if using Docker in production
-set :deploy_to, "/opt/sci2/production"
+set :deploy_to, "/opt/sci2"
 
 # More conservative settings for production
 set :keep_releases, 3
