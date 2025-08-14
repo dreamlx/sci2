@@ -1,156 +1,149 @@
 require 'rails_helper'
 
 RSpec.describe FeeDetailStatusService, type: :service do
-  let(:reimbursement) do
-    Reimbursement.create!(
-      invoice_number: "INV-001",
-      document_name: "个人报销单",
-      status: "processing",
-      is_electronic: true
-    )
-  end
+  let(:reimbursement) { create(:reimbursement) }
+  let(:fee_detail) { create(:fee_detail, document_number: reimbursement.invoice_number) }
   
-  let(:fee_detail) do
-    FeeDetail.create!(
-      document_number: reimbursement.invoice_number,
-      fee_type: "交通费",
-      amount: 100.0,
-      verification_status: "pending"
-    )
-  end
-  
-  let(:audit_work_order) do
-    AuditWorkOrder.create!(
-      reimbursement: reimbursement,
-      status: "pending",
-      created_by: nil
-    )
-  end
-  
-  let(:communication_work_order) do
-    CommunicationWorkOrder.create!(
-      reimbursement: reimbursement,
-      status: "pending",
-      created_by: nil
-    )
-  end
-  
-  before do
-    # Create work order fee detail associations
-    WorkOrderFeeDetail.create!(
-      work_order: audit_work_order,
-      fee_detail: fee_detail,
-      work_order_type: audit_work_order.type
-    )
-    
-    WorkOrderFeeDetail.create!(
-      work_order: communication_work_order,
-      fee_detail: fee_detail,
-      work_order_type: communication_work_order.type
-    )
-  end
-  
-  describe "#update_status" do
-    it "sets fee detail status to pending when there are no work orders with a decision" do
-      service = FeeDetailStatusService.new([fee_detail.id])
-      service.update_status
-      
-      expect(fee_detail.reload.verification_status).to eq("pending")
+  describe '#update_status' do
+    context '当费用明细没有关联工单时' do
+      it '状态应该为 pending' do
+        service = FeeDetailStatusService.new([fee_detail.id])
+        service.update_status
+        
+        expect(fee_detail.reload.verification_status).to eq('pending')
+      end
     end
     
-    it "sets fee detail status to verified when the latest work order is approved" do
-      # First set the audit work order to rejected
-      audit_work_order.update(status: "rejected")
+    context '当费用明细只关联审核工单时' do
+      let(:audit_work_order) { create(:audit_work_order, reimbursement: reimbursement, status: 'approved') }
       
-      # Then set the communication work order to approved (this is newer)
-      communication_work_order.update(status: "approved")
+      before do
+        create(:work_order_fee_detail, fee_detail: fee_detail, work_order: audit_work_order)
+      end
       
-      # Update the timestamps to ensure communication_work_order is newer
-      communication_work_order.update_column(:updated_at, Time.current)
-      
-      service = FeeDetailStatusService.new([fee_detail.id])
-      service.update_status
-      
-      expect(fee_detail.reload.verification_status).to eq("verified")
+      it '应该根据审核工单状态更新' do
+        service = FeeDetailStatusService.new([fee_detail.id])
+        service.update_status
+        
+        expect(fee_detail.reload.verification_status).to eq('verified')
+      end
     end
     
-    it "sets fee detail status to problematic when the latest work order is rejected" do
-      # First set the communication work order to approved
-      communication_work_order.update(status: "approved")
+    context '当费用明细只关联沟通工单时' do
+      let(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement, status: 'completed') }
       
-      # Then set the audit work order to rejected (this is newer)
-      audit_work_order.update(status: "rejected")
+      before do
+        create(:work_order_fee_detail, fee_detail: fee_detail, work_order: communication_work_order)
+      end
       
-      # Update the timestamps to ensure audit_work_order is newer
-      audit_work_order.update_column(:updated_at, Time.current)
+      it '状态应该保持为 pending（沟通工单不影响状态）' do
+        service = FeeDetailStatusService.new([fee_detail.id])
+        service.update_status
+        
+        expect(fee_detail.reload.verification_status).to eq('pending')
+      end
+    end
+    
+    context '当费用明细同时关联审核工单和沟通工单时' do
+      let(:audit_work_order) { create(:audit_work_order, reimbursement: reimbursement, status: 'approved') }
+      let(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement, status: 'completed') }
       
-      service = FeeDetailStatusService.new([fee_detail.id])
-      service.update_status
+      before do
+        create(:work_order_fee_detail, fee_detail: fee_detail, work_order: audit_work_order)
+        create(:work_order_fee_detail, fee_detail: fee_detail, work_order: communication_work_order)
+      end
       
-      expect(fee_detail.reload.verification_status).to eq("problematic")
+      it '应该只根据审核工单状态更新，忽略沟通工单' do
+        service = FeeDetailStatusService.new([fee_detail.id])
+        service.update_status
+        
+        expect(fee_detail.reload.verification_status).to eq('verified')
+      end
+    end
+    
+    context '当有多个审核工单和沟通工单时' do
+      let(:old_audit_work_order) { create(:audit_work_order, reimbursement: reimbursement, status: 'rejected', created_at: 1.day.ago) }
+      let(:new_audit_work_order) { create(:audit_work_order, reimbursement: reimbursement, status: 'approved', created_at: 1.hour.ago) }
+      let(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement, status: 'completed', created_at: 30.minutes.ago) }
+      
+      before do
+        create(:work_order_fee_detail, fee_detail: fee_detail, work_order: old_audit_work_order)
+        create(:work_order_fee_detail, fee_detail: fee_detail, work_order: new_audit_work_order)
+        create(:work_order_fee_detail, fee_detail: fee_detail, work_order: communication_work_order)
+      end
+      
+      it '应该根据最新的审核工单状态更新' do
+        service = FeeDetailStatusService.new([fee_detail.id])
+        service.update_status
+        
+        expect(fee_detail.reload.verification_status).to eq('verified')
+      end
     end
   end
   
-  describe "#update_status_for_work_order" do
-    it "updates status for fee details associated with a specific work order" do
-      # Set the audit work order to approved
-      audit_work_order.update(status: "approved")
+  describe '#get_latest_work_order' do
+    let(:service) { FeeDetailStatusService.new([fee_detail.id]) }
+    
+    context '当有审核工单和沟通工单时' do
+      let(:audit_work_order) { create(:audit_work_order, reimbursement: reimbursement, created_at: 1.hour.ago) }
+      let(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement, created_at: 30.minutes.ago) }
       
-      service = FeeDetailStatusService.new
-      service.update_status_for_work_order(audit_work_order)
+      before do
+        create(:work_order_fee_detail, fee_detail: fee_detail, work_order: audit_work_order)
+        create(:work_order_fee_detail, fee_detail: fee_detail, work_order: communication_work_order)
+      end
       
-      expect(fee_detail.reload.verification_status).to eq("verified")
+      it '应该返回最新的审核工单，排除沟通工单' do
+        latest_work_order = service.send(:get_latest_work_order, fee_detail)
+        expect(latest_work_order).to eq(audit_work_order)
+        expect(latest_work_order).not_to eq(communication_work_order)
+      end
     end
     
-    it "follows the latest work order decides principle when updating for a specific work order" do
-      # First set the communication work order to approved
-      communication_work_order.update(status: "approved")
+    context '当只有沟通工单时' do
+      let(:communication_work_order) { create(:communication_work_order, reimbursement: reimbursement) }
       
-      # Update the timestamps to ensure communication_work_order is older
-      communication_work_order.update_column(:updated_at, 1.day.ago)
+      before do
+        create(:work_order_fee_detail, fee_detail: fee_detail, work_order: communication_work_order)
+      end
       
-      # Then set the audit work order to rejected
-      audit_work_order.update(status: "rejected")
-      
-      # Update the timestamps to ensure audit_work_order is newer
-      audit_work_order.update_column(:updated_at, Time.current)
-      
-      service = FeeDetailStatusService.new
-      service.update_status_for_work_order(communication_work_order)
-      
-      # Even though we're updating for communication_work_order, the audit_work_order is newer
-      # so the fee detail should still be problematic
-      expect(fee_detail.reload.verification_status).to eq("problematic")
+      it '应该返回 nil' do
+        latest_work_order = service.send(:get_latest_work_order, fee_detail)
+        expect(latest_work_order).to be_nil
+      end
     end
   end
   
-  describe "integration with work order status changes" do
-    it "updates fee detail status when a work order status changes" do
-      # Initially both work orders are pending, so fee detail should be pending
-      expect(fee_detail.verification_status).to eq("pending")
+  describe '#determine_status_from_work_order' do
+    let(:service) { FeeDetailStatusService.new([fee_detail.id]) }
+    
+    context '当工单是沟通工单时' do
+      let(:communication_work_order) { create(:communication_work_order, status: 'completed') }
       
-      # Change the audit work order to approved
-      audit_work_order.update(status: "approved")
+      it '应该返回 pending' do
+        status = service.send(:determine_status_from_work_order, communication_work_order)
+        expect(status).to eq('pending')
+      end
+    end
+    
+    context '当工单是审核工单时' do
+      it '已批准的审核工单应该返回 verified' do
+        audit_work_order = create(:audit_work_order, status: 'approved')
+        status = service.send(:determine_status_from_work_order, audit_work_order)
+        expect(status).to eq('verified')
+      end
       
-      # The fee detail should now be verified
-      expect(fee_detail.reload.verification_status).to eq("verified")
+      it '已拒绝的审核工单应该返回 problematic' do
+        audit_work_order = create(:audit_work_order, status: 'rejected')
+        status = service.send(:determine_status_from_work_order, audit_work_order)
+        expect(status).to eq('problematic')
+      end
       
-      # Change the communication work order to rejected (and make it newer)
-      communication_work_order.update(status: "rejected")
-      communication_work_order.update_column(:updated_at, Time.current)
-      
-      # The fee detail should now be problematic
-      expect(fee_detail.reload.verification_status).to eq("problematic")
-      
-      # Change the audit work order to approved again (and make it newer)
-      audit_work_order.update(status: "approved")
-      audit_work_order.update_column(:updated_at, Time.current + 1.second)
-      
-      # Explicitly call the service to update the fee detail status
-      FeeDetailStatusService.new([fee_detail.id]).update_status
-      
-      # The fee detail should now be verified again
-      expect(fee_detail.reload.verification_status).to eq("verified")
+      it '待处理的审核工单应该返回 pending' do
+        audit_work_order = create(:audit_work_order, status: 'pending')
+        status = service.send(:determine_status_from_work_order, audit_work_order)
+        expect(status).to eq('pending')
+      end
     end
   end
 end

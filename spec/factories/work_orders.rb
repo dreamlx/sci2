@@ -6,9 +6,8 @@ FactoryBot.define do
     status { "pending" } # 默认状态
     
     # 共享字段
-    problem_type { nil }
-    remark { nil }
     processing_opinion { nil }
+    audit_comment { "测试审核意见" }
     
     # 不能直接创建基类实例，必须使用子类工厂
     initialize_with { raise "Cannot create WorkOrder directly, use a subclass factory" }
@@ -65,45 +64,32 @@ FactoryBot.define do
     factory :communication_work_order, class: 'CommunicationWorkOrder' do
       type { "CommunicationWorkOrder" }
       status { "pending" }
+      communication_method { "电话" }
+      audit_comment { "这是一个详细的沟通记录，包含了所有必要的信息用于测试" }
       
       # 覆盖基类的 initialize_with
       initialize_with { CommunicationWorkOrder.new }
       
-      # 添加回调以设置fee_detail_ids_to_select
-      after(:build) do |communication_work_order, evaluator|
-        # 如果没有设置fee_detail_ids_to_select，则设置一个空数组
-        communication_work_order.instance_variable_set('@fee_detail_ids_to_select', []) unless communication_work_order.instance_variable_get('@fee_detail_ids_to_select')
-      end
-
-      # Add WorkOrderFeeDetail records after creation if fee_details are associated
-      after(:create) do |communication_work_order, evaluator|
-        if communication_work_order.fee_details.present?
-          communication_work_order.fee_details.each do |fee_detail|
-            WorkOrderFeeDetail.find_or_create_by(
-              fee_detail: fee_detail,
-              work_order_id: communication_work_order.id
-            )
-          end
-        end
-      end
-
-      trait :processing do
-        status { "processing" }
+      # 重构后的沟通工单会自动完成，但在测试中我们可能需要控制状态
+      trait :completed do
+        status { "completed" }
       end
       
-      trait :needs_communication do
-        needs_communication { true }
+      # 不同沟通方式的变体
+      trait :phone do
+        communication_method { "电话" }
       end
       
-      trait :approved do
-        status { "approved" }
-        resolution_summary { "测试解决方案" }
+      trait :wechat do
+        communication_method { "微信" }
       end
       
-      trait :rejected do
-        status { "rejected" }
-        resolution_summary { "测试拒绝原因" }
-        association :problem_type, factory: :problem_type
+      trait :email do
+        communication_method { "邮件" }
+      end
+      
+      trait :in_person do
+        communication_method { "现场沟通" }
       end
     end
   end

@@ -78,6 +78,19 @@ class WorkOrder < ApplicationRecord
       work_order.sync_fee_details_verification_status
     end
   end
+  # Ransack 搜索支持
+  def self.ransackable_attributes(auth_object = nil)
+    ["audit_comment", "audit_date", "audit_result", "communication_method", "courier_name", 
+     "created_at", "created_by", "fee_type_id", "id", "id_value", "initiator_role", 
+     "problem_type_id", "processing_opinion", "received_at", "reimbursement_id", 
+     "status", "tracking_number", "type", "updated_at", "vat_verified"]
+  end
+
+  def self.ransackable_associations(auth_object = nil)
+    ["creator", "fee_details", "operations", "problem_type", "problem_types", 
+     "reimbursement", "work_order_fee_details", "work_order_problems", 
+     "work_order_status_changes"]
+  end
   
   # 范围
   scope :pending, -> { where(status: STATUS_PENDING) }

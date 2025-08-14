@@ -3,63 +3,97 @@
 
   <% reimbursement = f.object.reimbursement || (params[:reimbursement_id] ? Reimbursement.find_by(id: params[:reimbursement_id]) : nil) %>
 
-  <div class="tabs">
-    <div class="tab-content" id="tab-basic-info">
-      <h3>基本信息</h3>
-      <%= f.inputs '工单详情' do %>
-        <% if reimbursement %>
-          <%= render 'admin/reimbursements/reimbursement_display', reimbursement: reimbursement %>
-          <%= f.input :reimbursement_id, as: :hidden, input_html: { value: reimbursement.id } %>
-        <% elsif f.object.reimbursement %>
-          <%= f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: f.object.reimbursement.invoice_number, readonly: true, disabled: true } %>
-        <% end %>
-        <%= f.input :status, input_html: { readonly: true, disabled: true }, label: '工单状态' if f.object.persisted? %>
-      <% end %>
+  <%= f.inputs '基本信息' do %>
+    <% if reimbursement %>
+      <%= render 'admin/reimbursements/reimbursement_display', reimbursement: reimbursement %>
+      <%= f.input :reimbursement_id, as: :hidden, input_html: { value: reimbursement.id } %>
+    <% elsif f.object.reimbursement %>
+      <%= f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: f.object.reimbursement.invoice_number, readonly: true, disabled: true } %>
+    <% end %>
+    <%= f.input :status, input_html: { readonly: true, disabled: true }, label: '工单状态' if f.object.persisted? %>
+  <% end %>
 
-      <!-- 费用明细选择 -->
-      <% if reimbursement %>
-        <%= render 'admin/shared/fee_details_selection', work_order: f.object, reimbursement: reimbursement %>
-      <% else %>
-        <%= f.inputs '费用明细' do %>
-          <p>无法加载费用明细，未关联有效的报销单。</p>
-        <% end %>
-      <% end %>
-
-      <%= f.inputs '处理与反馈', id: 'processing-feedback-section' do %>
-        <div class="input radio_buttons">
-          <fieldset class="choices">
-            <legend class="label">处理意见</legend>
-            <ol class="choices-group">
-              <li class="choice">
-                <label for="communication_work_order_processing_opinion_可以通过">
-                  <input type="radio" id="communication_work_order_processing_opinion_可以通过" name="communication_work_order[processing_opinion]" value="可以通过" class="processing-opinion-radio">
-                  可以通过
-                </label>
-              </li>
-              <li class="choice">
-                <label for="communication_work_order_processing_opinion_无法通过">
-                  <input type="radio" id="communication_work_order_processing_opinion_无法通过" name="communication_work_order[processing_opinion]" value="无法通过" class="processing-opinion-radio">
-                  无法通过
-                </label>
-              </li>
-            </ol>
-          </fieldset>
-        </div>
-        
-        <!-- 审核意见输入框 -->
-        <%= f.input :audit_comment, label: "审核意见",
-                input_html: { id: 'audit_comment_field', class: 'audit-comment' } %>
-      <% end %>
+  <div class="panel">
+    <h3>沟通工单说明</h3>
+    <div class="notice">
+      <p><strong>注意：</strong>沟通工单专用于记录电话沟通过程，不会影响费用明细和报销单的验证状态。</p>
+      <p>每次沟通请创建独立的工单，提交后自动完成。如需再次沟通，请创建新的沟通工单。</p>
     </div>
   </div>
-  
+
+  <%= f.inputs '电话沟通记录' do %>
+    <%= f.input :communication_method, label: "沟通方式", 
+                as: :select, 
+                collection: [
+                  ['电话', '电话'],
+                  ['微信', '微信'],
+                  ['邮件', '邮件'],
+                  ['现场沟通', '现场沟通']
+                ],
+                prompt: '请选择沟通方式',
+                input_html: { required: true } %>
+    
+    <%= f.input :audit_comment, label: "沟通内容", 
+                as: :text,
+                input_html: { 
+                  rows: 6, 
+                  placeholder: "请详细记录本次沟通的具体内容、讨论的问题、达成的共识和后续安排...\n\n示例：\n- 沟通对象：张三（报销人）\n- 沟通时间：2024-01-15 14:30\n- 沟通内容：关于差旅费报销单中的住宿费发票问题\n- 问题说明：发票抬头不正确\n- 解决方案：重新提供正确抬头的发票\n- 后续安排：3个工作日内补充材料",
+                  required: true,
+                  minlength: 10
+                } %>
+  <% end %>
+
   <div class="form-actions">
     <%= f.actions do %>
-      <%= f.action :submit, as: :button, label: "提交", button_html: { class: "button" } %>
+      <%= f.action :submit, as: :button, label: "提交并完成沟通记录", button_html: { class: "button primary" } %>
       <%= f.action :cancel, as: :link %>
     <% end %>
   </div>
 <% end %>
 
-<%= stylesheet_link_tag 'work_order_form', media: 'all' %>
-<%= javascript_include_tag 'work_order_form' %>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // 表单提交前确认
+  const form = document.querySelector('form');
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      const content = document.querySelector('#communication_work_order_audit_comment').value;
+      if (content.length < 10) {
+        e.preventDefault();
+        alert('沟通内容至少需要10个字符，请详细描述沟通过程。');
+        return false;
+      }
+      
+      if (!confirm('确认提交沟通记录？提交后将自动完成此工单。')) {
+        e.preventDefault();
+        return false;
+      }
+    });
+  }
+});
+</script>
+
+<style>
+.notice {
+  background-color: #e3f2fd;
+  border: 1px solid #2196f3;
+  border-radius: 4px;
+  padding: 15px;
+  margin: 10px 0;
+}
+
+.notice p {
+  margin: 5px 0;
+  color: #1976d2;
+}
+
+.button.primary {
+  background-color: #4caf50;
+  color: white;
+  font-weight: bold;
+}
+
+.button.primary:hover {
+  background-color: #45a049;
+}
+</style>

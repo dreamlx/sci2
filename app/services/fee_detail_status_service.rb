@@ -62,13 +62,19 @@ class FeeDetailStatusService
   end
   
   def get_latest_work_order(fee_detail)
-    # 简化版本 - 直接使用关联获取最新工单
-    fee_detail.work_orders.order(updated_at: :desc).first
+    # 排除沟通工单，只考虑审核工单来决定状态
+    fee_detail.work_orders
+               .where.not(type: 'CommunicationWorkOrder')
+               .order(updated_at: :desc)
+               .first
   end
   
   def determine_status_from_work_order(work_order)
     # Skip express receipt work orders as they don't affect verification status
     return "pending" if work_order.is_a?(ExpressReceiptWorkOrder)
+    
+    # Skip communication work orders as they don't affect verification status
+    return "pending" if work_order.is_a?(CommunicationWorkOrder)
     
     case work_order.status
     when "approved"
