@@ -8,8 +8,7 @@ class RemoveDocumentCategoryFromProblemTypes < ActiveRecord::Migration[7.1]
         # This is a placeholder for actual data migration logic
         # In a real implementation, you would add code to migrate data from document_category to fee_type
         
-        # Now remove the column and its index
-        remove_index :problem_types, :document_category_id if index_exists?(:problem_types, :document_category_id)
+        # Now remove the foreign key constraint first, then the column and index
         remove_reference :problem_types, :document_category, foreign_key: true
       end
     end
