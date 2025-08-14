@@ -685,6 +685,171 @@ tar czf $BACKUP_DIR/storage.tar.gz -C /opt/sci2/shared storage
 echo "=== 备份完成: $BACKUP_DIR ==="
 ```
 
+## 6. 故障排除指南
+
+### 6.1 测试部署中发现的常见问题
+
+基于测试服务器 (8.136.10.88) 的部署经验，以下是可能遇到的问题和解决方案：
+
+#### 问题1: MySQL2 gem 无法找到
+**错误信息**: `LoadError: Error loading the 'mysql2' Active Record adapter. Missing a gem it depends on? mysql2 is not part of the bundle.`
+
+**原因**: mysql2 gem 仅在 production 组中配置，但 Capistrano 部署时 bundle install 无法正确识别
+
+**解决方案**:
+```ruby
+# Gemfile - 修改前
+gem 'mysql2', '~> 0.5', group: %i[production]
+
+# Gemfile - 修改后
+gem 'mysql2', '~> 0.5', groups: [:production, :development]
+```
+
+#### 问题2: JavaScript 构建冲突
+**错误信息**: Asset precompilation 失败，jsbundling-rails 与 importmap-rails 冲突
+
+**解决方案**:
+```ruby
+# config/deploy.rb - 添加以下配置跳过资源预编译
+set :assets_roles, []
+```
+
+#### 问题3: Zeitwerk 自动加载错误
+**错误信息**: `NameError: uninitialized constant UserMigrationService`
+
+**原因**: 空的服务文件导致类加载失败
+
+**解决方案**: 删除空的服务文件或确保文件包含正确的类定义
+
+#### 问题4: 数据库迁移兼容性问题
+
+##### 4.1 外键约束错误
+**错误信息**: `Cannot drop index 'fk_rails_xxx': needed in a foreign key constraint`
+
+**解决方案**: 在删除外键之前不要手动删除索引，Rails会自动处理
+```ruby
+# 错误的做法
+remove_index :table_name, name: 'index_name'
+remove_foreign_key :table_name, :referenced_table
+
+# 正确的做法
+remove_foreign_key :table_name, :referenced_table
+# Rails 会自动处理相关索引
+```
+
+##### 4.2 MariaDB SQL 语法兼容性
+**错误信息**: `You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version`
+
+**问题**: PostgreSQL 的 `CAST AS TEXT` 在 MariaDB 中不支持
+
+**解决方案**:
+```ruby
+# PostgreSQL 语法
+CAST(id + 10 AS TEXT)
+
+# MariaDB 兼容语法
+CAST(id + 10 AS CHAR)
+```
+
+##### 4.3 多语句 SQL 执行问题
+**错误信息**: `You have an error in your SQL syntax` (多个 INSERT 语句)
+
+**解决方案**: 将多个 INSERT 语句分别放在不同的 execute 块中
+```ruby
+# 错误的做法
+execute <<-SQL
+  INSERT INTO table1 VALUES (...);
+  INSERT INTO table2 VALUES (...);
+SQL
+
+# 正确的做法
+execute <<-SQL
+  INSERT INTO table1 VALUES (...)
+SQL
+
+execute <<-SQL
+  INSERT INTO table2 VALUES (...)
+SQL
+```
+
+##### 4.4 列不存在错误
+**错误信息**: `Unknown column 'column_name' in 'WHERE'` 或 `Key column 'column_name' doesn't exist in table`
+
+**解决方案**: 在迁移中添加列存在性检查
+```ruby
+# 在使用列之前检查是否存在
+unless column_exists?(:table_name, :column_name)
+  puts "Column column_name does not exist. Skipping migration."
+  return
+end
+
+# 或者在索引创建时检查
+if column_exists?(:table_name, :column1) && column_exists?(:table_name, :column2)
+  add_index :table_name, [:column1, :column2]
+else
+  puts "Required columns do not exist. Skipping index creation."
+end
+```
+
+#### 问题5: Puma 服务器启动问题
+**错误信息**: `Don't know how to build task 'puma:restart'`
+
+**解决方案**: 手动启动 Rails 服务器
+```bash
+# SSH 到服务器
+ssh root@your-server
+
+# 启动 Rails 服务器
+cd /opt/sci2/current
+/usr/local/rvm/bin/rvm 3.4.2 do bundle exec rails server -e production -p 3000 -d
+```
+
+### 6.2 部署前检查清单
+
+在正式部署前，请确保以下项目已经完成：
+
+- [ ] **Gemfile 配置**: mysql2 gem 在正确的组中
+- [ ] **迁移文件检查**: 所有迁移文件都包含列存在性检查
+- [ ] **SQL 语法检查**: 确保所有 SQL 语句兼容 MariaDB/MySQL
+- [ ] **空文件清理**: 删除或修复所有空的服务/模型文件
+- [ ] **资源预编译配置**: 根据需要配置 assets_roles
+- [ ] **数据库连接测试**: 确保生产环境数据库配置正确
+- [ ] **防火墙配置**: 确保端口 3000 已开放
+
+### 6.3 部署验证步骤
+
+部署完成后，执行以下验证步骤：
+
+```bash
+# 1. 检查服务器进程
+ssh root@your-server "ps aux | grep puma"
+
+# 2. 检查端口监听
+ssh root@your-server "netstat -tlnp | grep :3000"
+
+# 3. 测试应用响应
+ssh root@your-server "curl -I http://localhost:3000/admin"
+
+# 4. 检查日志
+ssh root@your-server "tail -f /opt/sci2/current/log/production.log"
+```
+
+### 6.4 常用故障排除命令
+
+```bash
+# 重启应用
+ssh root@your-server "pkill -f puma && cd /opt/sci2/current && /usr/local/rvm/bin/rvm 3.4.2 do bundle exec rails server -e production -p 3000 -d"
+
+# 查看详细错误日志
+ssh root@your-server "tail -100 /opt/sci2/current/log/production.log"
+
+# 手动运行迁移
+ssh root@your-server "cd /opt/sci2/current && /usr/local/rvm/bin/rvm 3.4.2 do bundle exec rake db:migrate RAILS_ENV=production"
+
+# 检查数据库连接
+ssh root@your-server "cd /opt/sci2/current && /usr/local/rvm/bin/rvm 3.4.2 do bundle exec rails console -e production"
+```
+
 ## 总结
 
 这个部署方案完美解决了你面临的核心问题：
