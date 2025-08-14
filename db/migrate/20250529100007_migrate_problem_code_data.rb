@@ -37,7 +37,7 @@ class MigrateProblemCodeData < ActiveRecord::Migration[7.1]
     if column_exists?(:fee_types, :name)
       execute <<-SQL
         UPDATE fee_types
-        SET code = CASE WHEN code IS NULL THEN CAST(id + 10 AS TEXT) ELSE code END,
+        SET code = CASE WHEN code IS NULL THEN CAST(id + 10 AS CHAR) ELSE code END,
             title = CASE WHEN title IS NULL THEN name ELSE title END,
             meeting_type = CASE 
                             WHEN meeting_type IS NULL AND name LIKE '%个人%' THEN '个人'
@@ -55,7 +55,7 @@ class MigrateProblemCodeData < ActiveRecord::Migration[7.1]
       # This is a simplified version - in a real implementation, you would need more sophisticated logic
       execute <<-SQL
         UPDATE problem_types
-        SET code = CASE WHEN code IS NULL THEN CAST(id + 10 AS TEXT) ELSE code END,
+        SET code = CASE WHEN code IS NULL THEN CAST(id + 10 AS CHAR) ELSE code END,
             title = CASE WHEN title IS NULL THEN name ELSE title END,
             sop_description = CASE WHEN sop_description IS NULL THEN '标准操作流程待定' ELSE sop_description END,
             standard_handling = CASE WHEN standard_handling IS NULL THEN '标准处理方法待定' ELSE standard_handling END,
