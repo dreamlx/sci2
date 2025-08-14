@@ -9,6 +9,25 @@
       <%= f.input :reimbursement_id, as: :hidden, input_html: { value: reimbursement.id } %>
     <% elsif f.object.reimbursement %>
       <%= f.input :reimbursement_invoice_number, label: '报销单号', input_html: { value: f.object.reimbursement.invoice_number, readonly: true, disabled: true } %>
+    <% else %>
+      <div class="error-notice">
+        <h4>⚠️ 无法创建沟通工单</h4>
+        <p>沟通工单必须关联到特定的报销单。请通过以下方式创建沟通工单：</p>
+        <ol>
+          <li>进入 <strong>报销单管理</strong> 页面</li>
+          <li>找到需要沟通的报销单</li>
+          <li>点击该报销单的 <strong>"创建沟通工单"</strong> 按钮</li>
+        </ol>
+        <p><%= link_to "返回报销单列表", admin_reimbursements_path, class: "button" %></p>
+      </div>
+      <% content_for :page_title, "无法创建沟通工单" %>
+      <script>
+        // 隐藏表单的其他部分
+        document.addEventListener('DOMContentLoaded', function() {
+          const formSections = document.querySelectorAll('.inputs:not(.basic-info), .form-actions');
+          formSections.forEach(section => section.style.display = 'none');
+        });
+      </script>
     <% end %>
     <%= f.input :status, input_html: { readonly: true, disabled: true }, label: '工单状态' if f.object.persisted? %>
   <% end %>
@@ -85,6 +104,39 @@ document.addEventListener('DOMContentLoaded', function() {
 .notice p {
   margin: 5px 0;
   color: #1976d2;
+}
+
+.error-notice {
+  background-color: #fff3e0;
+  border: 2px solid #ff9800;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+  text-align: center;
+}
+
+.error-notice h4 {
+  color: #e65100;
+  margin-top: 0;
+  font-size: 18px;
+}
+
+.error-notice p {
+  color: #bf360c;
+  margin: 10px 0;
+  line-height: 1.5;
+}
+
+.error-notice ol {
+  text-align: left;
+  display: inline-block;
+  color: #bf360c;
+  margin: 15px 0;
+}
+
+.error-notice li {
+  margin: 8px 0;
+  padding: 2px 0;
 }
 
 .button.primary {

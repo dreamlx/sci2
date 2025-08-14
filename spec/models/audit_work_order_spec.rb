@@ -116,12 +116,11 @@ RSpec.describe AuditWorkOrder, type: :model do
     it "selects a fee detail" do
       expect {
         audit_work_order.select_fee_detail(fee_detail)
-      }.to change(FeeDetailSelection, :count).by(1)
+      }.to change(WorkOrderFeeDetail, :count).by(1)
 
-      selection = FeeDetailSelection.last
+      selection = WorkOrderFeeDetail.last
       expect(selection.fee_detail_id).to eq(fee_detail.id)
       expect(selection.work_order_id).to eq(audit_work_order.id)
-      # verification_status has been removed from FeeDetailSelection
     end
 
     it "does not select a fee detail if it does not belong to the same reimbursement" do
@@ -130,7 +129,7 @@ RSpec.describe AuditWorkOrder, type: :model do
 
       expect {
         audit_work_order.select_fee_detail(other_fee_detail)
-      }.not_to change(FeeDetailSelection, :count)
+      }.not_to change(WorkOrderFeeDetail, :count)
     end
   end
 
@@ -145,9 +144,9 @@ RSpec.describe AuditWorkOrder, type: :model do
       
       expect {
         audit_work_order.select_fee_details([fee_detail1.id, fee_detail2.id])
-      }.to change(FeeDetailSelection, :count).by(2)
+      }.to change(WorkOrderFeeDetail, :count).by(2)
 
-      selections = FeeDetailSelection.all
+      selections = WorkOrderFeeDetail.where(work_order_id: audit_work_order.id)
       expect(selections.map(&:fee_detail_id)).to include(fee_detail1.id, fee_detail2.id)
       expect(selections.map(&:work_order_id)).to all(eq(audit_work_order.id))
     end
@@ -158,7 +157,7 @@ RSpec.describe AuditWorkOrder, type: :model do
 
       expect {
         audit_work_order.select_fee_details([other_fee_detail.id])
-      }.not_to change(FeeDetailSelection, :count)
+      }.not_to change(WorkOrderFeeDetail, :count)
     end
   end
 

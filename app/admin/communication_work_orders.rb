@@ -82,6 +82,9 @@ ActiveAdmin.register CommunicationWorkOrder do
     end
   end
 
+  # 自定义表单 - 使用自定义模板
+  form partial: 'form'
+
   # CSV导出
   collection_action :export_csv, method: :get do
     work_orders = CommunicationWorkOrder.includes(:reimbursement, :creator)
