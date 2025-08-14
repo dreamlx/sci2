@@ -1,9 +1,10 @@
 {
   "scripts": {
-    "build": "esbuild app/javascript/application.js --bundle --sourcemap --outdir=app/assets/builds --public-path=/assets"
+    "build": "esbuild app/javascript/application.js --bundle --sourcemap --outdir=app/assets/builds --public-path=/assets --external:@hotwired/turbo-rails"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.7.2",
+    "@hotwired/turbo-rails": "^8.0.0",
     "chart.js": "^4.4.9",
     "esbuild": "^0.19.0"
   }
