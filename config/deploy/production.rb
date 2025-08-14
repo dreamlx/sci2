@@ -1,5 +1,5 @@
 # Define the server and user for production environment
-server '8.136.10.88', user: 'deploy', roles: %w{app db web}
+server '8.136.10.88', user: 'root', roles: %w{app db web}
 
 # Production-specific settings
 set :stage, :production
