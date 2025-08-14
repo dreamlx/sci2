@@ -1,5 +1,11 @@
 class FixDuplicateExternalFeeIds < ActiveRecord::Migration[6.1]
   def up
+    # Check if external_fee_id column exists first
+    unless column_exists?(:fee_details, :external_fee_id)
+      puts "external_fee_id column does not exist in fee_details table. Skipping migration."
+      return
+    end
+    
     # Find all duplicate external_fee_id values
     duplicates = execute(<<-SQL
       SELECT external_fee_id, COUNT(*) as count
