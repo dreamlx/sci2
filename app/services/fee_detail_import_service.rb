@@ -12,11 +12,21 @@ class FeeDetailImportService
     @reimbursement_number_updated_count = 0 # Track count of reimbursement number updates
     @reimbursement_number_updates = [] # Track details of reimbursement number updates
     Current.admin_user = current_admin_user # 设置 Current.admin_user 用于回调
+    @optimization_manager = SqliteOptimizationManager.new(level: :moderate)
   end
   
   def import(test_spreadsheet = nil)
     return { success: false, errors: ["文件不存在"] } unless @file.present?
     
+    # 使用SQLite优化进行导入
+    @optimization_manager.during_import do
+      perform_import(test_spreadsheet)
+    end
+  end
+  
+  private
+  
+  def perform_import(test_spreadsheet = nil)
     begin
       file_path = @file.respond_to?(:tempfile) ? @file.tempfile.to_path.to_s : @file.path
       extension = File.extname(file_path).delete('.').downcase.to_sym
@@ -71,8 +81,6 @@ class FeeDetailImportService
       { success: false, errors: ["导入过程中发生未知错误: #{e.message}"] }
     end
   end
-  
-  private
   
   def import_fee_detail(row, row_number)
     external_id = row['费用id']&.to_s&.strip

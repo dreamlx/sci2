@@ -7,11 +7,21 @@ class ReimbursementImportService
     @updated_count = 0
     @error_count = 0
     @errors = []
+    @optimization_manager = SqliteOptimizationManager.new(level: :moderate)
   end
 
   def import(test_spreadsheet = nil)
     return { success: false, errors: ["文件不存在"] } unless @file.present?
 
+    # 使用SQLite优化进行导入
+    @optimization_manager.during_import do
+      perform_import(test_spreadsheet)
+    end
+  end
+
+  private
+
+  def perform_import(test_spreadsheet = nil)
     begin
       file_path = @file.respond_to?(:tempfile) ? @file.tempfile.to_path.to_s : @file.path
       extension = File.extname(file_path).delete('.').downcase.to_sym
@@ -61,8 +71,6 @@ class ReimbursementImportService
       { success: false, created: 0, updated: 0, errors: 1, error_details: ["导入过程中发生错误: #{e.message}"] }
     end
   end
-
-  private
 
   def import_reimbursement(row, row_number)
     invoice_number = row['报销单单号']&.strip

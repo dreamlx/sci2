@@ -129,6 +129,20 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000014) do
     t.index ["meeting_type"], name: "index_fee_types_on_meeting_type"
   end
 
+  create_table "import_performances", force: :cascade do |t|
+    t.string "operation_type", null: false
+    t.float "elapsed_time", null: false
+    t.integer "record_count", default: 0
+    t.string "optimization_level"
+    t.text "optimization_settings"
+    t.text "notes"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_at"], name: "index_import_performances_on_created_at"
+    t.index ["operation_type"], name: "index_import_performances_on_operation_type"
+    t.index ["optimization_level"], name: "index_import_performances_on_optimization_level"
+  end
+
   create_table "operation_histories", force: :cascade do |t|
     t.string "document_number", null: false
     t.string "operation_type"
