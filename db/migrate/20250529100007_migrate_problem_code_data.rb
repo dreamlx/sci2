@@ -24,11 +24,13 @@ class MigrateProblemCodeData < ActiveRecord::Migration[7.1]
     execute <<-SQL
       INSERT INTO fee_types (code, title, meeting_type, active, created_at, updated_at)
       SELECT '00', '个人费用', '个人', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-      WHERE NOT EXISTS (SELECT 1 FROM fee_types WHERE code = '00');
-      
+      WHERE NOT EXISTS (SELECT 1 FROM fee_types WHERE code = '00')
+    SQL
+    
+    execute <<-SQL
       INSERT INTO fee_types (code, title, meeting_type, active, created_at, updated_at)
       SELECT '01', '学术费用', '学术论坛', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-      WHERE NOT EXISTS (SELECT 1 FROM fee_types WHERE code = '01');
+      WHERE NOT EXISTS (SELECT 1 FROM fee_types WHERE code = '01')
     SQL
     
     # Migrate existing fee types if any have name but not code/title/meeting_type
