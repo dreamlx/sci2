@@ -49,6 +49,9 @@ set :puma_preload_app, true
 set :puma_worker_timeout, nil
 set :puma_init_active_record, true
 
+# Skip assets precompilation to avoid JavaScript build issues
+set :assets_roles, []
+
 # Custom tasks
 namespace :deploy do
   desc 'Restart application'
