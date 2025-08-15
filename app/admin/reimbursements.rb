@@ -46,6 +46,23 @@ ActiveAdmin.register Reimbursement do
       super
     end
     
+    # 重写apply_sorting方法来处理通知状态的自定义排序
+    def apply_sorting(chain)
+      # 检查是否是has_updates字段的排序
+      if params[:order].present? && params[:order].include?('has_updates')
+        # 提取排序方向
+        direction = params[:order].include?('_desc') ? 'DESC' : 'ASC'
+        
+        # 应用自定义排序逻辑
+        return chain.order(
+          Arel.sql("has_updates #{direction}, last_update_at DESC NULLS LAST")
+        )
+      end
+      
+      # 对于其他字段，使用默认的排序逻辑
+      super
+    end
+    
     private
     
     # 简化的scope逻辑 - 统一所有角色的权限处理
@@ -254,14 +271,31 @@ ActiveAdmin.register Reimbursement do
        redirect_to new_import_admin_reimbursements_path, alert: "请选择要导入的文件。"
        return
     end
-    service = ReimbursementImportService.new(params[:file], current_admin_user)
+    # 使用优化后的批量报销单导入服务
+    service = SimpleBatchReimbursementImportService.new(params[:file], current_admin_user)
     result = service.import
+
     if result[:success]
-      notice_message = "导入成功: #{result[:created]} 创建, #{result[:updated]} 更新."
-      notice_message += " #{result[:errors]} 错误." if result[:errors].to_i > 0
+      # 增强的成功消息，包含详细统计信息
+      notice_message = "🎉 报销单导入成功完成！"
+      notice_message += " 📊 处理结果: #{result[:created]}条新增, #{result[:updated]}条更新"
+      notice_message += ", #{result[:errors]}条错误记录" if result[:errors].to_i > 0
+      
+      # 添加性能信息
+      if result[:processing_time]
+        processing_time = result[:processing_time].round(2)
+        total_records = (result[:created].to_i + result[:updated].to_i)
+        if total_records > 0 && processing_time > 0
+          records_per_second = (total_records / processing_time).round(0)
+          notice_message += " ⚡ 处理速度: #{records_per_second}条/秒, 耗时#{processing_time}秒"
+        end
+      end
+      
       redirect_to admin_reimbursements_path, notice: notice_message
     else
-      alert_message = "导入失败: #{result[:error_details] ? result[:error_details].join(', ') : result[:errors]}"
+      # 增强的错误消息，提供更清晰的错误信息
+      error_msg = result[:error_details] ? result[:error_details].join(', ') : result[:errors]
+      alert_message = "❌ 报销单导入失败: #{error_msg}"
       redirect_to new_import_admin_reimbursements_path, alert: alert_message
     end
   end
@@ -359,7 +393,8 @@ ActiveAdmin.register Reimbursement do
       reimbursement.current_assignee&.email || "未分配"
     end
     # 修改：统一的通知状态列，支持排序
-    column "通知状态", :has_updates, sortable: true do |reimbursement|
+    # 使用正确的ActiveAdmin语法来启用排序UI和功能
+    column "通知状态", :has_updates, sortable: :has_updates do |reimbursement|
       if reimbursement.has_unread_updates?
         status_tag "有更新", class: "warning"
       else
