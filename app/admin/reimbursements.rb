@@ -105,14 +105,24 @@ ActiveAdmin.register Reimbursement do
   filter :applicant
   filter :company, label: "公司", as: :string
   filter :department, label: "部门", as: :string
-  filter :status, label: "内部状态", as: :select, collection: Reimbursement.state_machines[:status].states.map(&:value)
+  filter :status, label: "内部状态", as: :select, collection: [
+    ['待处理', 'pending'],
+    ['处理中', 'processing'],
+    ['已关闭', 'closed']
+  ]
+  filter :erp_current_approval_node, label: "当前审批节点", as: :select, collection: -> {
+    Reimbursement.where.not(erp_current_approval_node: [nil, '']).distinct.pluck(:erp_current_approval_node).compact.sort
+  }
+  filter :erp_current_approver, label: "当前审批人", as: :select, collection: -> {
+    Reimbursement.where.not(erp_current_approver: [nil, '']).distinct.pluck(:erp_current_approver).compact.sort
+  }
   filter :external_status, label: "外部状态", as: :select, collection: ["审批中", "已付款", "待付款", "待审核"]
   filter :receipt_status, as: :select, collection: ["pending", "received"]
   filter :is_electronic, as: :boolean
   filter :document_tags, label: "单据标签", as: :string
   filter :created_at
   filter :approval_date
-  filter :current_assignee_id, as: :select, collection: -> { AdminUser.all.map { |u| [u.email, u.id] } }, label: "当前处理人"
+  filter :current_assignee_id, as: :select, collection: -> { AdminUser.all.map { |u| [u.name.presence || u.email, u.id] } }, label: "Current Assignee"
   filter :with_unread_updates, label: '有新通知', as: :boolean
 
   # 列表页范围过滤器 - 使用标准ActiveRecord scope确保计数一致性

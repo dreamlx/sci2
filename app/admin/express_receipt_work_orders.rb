@@ -7,7 +7,7 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
 
   controller do
     def scoped_collection
-      super.includes(:reimbursement, :creator)
+      super.includes(:reimbursement, :creator, reimbursement: [:current_assignee, :active_assignment])
     end
 
     def create
@@ -24,6 +24,7 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
   filter :received_at
   filter :creator
   filter :created_at
+  filter :reimbursement_current_assignee_id, as: :select, collection: -> { AdminUser.all.map { |u| [u.name.presence || u.email, u.id] } }, label: "Current Assignee"
 
   # 批量操作
   batch_action :mark_as_received do |ids|
@@ -64,12 +65,28 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
     result = service.import
 
     if result[:success]
-      notice_message = "导入成功: #{result[:created]} 创建, #{result[:skipped]} 跳过."
-      notice_message += " #{result[:unmatched]} 未匹配." if result[:unmatched].to_i > 0
-      notice_message += " #{result[:errors]} 错误." if result[:errors].to_i > 0
+      # 增强的成功消息，包含详细统计信息
+      notice_message = "🎉 快递收单导入成功完成！"
+      notice_message += " 📊 处理结果: #{result[:created]}条新增, #{result[:skipped]}条跳过"
+      notice_message += ", #{result[:unmatched]}条未匹配" if result[:unmatched].to_i > 0
+      notice_message += ", #{result[:errors]}条错误记录" if result[:errors].to_i > 0
+      
+      # 添加性能信息
+      if result[:processing_time]
+        processing_time = result[:processing_time].round(2)
+        total_records = result[:created].to_i
+        if total_records > 0 && processing_time > 0
+          records_per_second = (total_records / processing_time).round(0)
+          notice_message += " ⚡ 处理速度: #{records_per_second}条/秒, 耗时#{processing_time}秒"
+        end
+      end
+      
       redirect_to admin_express_receipt_work_orders_path, notice: notice_message
     else
-      alert_message = "导入失败: #{result[:error_details] ? result[:error_details].join(', ') : (result[:errors].is_a?(Array) ? result[:errors].join(', ') : result[:errors])}"
+      # 增强的错误消息，提供更清晰的错误信息
+      error_msg = result[:error_details] ? result[:error_details].join(', ') :
+                  (result[:errors].is_a?(Array) ? result[:errors].join(', ') : result[:errors])
+      alert_message = "❌ 快递收单导入失败: #{error_msg}"
       redirect_to new_import_admin_express_receipt_work_orders_path, alert: alert_message
     end
   end
@@ -102,6 +119,11 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
     end
     column "创建时间", :created_at do |wo|
       wo.created_at.strftime('%Y年%m月%d日 %H:%M')
+    end
+    column "Current Assignee", :current_assignee do |wo|
+      wo.reimbursement&.current_assignee&.name ||
+      wo.reimbursement&.current_assignee&.email ||
+      "未分配"
     end
     actions
     
@@ -153,6 +175,21 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
     send_data csv_data,
               type: 'text/csv; charset=utf-8; header=present',
               disposition: "attachment; filename=快递收单工单_#{Time.current.strftime('%Y%m%d%H%M%S')}.csv"
+  end
+
+  # ActiveAdmin 标准 CSV 导出配置
+  csv do
+    column("Filling ID") { |wo| wo.id }
+    column("报销单单号") { |wo| wo.reimbursement&.invoice_number }
+    column("单据名称") { |wo| wo.reimbursement&.document_name }
+    column("报销单申请人") { |wo| wo.reimbursement&.applicant }
+    column("报销单申请人工号") { |wo| wo.reimbursement&.applicant_id }
+    column("申请人部门") { |wo| wo.reimbursement&.department }
+    column("快递单号") { |wo| wo.tracking_number }
+    column("收单时间") { |wo| wo.received_at&.strftime('%Y-%m-%d %H:%M:%S') }
+    column("创建人") { |wo| wo.creator&.name || wo.creator&.email }
+    column("创建时间") { |wo| wo.created_at.strftime('%Y年%m月%d日 %H:%M') }
+    column("Current Assignee") { |wo| wo.reimbursement&.current_assignee&.name || wo.reimbursement&.current_assignee&.email || "未分配" }
   end
 
   # 详情页

@@ -94,17 +94,24 @@ ActiveAdmin.register FeeDetail do
       return
     end
 
+    # 使用原始的费用明细导入服务（保持兼容性）
     service = FeeDetailImportService.new(params[:file], current_admin_user)
     result = service.import
 
     if result[:success]
-      notice_message = "导入成功: #{result[:created]} 创建, #{result[:updated]} 更新."
-      notice_message += " #{result[:reimbursement_number_updated]} 报销单号已更新." if result[:reimbursement_number_updated].to_i > 0
-      notice_message += " #{result[:skipped_errors]} 错误." if result[:skipped_errors].to_i > 0
-      notice_message += " #{result[:unmatched_count]} 未匹配的报销单." if result[:unmatched_count].to_i > 0
+      # 增强的成功消息，包含详细统计信息
+      notice_message = "🎉 费用明细导入成功完成！"
+      notice_message += " 📊 处理结果: #{result[:created]}条新增, #{result[:updated]}条更新"
+      notice_message += ", #{result[:reimbursement_number_updated]}条报销单号已更新" if result[:reimbursement_number_updated].to_i > 0
+      notice_message += ", #{result[:skipped_errors]}条错误记录" if result[:skipped_errors].to_i > 0
+      notice_message += ", #{result[:unmatched_count]}条未匹配报销单" if result[:unmatched_count].to_i > 0
+      
       redirect_to admin_fee_details_path, notice: notice_message
     else
-      alert_message = "导入失败: #{result[:error_details] ? result[:error_details].join(', ') : (result[:errors].is_a?(Array) ? result[:errors].join(', ') : result[:errors])}"
+      # 增强的错误消息，提供更清晰的错误信息
+      error_msg = result[:error_details] ? result[:error_details].join(', ') :
+                  (result[:errors].is_a?(Array) ? result[:errors].join(', ') : result[:errors])
+      alert_message = "❌ 费用明细导入失败: #{error_msg}"
       redirect_to new_import_admin_fee_details_path, alert: alert_message
     end
   end

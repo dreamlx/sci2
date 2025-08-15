@@ -27,12 +27,15 @@ function initializeImportProgress() {
         return;
       }
       
-      // 文件大小检查
+      // 文件大小检查 - 移除确认对话框，直接显示提示信息
       const fileSizeMB = file.size / 1024 / 1024;
       if (fileSizeMB > 100) {
-        if (!confirm(`文件较大 (${fileSizeMB.toFixed(2)}MB)，导入可能需要较长时间，是否继续？`)) {
-          e.preventDefault();
-          return;
+        // 显示大文件提示但不阻止导入
+        if (progressDetails) {
+          const warningDiv = document.createElement('div');
+          warningDiv.style.cssText = 'margin-bottom: 10px; padding: 8px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 3px; color: #856404;';
+          warningDiv.innerHTML = `⚠️ 检测到大文件 (${fileSizeMB.toFixed(2)}MB)，导入可能需要较长时间，请耐心等待`;
+          progressDetails.appendChild(warningDiv);
         }
       }
       
@@ -133,23 +136,20 @@ function disableSubmitButton(submitBtn, form) {
 }
 
 function setupTimeoutCheck(form, submitBtn) {
-  // 设置超时检查（5分钟）
+  // 设置超时检查（10分钟）- 移除确认对话框，只显示提示信息
   const timeoutId = setTimeout(function() {
     if (form.classList.contains('importing')) {
-      const continueImport = confirm(
-        '导入已进行5分钟，可能是大文件导入或网络较慢。\n\n' +
-        '点击"确定"继续等待\n' +
-        '点击"取消"刷新页面（注意：这可能会中断导入过程）'
-      );
-      
-      if (!continueImport) {
-        window.location.reload();
-      } else {
-        // 继续等待，再设置一个5分钟的检查
-        setupTimeoutCheck(form, submitBtn);
+      // 显示长时间导入提示，但不中断流程
+      const progressMessage = form.querySelector('#progress_message');
+      if (progressMessage) {
+        progressMessage.textContent = '🕐 导入时间较长，正在处理大量数据，请继续等待...';
+        progressMessage.style.color = '#ff9800';
       }
+      
+      // 继续等待，再设置一个10分钟的检查
+      setupTimeoutCheck(form, submitBtn);
     }
-  }, 5 * 60 * 1000); // 5分钟
+  }, 10 * 60 * 1000); // 延长到10分钟
   
   // 保存timeout ID
   window.importTimeoutId = timeoutId;
@@ -170,12 +170,10 @@ function handleFileSelection(e, fileInput) {
     return;
   }
   
-  // 文件大小检查
+  // 文件大小检查 - 移除确认对话框，只显示提示
   if (fileSize > 50) { // 大于50MB
-    if (!confirm(`文件较大 (${fileSize.toFixed(2)}MB)，导入可能需要较长时间，是否继续？`)) {
-      e.target.value = '';
-      return;
-    }
+    // 显示大文件提示但不阻止选择
+    console.log(`大文件检测: ${fileSize.toFixed(2)}MB，将在导入时显示详细进度`);
   }
   
   // 显示文件信息
@@ -233,15 +231,16 @@ function getEstimatedTimeSeconds(recordCount) {
   return Math.max(1, Math.ceil(recordCount / 10000));
 }
 
-// 页面离开确认
-window.addEventListener('beforeunload', function(e) {
-  const importingForms = document.querySelectorAll('#import_form.importing');
-  if (importingForms.length > 0) {
-    e.preventDefault();
-    e.returnValue = '导入正在进行中，确定要离开页面吗？这可能会中断导入过程。';
-    return e.returnValue;
-  }
-});
+// 页面离开确认 - 移除确认对话框，允许正常导航
+// 注释掉页面离开确认，因为现代浏览器和Rails可以处理导入中断
+// window.addEventListener('beforeunload', function(e) {
+//   const importingForms = document.querySelectorAll('#import_form.importing');
+//   if (importingForms.length > 0) {
+//     e.preventDefault();
+//     e.returnValue = '导入正在进行中，确定要离开页面吗？这可能会中断导入过程。';
+//     return e.returnValue;
+//   }
+// });
 
 // 清理函数
 window.addEventListener('unload', function() {
@@ -252,3 +251,76 @@ window.addEventListener('unload', function() {
     clearTimeout(window.importTimeoutId);
   }
 });
+
+// 导入完成后的处理
+function handleImportCompletion() {
+  // 清理导入状态
+  const importingForms = document.querySelectorAll('#import_form.importing');
+  importingForms.forEach(function(form) {
+    form.classList.remove('importing');
+    const submitBtn = form.querySelector('#import_submit_btn');
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '开始导入';
+      submitBtn.style.opacity = '1';
+      submitBtn.style.cursor = 'pointer';
+      submitBtn.style.background = '';
+    }
+  });
+  
+  // 清理定时器
+  if (window.importProgressInterval) {
+    clearInterval(window.importProgressInterval);
+    window.importProgressInterval = null;
+  }
+  if (window.importTimeoutId) {
+    clearTimeout(window.importTimeoutId);
+    window.importTimeoutId = null;
+  }
+}
+
+// 监听页面加载完成，检查是否有flash消息
+document.addEventListener('DOMContentLoaded', function() {
+  // 检查是否有导入成功的flash消息
+  const flashNotice = document.querySelector('.flash_notice');
+  const flashAlert = document.querySelector('.flash_alert');
+  
+  if (flashNotice && flashNotice.textContent.includes('导入成功')) {
+    // 导入成功，清理导入状态
+    handleImportCompletion();
+    
+    // 增强flash消息显示
+    flashNotice.style.cssText += `
+      animation: flashPulse 0.5s ease-in-out;
+      border-left: 5px solid #4CAF50;
+      box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+    `;
+  }
+  
+  if (flashAlert && flashAlert.textContent.includes('导入失败')) {
+    // 导入失败，清理导入状态
+    handleImportCompletion();
+    
+    // 增强错误消息显示
+    flashAlert.style.cssText += `
+      animation: flashPulse 0.5s ease-in-out;
+      border-left: 5px solid #f44336;
+      box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3);
+    `;
+  }
+});
+
+// 添加CSS动画
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes flashPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+  }
+  
+  .flash_notice, .flash_alert {
+    transition: all 0.3s ease;
+  }
+`;
+document.head.appendChild(style);

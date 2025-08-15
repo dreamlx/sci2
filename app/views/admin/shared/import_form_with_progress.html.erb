@@ -1,4 +1,4 @@
-<%= form_tag import_path, multipart: true, id: 'import_form', remote: false do %>
+<%= form_tag import_path, multipart: true, id: 'import_form', class: 'import-form-with-progress' do %>
   <div class="panel">
     <h3><%= title %></h3>
     
@@ -15,23 +15,23 @@
       <% end %>
       
       <!-- 进度提示区域 -->
-      <div id="import_progress" style="display: none; margin: 20px 0; padding: 15px; background: #e3f2fd; border-radius: 5px; border-left: 4px solid #2196f3;">
+      <div id="import_progress" class="import-progress-container" style="display: none;">
         <div style="display: flex; align-items: center; gap: 10px;">
-          <div class="spinner" style="width: 20px; height: 20px; border: 2px solid #f3f3f3; border-top: 2px solid #2196f3; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          <div class="spinner"></div>
           <div>
             <strong>正在导入数据，请稍候...</strong>
-            <div id="progress_message" style="font-size: 14px; color: #666; margin-top: 5px;">
+            <div id="progress_message" class="progress-message">
               正在处理您的文件，请不要关闭页面或重复点击
             </div>
           </div>
         </div>
-        <div id="progress_details" style="margin-top: 10px; font-size: 12px; color: #888;">
+        <div id="progress_details" class="progress-details">
           <!-- 这里会显示详细的进度信息 -->
         </div>
       </div>
       
       <!-- 错误提示区域 -->
-      <div id="import_error" style="display: none; margin: 20px 0; padding: 15px; background: #ffebee; border-radius: 5px; border-left: 4px solid #f44336;">
+      <div id="import_error" class="import-error-container" style="display: none;">
         <strong style="color: #d32f2f;">导入过程中出现错误</strong>
         <div id="error_message" style="margin-top: 5px; color: #666;"></div>
       </div>
@@ -40,7 +40,7 @@
         <div class="input file">
           <label for="file">选择文件</label>
           <%= file_field_tag :file, required: true, accept: '.csv,.xlsx,.xls', id: 'file_input' %>
-          <div style="font-size: 12px; color: #666; margin-top: 5px;">
+          <div class="file-format-hint">
             支持格式：CSV, Excel (.xlsx, .xls)
           </div>
         </div>
@@ -54,175 +54,95 @@
   </div>
 <% end %>
 
-<style>
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
+<%= content_for :head do %>
+  <style>
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
 
-.button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #2196f3;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
 
-#import_form.importing .button {
-  pointer-events: none;
-  opacity: 0.6;
-}
-</style>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const form = document.getElementById('import_form');
-  const submitBtn = document.getElementById('import_submit_btn');
-  const fileInput = document.getElementById('file_input');
-  const progressDiv = document.getElementById('import_progress');
-  const progressMessage = document.getElementById('progress_message');
-  const progressDetails = document.getElementById('progress_details');
-  const errorDiv = document.getElementById('import_error');
-  const errorMessage = document.getElementById('error_message');
-  
-  if (form && submitBtn && progressDiv) {
-    form.addEventListener('submit', function(e) {
-      const file = fileInput.files[0];
-      
-      if (!file) {
-        alert('请选择要导入的文件');
-        e.preventDefault();
-        return;
-      }
-      
-      // 显示进度提示
-      showImportProgress(file);
-      
-      // 禁用提交按钮防止重复提交
-      submitBtn.disabled = true;
-      submitBtn.textContent = '导入中...';
-      form.classList.add('importing');
-      
-      // 隐藏错误提示
-      errorDiv.style.display = 'none';
-    });
-    
-    function showImportProgress(file) {
-      progressDiv.style.display = 'block';
-      
-      // 显示文件信息
-      const fileSize = (file.size / 1024 / 1024).toFixed(2);
-      const fileName = file.name;
-      
-      progressMessage.textContent = `正在处理文件: ${fileName} (${fileSize}MB)`;
-      
-      // 估算处理时间
-      let estimatedTime = '几秒钟';
-      if (file.size > 5 * 1024 * 1024) { // 大于5MB
-        estimatedTime = '1-2分钟';
-      } else if (file.size > 1 * 1024 * 1024) { // 大于1MB
-        estimatedTime = '30秒-1分钟';
-      }
-      
-      progressDetails.innerHTML = `
-        <div>📁 文件名: ${fileName}</div>
-        <div>📊 文件大小: ${fileSize}MB</div>
-        <div>⏱️ 预计处理时间: ${estimatedTime}</div>
-        <div style="margin-top: 10px; color: #2196f3;">
-          💡 提示: 导入过程中请不要关闭页面或重复点击导入按钮
-        </div>
-      `;
-      
-      // 添加动态提示
-      let messageIndex = 0;
-      const messages = [
-        '正在解析文件内容...',
-        '正在验证数据格式...',
-        '正在处理数据导入...',
-        '正在更新关联关系...',
-        '即将完成，请稍候...'
-      ];
-      
-      const messageInterval = setInterval(function() {
-        if (messageIndex < messages.length) {
-          progressMessage.textContent = messages[messageIndex];
-          messageIndex++;
-        } else {
-          clearInterval(messageInterval);
-          progressMessage.textContent = '正在完成导入，请稍候...';
-        }
-      }, 3000); // 每3秒更换一次提示信息
-      
-      // 保存interval ID以便后续清理
-      form.dataset.messageInterval = messageInterval;
+    .import-progress-container {
+      margin: 20px 0;
+      padding: 15px;
+      background: #e3f2fd;
+      border-radius: 5px;
+      border-left: 4px solid #2196f3;
     }
     
-    // 处理表单提交错误
-    window.addEventListener('beforeunload', function(e) {
-      if (form.classList.contains('importing')) {
-        e.preventDefault();
-        e.returnValue = '导入正在进行中，确定要离开页面吗？';
-        return e.returnValue;
+    .import-error-container {
+      margin: 20px 0;
+      padding: 15px;
+      background: #ffebee;
+      border-radius: 5px;
+      border-left: 4px solid #f44336;
+    }
+
+    .progress-message {
+      font-size: 14px;
+      color: #666;
+      margin-top: 5px;
+    }
+
+    .progress-details {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #888;
+    }
+
+    .file-format-hint {
+      font-size: 12px;
+      color: #666;
+      margin-top: 5px;
+    }
+
+    .button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      background-color: #ccc !important;
+    }
+
+    .import-form-with-progress.importing .button {
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    .file-info {
+      margin-top: 8px;
+      padding: 10px;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      border-radius: 5px;
+      font-size: 13px;
+      border-left: 4px solid #4CAF50;
+    }
+
+    .file-info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .file-info-highlight {
+      margin-top: 8px;
+      padding: 6px;
+      background: rgba(76, 175, 80, 0.1);
+      border-radius: 3px;
+      color: #2e7d32;
+      font-size: 12px;
+    }
+
+    @media (max-width: 768px) {
+      .file-info-grid {
+        grid-template-columns: 1fr;
       }
-    });
-  }
-  
-  // 文件选择时的预检查
-  if (fileInput) {
-    fileInput.addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (file) {
-        const fileSize = file.size / 1024 / 1024; // MB
-        const fileName = file.name;
-        const fileExt = fileName.split('.').pop().toLowerCase();
-        
-        // 文件格式检查
-        if (!['csv', 'xlsx', 'xls'].includes(fileExt)) {
-          alert('请选择CSV或Excel格式的文件');
-          e.target.value = '';
-          return;
-        }
-        
-        // 文件大小检查
-        if (fileSize > 50) { // 大于50MB
-          if (!confirm(`文件较大 (${fileSize.toFixed(2)}MB)，导入可能需要较长时间，是否继续？`)) {
-            e.target.value = '';
-            return;
-          }
-        }
-        
-        // 显示文件信息
-        const fileInfo = document.createElement('div');
-        fileInfo.style.cssText = 'margin-top: 5px; padding: 8px; background: #f5f5f5; border-radius: 3px; font-size: 12px;';
-        fileInfo.innerHTML = `
-          <strong>已选择文件:</strong> ${fileName}<br>
-          <strong>文件大小:</strong> ${fileSize.toFixed(2)}MB<br>
-          <strong>预计记录数:</strong> ${estimateRecordCount(fileSize)}条
-        `;
-        
-        // 移除之前的文件信息
-        const existingInfo = fileInput.parentNode.querySelector('.file-info');
-        if (existingInfo) {
-          existingInfo.remove();
-        }
-        
-        fileInfo.className = 'file-info';
-        fileInput.parentNode.appendChild(fileInfo);
-      }
-    });
-  }
-  
-  function estimateRecordCount(fileSizeMB) {
-    // 粗略估算：1MB大约包含5000-10000条记录
-    const estimatedRecords = Math.round(fileSizeMB * 7500);
-    return estimatedRecords.toLocaleString();
-  }
-});
-</script>
-</content>
-</file>
-<file><path>app/assets/javascripts/active_admin_custom.js</path>
-<content lines="1-6">
-1 | // Custom JavaScript for ActiveAdmin
-2 | document.addEventListener('DOMContentLoaded', function() {
-3 |   // Initialize custom tooltips if needed
-4 |   // This is a placeholder for any additional JavaScript functionality
-5 |   // that might be needed for the tooltips in the future
-6 | });
+    }
+  </style>
+<% end %>
