@@ -5,6 +5,7 @@ ActiveAdmin.register CommunicationWorkOrder do
   menu priority: 5, label: "沟通工单", parent: "工单管理"
   config.sort_order = 'created_at_desc'
   config.remove_action_item :new # 从报销单页面创建
+  config.batch_actions = false # 禁用批量操作
 
   controller do
     before_action :set_current_admin_user_for_model
@@ -53,7 +54,6 @@ ActiveAdmin.register CommunicationWorkOrder do
 
   # 简化列表页面
   index do
-    selectable_column
     id_column
     column "报销单号", :reimbursement do |wo| 
       link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) if wo.reimbursement
@@ -84,19 +84,6 @@ ActiveAdmin.register CommunicationWorkOrder do
 
   # 自定义表单 - 使用自定义模板
   form partial: 'form'
-  
-  # 添加默认表单配置作为后备
-  form do |f|
-    f.inputs '基本信息' do
-      f.input :reimbursement_id, as: :hidden if params[:reimbursement_id]
-      f.input :communication_method, as: :select,
-              collection: ['电话', '微信', '邮件', '现场沟通'],
-              prompt: '请选择沟通方式'
-      f.input :audit_comment, as: :text,
-              input_html: { rows: 6, placeholder: '请详细记录沟通内容...' }
-    end
-    f.actions
-  end if false # 仅作为后备，不会执行
 
   # CSV导出
   collection_action :export_csv, method: :get do
