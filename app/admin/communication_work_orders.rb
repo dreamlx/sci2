@@ -84,6 +84,19 @@ ActiveAdmin.register CommunicationWorkOrder do
 
   # 自定义表单 - 使用自定义模板
   form partial: 'form'
+  
+  # 添加默认表单配置作为后备
+  form do |f|
+    f.inputs '基本信息' do
+      f.input :reimbursement_id, as: :hidden if params[:reimbursement_id]
+      f.input :communication_method, as: :select,
+              collection: ['电话', '微信', '邮件', '现场沟通'],
+              prompt: '请选择沟通方式'
+      f.input :audit_comment, as: :text,
+              input_html: { rows: 6, placeholder: '请详细记录沟通内容...' }
+    end
+    f.actions
+  end if false # 仅作为后备，不会执行
 
   # CSV导出
   collection_action :export_csv, method: :get do
