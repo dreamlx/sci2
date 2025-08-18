@@ -82,8 +82,51 @@ ActiveAdmin.register CommunicationWorkOrder do
     end
   end
 
-  # 自定义表单 - 使用自定义模板
-  form partial: 'form'
+  # 使用默认表单，避免资源为空的问题
+  form do |f|
+    if f.object.reimbursement || params[:reimbursement_id]
+      reimbursement = f.object.reimbursement || Reimbursement.find_by(id: params[:reimbursement_id])
+      
+      if reimbursement
+        f.inputs '基本信息' do
+          f.input :reimbursement_id, as: :hidden, input_html: { value: reimbursement.id }
+          f.semantic_fields_for :reimbursement, reimbursement do |rf|
+            rf.input :invoice_number, label: '报销单号', input_html: { readonly: true, disabled: true }
+            rf.input :applicant, label: '申请人', input_html: { readonly: true, disabled: true }
+            rf.input :department, label: '部门', input_html: { readonly: true, disabled: true }
+            rf.input :amount, label: '金额', input_html: { readonly: true, disabled: true }
+          end
+        end
+        
+        f.inputs '沟通记录' do
+          f.input :communication_method, label: "沟通方式",
+                  as: :select,
+                  collection: [['电话', '电话'], ['微信', '微信'], ['邮件', '邮件']],
+                  prompt: '请选择沟通方式',
+                  input_html: { required: true }
+          
+          f.input :audit_comment, label: "沟通内容",
+                  as: :text,
+                  input_html: {
+                    rows: 6,
+                    placeholder: "请详细记录本次沟通的具体内容...",
+                    required: true,
+                    minlength: 10
+                  }
+        end
+        
+        f.actions
+      else
+        f.inputs do
+          f.li "错误：无法找到关联的报销单"
+        end
+      end
+    else
+      f.inputs do
+        f.li "错误：沟通工单必须关联到特定的报销单"
+      end
+    end
+  end
 
   # CSV导出
   collection_action :export_csv, method: :get do
@@ -144,7 +187,7 @@ ActiveAdmin.register CommunicationWorkOrder do
           row "申请人", :applicant_name
           row "部门", :department
           row "总金额" do |r|
-            number_to_currency(r.total_amount, unit: "¥")
+            number_to_currency(r.amount, unit: "¥")
           end
           row "状态", :status do |r|
             status_tag r.status
