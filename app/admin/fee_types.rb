@@ -1,7 +1,7 @@
 ActiveAdmin.register FeeType do
   permit_params :code, :title, :meeting_type, :active
 
-  menu priority: 6, label: "费用类型", parent: "系统设置"
+  menu priority: 6, label: "会议/费用类型", parent: "系统设置"
 
   # 过滤器
   filter :code
