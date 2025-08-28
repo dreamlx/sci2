@@ -2,7 +2,11 @@
 lock "~> 3.19.2"
 
 set :application, "sci2"
-set :repo_url, "https://github.com/dreamlx/sci2.git"  # Use HTTPS URL instead of SSH URL
+set :repo_url, "."  # 使用本地 Git 仓库
+set :scm, :git
+set :deploy_via, :copy
+set :copy_strategy, :export
+set :copy_remote_dir, "/tmp"
 
 # Default branch is :master
 # ask :branch, `git rev-parse --abbrev-ref HEAD`.chomp

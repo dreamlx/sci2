@@ -67,37 +67,125 @@ SCI2 是一个基于 Rails 7 + ActiveAdmin 的企业报销单管理系统，提�
 
 ### 环境要求
 ```bash
-Ruby 2.6.10
+Ruby 3.4.2 (使用 rbenv 管理)
 Rails 7.x
-PostgreSQL/MySQL
+MySQL (生产环境)
 ```
 
-### 安装依赖
+### Ruby 环境设置
+项目使用 rbenv 管理 Ruby 版本，详细设置请参考 [Ruby 环境设置文档](docs/ruby_environment_setup.md)。
+
 ```bash
-bundle install
+# 检查 rbenv 安装
+rbenv --version
+
+# 设置本地项目 Ruby 版本
+rbenv local 3.4.2
+
+# 安装依赖
+RBENV_VERSION=3.4.2 bundle install
 ```
 
 ### 数据库设置
 ```bash
+# 开发环境 (SQLite)
 rails db:create
 rails db:migrate
 rails db:seed
+
+# 生产环境 (MySQL) - 通过部署脚本自动处理
 ```
 
 ### 启动服务
 ```bash
+# 开发环境
 rails server
+
+# 或使用 rbenv 指定版本
+RBENV_VERSION=3.4.2 rails server
 ```
 
 ### 运行测试
 ```bash
 # 运行所有测试
-bundle exec rspec
+RBENV_VERSION=3.4.2 bundle exec rspec
 
 # 运行通知系统测试
-bundle exec rspec spec/models/reimbursement_notification_spec.rb
-bundle exec rspec spec/integration/reimbursement_notification_integration_spec.rb
+RBENV_VERSION=3.4.2 bundle exec rspec spec/models/reimbursement_notification_spec.rb
+RBENV_VERSION=3.4.2 bundle exec rspec spec/integration/reimbursement_notification_integration_spec.rb
 ```
+
+## 🚀 部署指南
+
+### 部署概述
+项目使用 Capistrano 进行自动化部署，支持从本地开发环境直接推送到服务器，无需服务器访问 GitHub。
+
+### 环境配置
+- **生产环境**: 阿里云服务器 (8.136.10.88)
+- **测试环境**: 阿里云服务器 (47.97.35.0)
+- **部署用户**: deploy
+- **数据库**: MySQL (MariaDB 10.11.11)
+
+### 快速部署
+
+#### 方法一：使用部署脚本（推荐）
+```bash
+# 生产环境部署
+./scripts/deploy_production.sh
+
+# 测试环境部署
+./scripts/deploy_staging.sh
+```
+
+#### 方法二：手动部署
+```bash
+# 生产环境
+RBENV_VERSION=3.4.2 bundle exec cap production deploy
+
+# 测试环境
+RBENV_VERSION=3.4.2 bundle exec cap staging deploy
+```
+
+### 部署前准备
+1. **确保本地代码已提交**
+   ```bash
+   git add .
+   git commit -m "部署更新"
+   ```
+
+2. **检查 Ruby 版本**
+   ```bash
+   rbenv versions | grep 3.4.2
+   ```
+
+3. **验证 SSH 连接**
+   ```bash
+   ssh root@8.136.10.88  # 生产环境
+   ssh root@47.97.35.0   # 测试环境
+   ```
+
+### 部署流程
+1. **代码推送**: 从本地 Git 仓库推送到服务器
+2. **依赖安装**: 自动安装 gem 依赖
+3. **数据库迁移**: 执行数据库迁移
+4. **资产预编译**: 编译静态资源
+5. **服务重启**: 重启 Puma 服务
+6. **防火墙配置**: 自动开放必要端口
+
+### 部署后验证
+```bash
+# 检查服务状态
+ssh root@8.136.10.88 "systemctl status puma"
+
+# 查看应用日志
+ssh root@8.136.10.88 "tail -f /opt/sci2/shared/log/puma.error.log"
+
+# 访问应用
+curl http://8.136.10.88:3000
+```
+
+### 故障排除
+常见问题和解决方案请参考 [Ruby 环境设置文档](docs/ruby_environment_setup.md) 中的"常见问题解决"部分。
 
 ## 📊 数据库结构
 
@@ -194,6 +282,14 @@ git log --oneline --graph
 
 ---
 
-**最后更新**: 2025-08-06  
-**版本**: v2.1.0  
-**状态**: 统一通知状态系统 ✅ 完成
+**最后更新**: 2025-08-28
+**版本**: v2.2.0
+**状态**: 部署系统优化 ✅ 完成
+
+### v2.2.0 (2025-08-28) ✅
+- **部署系统优化**
+  - 添加 Ruby 环境设置文档
+  - 创建自动化部署脚本
+  - 修改部署配置支持本地 Git 推送
+  - 更新 README 添加完整部署指南
+  - 解决国内服务器无法访问 GitHub 的问题

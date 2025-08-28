@@ -23,7 +23,7 @@ set :docker_enabled, false  # Set to true if using Docker in production
 set :deploy_to, "/opt/sci2"
 
 # Database credentials - CHANGE THESE TO YOUR ACTUAL MYSQL CREDENTIALS
-set :database_username, 'sci2_user'  # Change this to your MySQL username
+set :database_username, 'sci2'  # Change this to your MySQL username
 set :database_password, 'sci2_password'  # Change this to your MySQL password
 
 # More conservative settings for production
