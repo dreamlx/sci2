@@ -19,6 +19,38 @@
   border-bottom: 1px solid #e0e0e0;
 }
 
+/* 可折叠标题样式 */
+.problem-group-title.collapsible {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.problem-group-title.collapsible:hover {
+  background-color: #e9ecef;
+}
+
+.problem-group-title.collapsed {
+  border-bottom: none;
+}
+
+/* 折叠图标样式 */
+.collapse-icon {
+  font-size: 12px;
+  margin-right: 8px;
+  transition: transform 0.2s ease;
+  display: inline-block;
+  width: 16px;
+  text-align: center;
+}
+
+.problem-group-title.collapsed .collapse-icon {
+  transform: rotate(-90deg);
+}
+
 /* 特定问题类型样式 */
 .specific-problems .problem-group-title {
   background-color: #e3f2fd;

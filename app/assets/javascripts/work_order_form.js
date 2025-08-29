@@ -533,15 +533,42 @@ document.addEventListener('DOMContentLoaded', function() {
     const groupDiv = document.createElement('div');
     groupDiv.className = `problem-type-group ${groupType}-problems`;
     
-    // 创建分组标题
+    // 创建分组标题（可点击折叠）
     const titleDiv = document.createElement('h5');
-    titleDiv.className = 'problem-group-title';
-    titleDiv.textContent = groupTitle;
-    groupDiv.appendChild(titleDiv);
+    titleDiv.className = 'problem-group-title collapsible';
+    
+    // 添加折叠图标和标题文本
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'collapse-icon';
+    iconSpan.textContent = '▼'; // 默认展开状态
+    
+    const titleText = document.createElement('span');
+    titleText.textContent = `${groupTitle} (${problems.length}个)`;
+    
+    titleDiv.appendChild(iconSpan);
+    titleDiv.appendChild(titleText);
     
     // 创建问题复选框容器
     const checkboxContainer = document.createElement('div');
     checkboxContainer.className = 'problem-checkboxes';
+    checkboxContainer.style.display = 'block'; // 默认展开
+    
+    // 添加点击事件来切换折叠状态
+    titleDiv.addEventListener('click', function() {
+      const isCollapsed = checkboxContainer.style.display === 'none';
+      
+      if (isCollapsed) {
+        // 展开
+        checkboxContainer.style.display = 'block';
+        iconSpan.textContent = '▼';
+        titleDiv.classList.remove('collapsed');
+      } else {
+        // 折叠
+        checkboxContainer.style.display = 'none';
+        iconSpan.textContent = '▶';
+        titleDiv.classList.add('collapsed');
+      }
+    });
     
     // 渲染每个问题类型
     problems.forEach(problemType => {
@@ -549,6 +576,7 @@ document.addEventListener('DOMContentLoaded', function() {
       checkboxContainer.appendChild(problemItem);
     });
     
+    groupDiv.appendChild(titleDiv);
     groupDiv.appendChild(checkboxContainer);
     problemTypesWrapper.appendChild(groupDiv);
   }
