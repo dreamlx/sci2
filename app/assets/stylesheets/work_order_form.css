@@ -1,164 +1,132 @@
-/* 工单表单共享样式 */
-.tabs {
+/* 工单表单样式 */
+
+/* 问题类型分组样式 */
+.problem-type-group {
   margin-bottom: 20px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: #fff;
 }
 
-.tab-content {
-  padding: 15px;
-  border: 1px solid #ddd;
+.problem-group-title {
+  background-color: #f8f9fa;
+  padding: 12px 16px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+/* 特定问题类型样式 */
+.specific-problems .problem-group-title {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+
+/* 通用问题类型样式 */
+.general-problems .problem-group-title {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.problem-checkboxes {
+  padding: 12px;
+}
+
+.problem-type-item {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #e9ecef;
   border-radius: 4px;
+  background-color: #fff;
+  transition: all 0.2s ease;
 }
 
-.fee-details-selection {
-  max-height: 400px;
-  overflow-y: auto;
-  border: 1px solid #ddd;
-  padding: 10px;
-  margin: 10px 0;
+.problem-type-item:hover {
+  background-color: #f8f9fa;
+  border-color: #007bff;
+  box-shadow: 0 2px 4px rgba(0,123,255,0.1);
 }
 
-.fee-detail-item {
-  margin: 5px 0;
-  padding: 5px;
-  border-bottom: 1px solid #eee;
+.problem-type-item:last-child {
+  margin-bottom: 0;
 }
 
-.fee-detail-item:last-child {
-  border-bottom: none;
-}
-
-.fee-detail-item label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.problem-type-label {
+  display: block;
   cursor: pointer;
+  margin: 0;
+  width: 100%;
 }
 
-.fee-detail-id {
-  font-weight: bold;
-  min-width: 50px;
+.problem-type-checkbox {
+  margin-right: 8px;
+  margin-top: 2px;
+  float: left;
 }
 
-.fee-detail-type {
-  min-width: 100px;
+.problem-type-title {
+  font-weight: 500;
+  color: #212529;
+  margin-bottom: 8px;
+  display: block;
+  margin-left: 24px;
 }
 
-.fee-detail-amount {
-  min-width: 100px;
-  text-align: right;
+.problem-type-details {
+  margin-left: 24px;
+  font-size: 12px;
+  color: #6c757d;
+  line-height: 1.4;
 }
 
-.fee-detail-date {
-  min-width: 100px;
+.sop-description {
+  margin-bottom: 4px;
+  padding: 4px 8px;
+  background-color: #f8f9fa;
+  border-left: 3px solid #007bff;
+  border-radius: 2px;
 }
 
-.fee-detail-status {
-  min-width: 80px;
-}
-
-.checkbox-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  margin-right: 5px;
+.standard-handling {
+  font-style: italic;
+  padding: 4px 8px;
+  background-color: #fff3cd;
+  border-left: 3px solid #ffc107;
+  border-radius: 2px;
 }
 
 /* 费用类型标签样式 */
 .fee-type-tags {
-  margin-top: 20px;
-  border: 1px solid #ddd;
+  margin: 15px 0;
   padding: 10px;
+  background-color: #f8f9fa;
   border-radius: 4px;
+  border: 1px solid #dee2e6;
 }
 
 .fee-type-tags h4 {
-  margin-top: 0;
-  margin-bottom: 10px;
-  font-size: 16px;
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #495057;
 }
 
 .fee-type-tags-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
 .fee-type-tag {
-  background-color: #f0f0f0;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 5px 10px;
-  font-size: 14px;
   display: inline-block;
-}
-
-/* 问题类型复选框样式 */
-.problem-types-container {
-  margin-top: 20px;
-  border: 1px solid #ddd;
-  padding: 10px;
-  border-radius: 4px;
-}
-
-.problem-types-container h4 {
-  margin-top: 0;
-  margin-bottom: 10px;
-  font-size: 16px;
-}
-
-.problem-types-wrapper {
-  margin-top: 10px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-/* 验证错误样式 */
-.validation-error {
-  color: #721c24;
-  background-color: #f8d7da;
-  border: 1px solid #f5c6cb;
-  padding: 10px;
-  margin: 10px 0;
-  border-radius: 4px;
-}
-
-.form-actions {
-  margin-top: 20px;
-}
-
-.button {
-  display: inline-block;
-  padding: 8px 16px;
-  background-color: #5cb85c;
+  padding: 4px 8px;
+  background-color: #007bff;
   color: white;
-  text-decoration: none;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-.button:hover {
-  background-color: #4cae4c;
-}
-
-/* 问题类型复选框样式 */
-.problem-type-section {
-  margin-bottom: 15px;
-}
-
-.problem-type-checkboxes {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.problem-type-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 /* 未匹配费用类型警告样式 */
@@ -169,4 +137,83 @@
   border: 1px solid #ffeeba;
   border-radius: 4px;
   color: #856404;
+}
+
+.unmatched-fee-types-warning p {
+  margin: 0 0 8px 0;
+}
+
+.unmatched-fee-types-warning ul {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.unmatched-fee-types-warning .button {
+  display: inline-block;
+  padding: 5px 10px;
+  background-color: #007bff;
+  color: white;
+  text-decoration: none;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.unmatched-fee-types-warning .button:hover {
+  background-color: #0056b3;
+}
+
+/* 验证错误样式 */
+.validation-error {
+  margin: 15px 0;
+  padding: 10px;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  color: #721c24;
+}
+
+.validation-error ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.validation-error li {
+  margin-bottom: 4px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .problem-type-item {
+    padding: 8px;
+  }
+  
+  .problem-group-title {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  
+  .problem-checkboxes {
+    padding: 8px;
+  }
+  
+  .problem-type-details {
+    font-size: 11px;
+  }
+}
+
+/* 打印样式 */
+@media print {
+  .problem-type-group {
+    break-inside: avoid;
+    border: 1px solid #000;
+  }
+  
+  .problem-group-title {
+    background-color: #f0f0f0 !important;
+    color: #000 !important;
+  }
+  
+  .problem-type-item {
+    border: 1px solid #ccc;
+  }
 }

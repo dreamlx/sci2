@@ -384,7 +384,8 @@ document.addEventListener('DOMContentLoaded', function() {
       return [];
     }
     
-    // 获取选中费用类型对应的FeeType记录
+    // 获取选中费用明细的会议类型
+    const selectedMeetingTypes = new Set();
     const selectedFeeTypeNames = Array.from(appState.uniqueFeeTypes);
     const matchedFeeTypes = [];
     const unmatchedFeeTypes = [];
@@ -400,6 +401,7 @@ document.addEventListener('DOMContentLoaded', function() {
       
       if (exactMatch) {
         matchedFeeTypes.push(exactMatch);
+        selectedMeetingTypes.add(exactMatch.meeting_type);
       } else {
         // 如果没有找到匹配，记录未匹配的费用类型
         unmatchedFeeTypes.push(feeTypeName);
@@ -407,6 +409,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     debugLog('匹配到的费用类型:', matchedFeeTypes);
+    debugLog('选中的会议类型:', Array.from(selectedMeetingTypes));
     debugLog('未匹配到的费用类型:', unmatchedFeeTypes);
     
     // 如果有未匹配的费用类型，显示提示
@@ -439,7 +442,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
     
-    // 获取这些费用类型对应的问题类型
+    // 获取相关的问题类型
     const relevantProblemTypes = [];
     const matchedFeeTypeIds = matchedFeeTypes.map(ft => ft.id);
     
@@ -447,18 +450,33 @@ document.addEventListener('DOMContentLoaded', function() {
     const problemTypeSet = new Set();
     
     appState.allProblemTypes.forEach(problemType => {
-      // 如果问题类型关联的费用类型在匹配列表中，则包含
-      if (problemType.fee_type_id && matchedFeeTypeIds.includes(problemType.fee_type_id)) {
+      if (!problemType.fee_type_id) return;
+      
+      const feeType = appState.allFeeTypes.find(ft => ft.id === problemType.fee_type_id);
+      if (!feeType) return;
+      
+      // 检查是否是相关的会议类型
+      if (selectedMeetingTypes.has(feeType.meeting_type)) {
         // 使用问题类型ID作为唯一标识，防止重复
         const problemTypeKey = problemType.id.toString();
         if (!problemTypeSet.has(problemTypeKey)) {
           problemTypeSet.add(problemTypeKey);
-          relevantProblemTypes.push(problemType);
+          
+          // 标记问题类型的类别
+          const enhancedProblemType = {
+            ...problemType,
+            category: feeType.code === 'GENERAL_ACADEMIC' ? 'general' : 'specific',
+            meeting_type: feeType.meeting_type,
+            fee_type_title: feeType.title
+          };
+          
+          relevantProblemTypes.push(enhancedProblemType);
         }
       }
     });
     
     debugLog('相关问题类型数量:', relevantProblemTypes.length);
+    debugLog('问题类型详情:', relevantProblemTypes);
     
     // 如果没有找到相关问题类型，显示提示信息
     if (relevantProblemTypes.length === 0) {
@@ -471,83 +489,148 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // 渲染问题类型复选框
   function renderProblemTypeCheckboxes(problemTypes) {
-    debugLog('渲染问题类型复选框...');
+    debugLog('渲染问题类型复选框，按类别分组...');
     
-    // 创建一个分组容器
-    const sectionDiv = document.createElement('div');
-    sectionDiv.className = 'problem-type-section';
+    if (!problemTypesWrapper) {
+      debugLog('问题类型容器不存在');
+      return;
+    }
     
-    // 创建费用类型标题
-    const feeTypeTitle = document.createElement('h5');
-    feeTypeTitle.textContent = `已选费用类型: ${Array.from(appState.uniqueFeeTypes).join(', ')}`;
-    sectionDiv.appendChild(feeTypeTitle);
+    // 清空容器
+    problemTypesWrapper.innerHTML = '';
     
-    // 创建问题类型复选框容器
-    const checkboxContainer = document.createElement('div');
-    checkboxContainer.className = 'problem-type-checkboxes';
+    // 按类别分组
+    const specificProblems = problemTypes.filter(p => p.category === 'specific');
+    const generalProblems = problemTypes.filter(p => p.category === 'general');
     
-    // 创建问题类型复选框
-    problemTypes.forEach(problemType => {
-      const checkboxDiv = document.createElement('div');
-      checkboxDiv.className = 'problem-type-checkbox';
-      
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.id = `problem_type_${problemType.id}`;
-      checkbox.name = `${formType}_work_order[problem_type_ids][]`;
-      checkbox.value = problemType.id;
-      
-      // 添加事件监听器，当选择问题类型时重新验证
-      checkbox.addEventListener('change', function() {
-        if (appState.validationErrors.length > 0) {
-          validateFormState();
-          renderValidationErrors();
-        }
-      });
-      
-      const label = document.createElement('label');
-      label.htmlFor = `problem_type_${problemType.id}`;
-      
-      // 创建问题类型信息容器
-      const problemTypeInfoDiv = document.createElement('div');
-      problemTypeInfoDiv.className = 'problem-type-info';
-      
-      // 创建标题元素
-      const titleDiv = document.createElement('div');
-      titleDiv.className = 'problem-type-title';
-      
-      // 构建显示名称
-      if (problemType.display_name) {
-        titleDiv.textContent = problemType.display_name;
-      } else if (problemType.code && problemType.title) {
-        titleDiv.textContent = `${problemType.code} - ${problemType.title}`;
-      } else {
-        titleDiv.textContent = problemType.title || `问题类型 #${problemType.id}`;
+    // 按费用类型进一步分组特定问题
+    const specificByFeeType = {};
+    specificProblems.forEach(problem => {
+      const feeTypeKey = problem.fee_type_title || problem.meeting_type || '其他';
+      if (!specificByFeeType[feeTypeKey]) {
+        specificByFeeType[feeTypeKey] = [];
       }
-      
-      // 创建SOP描述元素
-      const sopDescDiv = document.createElement('div');
-      sopDescDiv.className = 'problem-type-sop-description';
-      sopDescDiv.innerHTML = `<strong>SOP描述:</strong> ${problemType.sop_description || '无'}`;
-      
-      // 创建标准处理元素
-      const standardHandlingDiv = document.createElement('div');
-      standardHandlingDiv.className = 'problem-type-standard-handling';
-      standardHandlingDiv.innerHTML = `<strong>标准处理:</strong> ${problemType.standard_handling || '无'}`;
-      
-      // 将所有元素添加到信息容器
-      problemTypeInfoDiv.appendChild(titleDiv);
-      problemTypeInfoDiv.appendChild(sopDescDiv);
-      problemTypeInfoDiv.appendChild(standardHandlingDiv);
-      
-      // 将复选框和信息容器添加到复选框div
-      checkboxDiv.appendChild(checkbox);
-      checkboxDiv.appendChild(problemTypeInfoDiv);
-      checkboxContainer.appendChild(checkboxDiv);
+      specificByFeeType[feeTypeKey].push(problem);
     });
     
-    sectionDiv.appendChild(checkboxContainer);
-    problemTypesWrapper.appendChild(sectionDiv);
+    // 渲染特定问题类型
+    Object.keys(specificByFeeType).forEach(feeTypeTitle => {
+      const problems = specificByFeeType[feeTypeTitle];
+      renderProblemGroup(`📋 ${feeTypeTitle}相关问题`, problems, 'specific');
+    });
+    
+    // 渲染通用问题类型（只有学术会议才有）
+    if (generalProblems.length > 0) {
+      renderProblemGroup('🌐 学术会议通用问题', generalProblems, 'general');
+    }
+  }
+  
+  // 渲染问题类型分组
+  function renderProblemGroup(groupTitle, problems, groupType) {
+    if (problems.length === 0) return;
+    
+    // 创建分组容器
+    const groupDiv = document.createElement('div');
+    groupDiv.className = `problem-type-group ${groupType}-problems`;
+    
+    // 创建分组标题
+    const titleDiv = document.createElement('h5');
+    titleDiv.className = 'problem-group-title';
+    titleDiv.textContent = groupTitle;
+    groupDiv.appendChild(titleDiv);
+    
+    // 创建问题复选框容器
+    const checkboxContainer = document.createElement('div');
+    checkboxContainer.className = 'problem-checkboxes';
+    
+    // 渲染每个问题类型
+    problems.forEach(problemType => {
+      const problemItem = renderProblemTypeCheckbox(problemType);
+      checkboxContainer.appendChild(problemItem);
+    });
+    
+    groupDiv.appendChild(checkboxContainer);
+    problemTypesWrapper.appendChild(groupDiv);
+  }
+  
+  // 渲染单个问题类型复选框
+  function renderProblemTypeCheckbox(problemType) {
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'problem-type-item';
+    
+    // 创建标签容器
+    const label = document.createElement('label');
+    label.className = 'problem-type-label';
+    label.htmlFor = `problem_type_${problemType.id}`;
+    
+    // 创建复选框
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = `problem_type_${problemType.id}`;
+    checkbox.className = 'problem-type-checkbox';
+    checkbox.value = problemType.id;
+    
+    // 动态获取表单参数名
+    const paramName = getWorkOrderParamName();
+    checkbox.name = `${paramName}[problem_type_ids][]`;
+    
+    // 检查是否已选中
+    if (appState.selectedProblemTypeIds && appState.selectedProblemTypeIds.includes(problemType.id.toString())) {
+      checkbox.checked = true;
+    }
+    
+    // 添加事件监听器
+    checkbox.addEventListener('change', function() {
+      if (appState.validationErrors && appState.validationErrors.length > 0) {
+        validateFormState();
+        renderValidationErrors();
+      }
+    });
+    
+    // 创建问题标题
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'problem-type-title';
+    titleSpan.textContent = problemType.title || `问题类型 #${problemType.id}`;
+    
+    // 创建详细信息容器
+    const detailsDiv = document.createElement('div');
+    detailsDiv.className = 'problem-type-details';
+    
+    // SOP描述
+    if (problemType.sop_description) {
+      const sopDiv = document.createElement('div');
+      sopDiv.className = 'sop-description';
+      sopDiv.textContent = problemType.sop_description;
+      detailsDiv.appendChild(sopDiv);
+    }
+    
+    // 标准处理
+    if (problemType.standard_handling) {
+      const handlingDiv = document.createElement('div');
+      handlingDiv.className = 'standard-handling';
+      handlingDiv.textContent = problemType.standard_handling;
+      detailsDiv.appendChild(handlingDiv);
+    }
+    
+    // 组装标签
+    label.appendChild(checkbox);
+    label.appendChild(titleSpan);
+    label.appendChild(detailsDiv);
+    
+    itemDiv.appendChild(label);
+    return itemDiv;
+  }
+  
+  // 获取工单参数名称
+  function getWorkOrderParamName() {
+    // 从当前路径或表单中推断参数名
+    const path = window.location.pathname;
+    if (path.includes('audit_work_orders')) {
+      return 'audit_work_order';
+    } else if (path.includes('communication_work_orders')) {
+      return 'communication_work_order';
+    }
+    return 'work_order'; // 默认值
   }
   
   // 表单验证
