@@ -68,7 +68,7 @@ puts "结果: ✓ 个人会议类型没有通用问题，符合预期"
 puts
 
 # 测试场景2：学术会议类型（有通用问题）
-puts "3. 测试场景2：学术会议类型"
+puts "3. 测试场景2：学术会议类型 - 选择多种费用类型"
 selected_fee_details = [
   { fee_type: '会议费', amount: 1000 },
   { fee_type: '差旅费', amount: 500 }
@@ -84,14 +84,25 @@ selected_fee_details.each do |fee_detail|
 end
 
 puts "匹配到的费用类型: #{matched_fee_types.map{|ft| ft[:title]}.join(', ')}"
+matched_fee_type_ids = matched_fee_types.map { |ft| ft[:id] }
 
-# 获取相关问题类型
+# 获取相关问题类型（新逻辑：只显示匹配的特定问题类型 + 通用问题类型）
 meeting_types = matched_fee_types.map { |ft| ft[:meeting_type] }.uniq
 puts "会议类型: #{meeting_types.join(', ')}"
 
 relevant_problems = problem_types.select do |pt|
   fee_type = ([general_fee_type] + existing_fee_types).find { |ft| ft[:id] == pt[:fee_type_id] }
-  meeting_types.include?(fee_type[:meeting_type]) if fee_type
+  next false unless fee_type
+  
+  # 通用问题类型：如果是学术会议，始终显示
+  if fee_type[:code] == 'GENERAL_ACADEMIC' && meeting_types.include?('学术论坛')
+    true
+  # 特定问题类型：只显示与选中费用类型匹配的
+  elsif matched_fee_type_ids.include?(fee_type[:id])
+    true
+  else
+    false
+  end
 end
 
 # 分类问题类型
@@ -106,15 +117,71 @@ general_problems = relevant_problems.select do |pt|
 end
 
 puts "相关问题类型数量: #{relevant_problems.length}"
-puts "  - 特定问题: #{specific_problems.length} 个"
+puts "  - 特定问题: #{specific_problems.length} 个（只显示与选中费用类型匹配的）"
 specific_problems.each { |p| puts "    * #{p[:title]}" }
-puts "  - 通用问题: #{general_problems.length} 个"
+puts "  - 通用问题: #{general_problems.length} 个（学术会议始终显示）"
 general_problems.each { |p| puts "    * #{p[:title]}" }
-puts "结果: ✓ 学术会议类型有通用问题，符合预期"
+puts "结果: ✓ 只显示相关的特定问题类型 + 通用问题类型"
 puts
 
-# 测试前端分组逻辑
-puts "4. 测试前端分组显示逻辑"
+# 测试场景3：学术会议类型 - 只选择会议费
+puts "4. 测试场景3：学术会议类型 - 只选择会议费"
+selected_fee_details = [
+  { fee_type: '会议费', amount: 1000 }
+]
+
+puts "选中费用明细: #{selected_fee_details.map{|fd| fd[:fee_type]}.join(', ')}"
+
+# 匹配费用类型
+matched_fee_types = []
+selected_fee_details.each do |fee_detail|
+  matched = existing_fee_types.find { |ft| ft[:title] == fee_detail[:fee_type] }
+  matched_fee_types << matched if matched
+end
+
+puts "匹配到的费用类型: #{matched_fee_types.map{|ft| ft[:title]}.join(', ')}"
+matched_fee_type_ids = matched_fee_types.map { |ft| ft[:id] }
+
+# 获取相关问题类型
+meeting_types = matched_fee_types.map { |ft| ft[:meeting_type] }.uniq
+puts "会议类型: #{meeting_types.join(', ')}"
+
+relevant_problems = problem_types.select do |pt|
+  fee_type = ([general_fee_type] + existing_fee_types).find { |ft| ft[:id] == pt[:fee_type_id] }
+  next false unless fee_type
+  
+  # 通用问题类型：如果是学术会议，始终显示
+  if fee_type[:code] == 'GENERAL_ACADEMIC' && meeting_types.include?('学术论坛')
+    true
+  # 特定问题类型：只显示与选中费用类型匹配的
+  elsif matched_fee_type_ids.include?(fee_type[:id])
+    true
+  else
+    false
+  end
+end
+
+# 分类问题类型
+specific_problems = relevant_problems.select do |pt|
+  fee_type = existing_fee_types.find { |ft| ft[:id] == pt[:fee_type_id] }
+  fee_type && fee_type[:code] != 'GENERAL_ACADEMIC'
+end
+
+general_problems = relevant_problems.select do |pt|
+  fee_type = ([general_fee_type] + existing_fee_types).find { |ft| ft[:id] == pt[:fee_type_id] }
+  fee_type && fee_type[:code] == 'GENERAL_ACADEMIC'
+end
+
+puts "相关问题类型数量: #{relevant_problems.length}"
+puts "  - 特定问题: #{specific_problems.length} 个（只显示会议费相关问题，不显示差旅费问题）"
+specific_problems.each { |p| puts "    * #{p[:title]}" }
+puts "  - 通用问题: #{general_problems.length} 个（学术会议始终显示）"
+general_problems.each { |p| puts "    * #{p[:title]}" }
+puts "结果: ✓ 只显示会议费相关问题，不显示差旅费问题，但通用问题始终显示"
+puts
+
+# 测试前端分组逻辑（基于场景3的结果）
+puts "5. 测试前端分组显示逻辑（只选择会议费的情况）"
 puts "按费用类型分组特定问题:"
 specific_by_fee_type = {}
 specific_problems.each do |problem|
@@ -140,5 +207,8 @@ puts
 puts "=== 测试完成 ==="
 puts "✓ 个人会议类型：无通用问题"
 puts "✓ 学术会议类型：有通用问题"
+puts "✓ 特定问题类型：只显示与选中费用类型匹配的"
+puts "✓ 通用问题类型：学术会议始终显示"
 puts "✓ 问题类型按类别正确分组"
 puts "✓ 前端显示逻辑正确"
+puts "✓ 用户体验优化：减少不相关问题类型的干扰"

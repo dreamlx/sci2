@@ -384,7 +384,7 @@ document.addEventListener('DOMContentLoaded', function() {
       return [];
     }
     
-    // 获取选中费用明细的会议类型
+    // 获取选中费用明细的会议类型和费用类型
     const selectedMeetingTypes = new Set();
     const selectedFeeTypeNames = Array.from(appState.uniqueFeeTypes);
     const matchedFeeTypes = [];
@@ -414,32 +414,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 如果有未匹配的费用类型，显示提示
     if (unmatchedFeeTypes.length > 0) {
-      // 在费用类型标签区域显示提示
-      const feeTypeTagsContainer = document.querySelector('.fee-type-tags-container');
-      if (feeTypeTagsContainer) {
-        const warningDiv = document.createElement('div');
-        warningDiv.className = 'unmatched-fee-types-warning';
-        warningDiv.style.marginTop = '10px';
-        warningDiv.style.padding = '10px';
-        warningDiv.style.backgroundColor = '#fff3cd';
-        warningDiv.style.border = '1px solid #ffeeba';
-        warningDiv.style.borderRadius = '4px';
-        warningDiv.style.color = '#856404';
-        
-        warningDiv.innerHTML = `
-          <p><strong>提示：</strong>以下费用类型在系统中不存在，建议创建：</p>
-          <ul>${unmatchedFeeTypes.map(ft => `<li>${ft}</li>`).join('')}</ul>
-          <p><a href="/admin/fee_types/new" target="_blank" class="button" style="display:inline-block; padding:5px 10px; background-color:#007bff; color:white; text-decoration:none; border-radius:3px;">创建费用类型</a></p>
-        `;
-        
-        // 检查是否已经存在警告，如果存在则替换，否则添加
-        const existingWarning = feeTypeTagsContainer.querySelector('.unmatched-fee-types-warning');
-        if (existingWarning) {
-          feeTypeTagsContainer.replaceChild(warningDiv, existingWarning);
-        } else {
-          feeTypeTagsContainer.appendChild(warningDiv);
-        }
-      }
+      showUnmatchedFeeTypesWarning(unmatchedFeeTypes);
     }
     
     // 获取相关的问题类型
@@ -455,8 +430,23 @@ document.addEventListener('DOMContentLoaded', function() {
       const feeType = appState.allFeeTypes.find(ft => ft.id === problemType.fee_type_id);
       if (!feeType) return;
       
-      // 检查是否是相关的会议类型
-      if (selectedMeetingTypes.has(feeType.meeting_type)) {
+      // 检查是否应该包含此问题类型
+      let shouldInclude = false;
+      let category = 'specific';
+      
+      // 通用问题类型：fee_type.code 以 GENERAL 开头的所有问题类型
+      if (feeType.code && feeType.code.startsWith('GENERAL')) {
+        shouldInclude = true;
+        category = 'general';
+        debugLog('找到通用问题类型:', problemType.title, '费用类型代码:', feeType.code);
+      }
+      // 特定问题类型：只显示与选中费用类型匹配的
+      else if (matchedFeeTypeIds.includes(feeType.id)) {
+        shouldInclude = true;
+        category = 'specific';
+      }
+      
+      if (shouldInclude) {
         // 使用问题类型ID作为唯一标识，防止重复
         const problemTypeKey = problemType.id.toString();
         if (!problemTypeSet.has(problemTypeKey)) {
@@ -465,7 +455,7 @@ document.addEventListener('DOMContentLoaded', function() {
           // 标记问题类型的类别
           const enhancedProblemType = {
             ...problemType,
-            category: feeType.code === 'GENERAL_ACADEMIC' ? 'general' : 'specific',
+            category: category,
             meeting_type: feeType.meeting_type,
             fee_type_title: feeType.title
           };
@@ -485,6 +475,35 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     return relevantProblemTypes;
+  }
+  
+  // 显示未匹配费用类型警告
+  function showUnmatchedFeeTypesWarning(unmatchedFeeTypes) {
+    const feeTypeTagsContainer = document.querySelector('.fee-type-tags-container');
+    if (feeTypeTagsContainer) {
+      const warningDiv = document.createElement('div');
+      warningDiv.className = 'unmatched-fee-types-warning';
+      warningDiv.style.marginTop = '10px';
+      warningDiv.style.padding = '10px';
+      warningDiv.style.backgroundColor = '#fff3cd';
+      warningDiv.style.border = '1px solid #ffeeba';
+      warningDiv.style.borderRadius = '4px';
+      warningDiv.style.color = '#856404';
+      
+      warningDiv.innerHTML = `
+        <p><strong>提示：</strong>以下费用类型在系统中不存在，建议创建：</p>
+        <ul>${unmatchedFeeTypes.map(ft => `<li>${ft}</li>`).join('')}</ul>
+        <p><a href="/admin/fee_types/new" target="_blank" class="button" style="display:inline-block; padding:5px 10px; background-color:#007bff; color:white; text-decoration:none; border-radius:3px;">创建费用类型</a></p>
+      `;
+      
+      // 检查是否已经存在警告，如果存在则替换，否则添加
+      const existingWarning = feeTypeTagsContainer.querySelector('.unmatched-fee-types-warning');
+      if (existingWarning) {
+        feeTypeTagsContainer.replaceChild(warningDiv, existingWarning);
+      } else {
+        feeTypeTagsContainer.appendChild(warningDiv);
+      }
+    }
   }
   
   // 渲染问题类型复选框
