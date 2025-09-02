@@ -8,6 +8,11 @@ set :deploy_via, :copy
 set :copy_strategy, :export
 set :copy_remote_dir, "/tmp"
 
+# 添加详细日志输出
+set :log_level, :debug
+set :format, :pretty
+set :format_options, command_output: true, log_file: 'log/capistrano.log', color: :auto, truncate: :auto
+
 # Default branch is :master
 # ask :branch, `git rev-parse --abbrev-ref HEAD`.chomp
 set :branch, 'main'  # Update to your main branch name
@@ -73,6 +78,26 @@ set :assets_roles, []
 
 # Custom tasks
 namespace :deploy do
+  desc 'Debug: Show deployment information'
+  task :debug_info do
+    on roles(:all) do
+      info "=== 部署调试信息 ==="
+      info "目标服务器: #{host}"
+      info "用户: #{host.user}"
+      info "部署路径: #{fetch(:deploy_to)}"
+      info "应用名称: #{fetch(:application)}"
+      info "Git仓库: #{fetch(:repo_url)}"
+      info "分支: #{fetch(:branch)}"
+      info "复制策略: #{fetch(:copy_strategy)}"
+      info "临时目录: #{fetch(:copy_remote_dir)}"
+      
+      execute :pwd
+      execute :whoami
+      execute :ls, "-la /tmp"
+      execute :df, "-h"
+    end
+  end
+
   desc 'Restart application'
   task :restart do
     on roles(:app), in: :sequence, wait: 5 do

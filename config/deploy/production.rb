@@ -1,16 +1,18 @@
 # Define the server and user for production environment
-server '8.136.10.88', user: 'root', roles: %w{app db web}
+server '192.168.9.209', user: 'test', roles: %w{app db web}
 
 # Production-specific settings
 set :stage, :production
 set :rails_env, 'production'
 set :branch, 'main'  # Or your production branch name
 
-# SSH options
+# SSH options - 使用密码认证而非密钥认证
 set :ssh_options, {
-  keys: %w(~/.ssh/id_rsa),
-  forward_agent: true,
-  auth_methods: %w(publickey)
+  password: '123456',
+  auth_methods: %w(password),
+  verify_host_key: :never,  # 跳过主机密钥验证
+  user_known_hosts_file: '/dev/null',
+  verbose: :debug  # 添加详细日志
 }
 
 # Puma configuration for production
