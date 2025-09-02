@@ -2,14 +2,11 @@
 lock "~> 3.19.2"
 
 set :application, "sci2"
-# 使用copy策略，不依赖Git仓库
-set :scm, :copy
-set :repository, "."
+set :repo_url, "."  # 使用本地 Git 仓库
+set :scm, :git
 set :deploy_via, :copy
 set :copy_strategy, :export
 set :copy_remote_dir, "/tmp"
-set :copy_cache, true
-set :copy_exclude, %w[.git .gitignore README.md db/*.sqlite3 tmp/ log/ spec/ test/ .DS_Store]
 
 # 添加详细日志输出
 set :log_level, :debug
@@ -81,6 +78,45 @@ set :assets_roles, []
 
 # Custom tasks
 namespace :deploy do
+  desc 'Manual upload and deploy for firewall environments'
+  task :manual_upload do
+    on roles(:all) do
+      # 创建部署目录结构
+      execute :mkdir, "-p #{fetch(:deploy_to)}/shared/config"
+      execute :mkdir, "-p #{fetch(:deploy_to)}/shared/log"
+      execute :mkdir, "-p #{fetch(:deploy_to)}/shared/tmp/pids"
+      execute :mkdir, "-p #{fetch(:deploy_to)}/shared/tmp/cache"
+      execute :mkdir, "-p #{fetch(:deploy_to)}/shared/tmp/sockets"
+      execute :mkdir, "-p #{fetch(:deploy_to)}/shared/public/system"
+      execute :mkdir, "-p #{fetch(:deploy_to)}/shared/storage"
+      execute :mkdir, "-p #{fetch(:deploy_to)}/releases"
+      
+      # 创建当前发布目录
+      release_timestamp = Time.now.strftime("%Y%m%d%H%M%S")
+      release_path = "#{fetch(:deploy_to)}/releases/#{release_timestamp}"
+      execute :mkdir, "-p #{release_path}"
+      
+      info "创建发布目录: #{release_path}"
+      
+      # 打包本地代码
+      run_locally do
+        execute :tar, "-czf /tmp/sci2_deploy.tar.gz --exclude='.git' --exclude='tmp' --exclude='log' --exclude='spec' --exclude='test' --exclude='db/*.sqlite3' ."
+      end
+      
+      # 上传代码包
+      upload! "/tmp/sci2_deploy.tar.gz", "/tmp/sci2_deploy.tar.gz"
+      
+      # 解压到发布目录
+      execute :tar, "-xzf /tmp/sci2_deploy.tar.gz -C #{release_path}"
+      execute :rm, "/tmp/sci2_deploy.tar.gz"
+      
+      # 创建符号链接
+      execute :ln, "-nfs #{release_path} #{fetch(:deploy_to)}/current"
+      
+      info "手动部署完成到: #{release_path}"
+    end
+  end
+
   desc 'Debug: Show deployment information'
   task :debug_info do
     on roles(:all) do
