@@ -4,9 +4,9 @@ require 'capistrano/setup'
 # Include default deployment tasks
 require 'capistrano/deploy'
 
-# Fix deprecation warning for Git SCM
-require 'capistrano/scm/git'
-install_plugin Capistrano::SCM::Git
+# Use copy SCM instead of Git for firewall environments
+require 'capistrano/scm/copy'
+install_plugin Capistrano::SCM::Copy
 
 # Include tasks from other gems included in your Gemfile
 require 'capistrano/rails'

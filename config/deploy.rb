@@ -2,11 +2,14 @@
 lock "~> 3.19.2"
 
 set :application, "sci2"
-set :repo_url, "."  # 使用本地 Git 仓库
-set :scm, :git
+# 使用copy策略，不依赖Git仓库
+set :scm, :copy
+set :repository, "."
 set :deploy_via, :copy
 set :copy_strategy, :export
 set :copy_remote_dir, "/tmp"
+set :copy_cache, true
+set :copy_exclude, %w[.git .gitignore README.md db/*.sqlite3 tmp/ log/ spec/ test/ .DS_Store]
 
 # 添加详细日志输出
 set :log_level, :debug
