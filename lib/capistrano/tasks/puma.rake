@@ -5,7 +5,7 @@ namespace :puma do
     on roles(:app) do
       within current_path do
         with rails_env: fetch(:rails_env) do
-          execute :bundle, "exec puma -C #{shared_path}/config/puma.rb -d"
+          execute :bundle, "exec puma -C #{shared_path}/config/puma.rb --pidfile #{shared_path}/tmp/pids/puma.pid --redirect-stdout #{shared_path}/log/puma.stdout.log --redirect-stderr #{shared_path}/log/puma.stderr.log &"
         end
       end
     end
