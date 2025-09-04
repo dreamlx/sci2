@@ -5,7 +5,7 @@ namespace :puma do
     on roles(:app) do
       within current_path do
         with rails_env: fetch(:rails_env) do
-          execute :bundle, "exec puma -C #{shared_path}/config/puma.rb"
+          execute :bundle, "exec puma -C #{shared_path}/config/puma.rb -d"
         end
       end
     end
