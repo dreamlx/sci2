@@ -2,12 +2,10 @@
 lock "~> 3.19.2"
 
 set :application, "sci2"
-set :repo_url, "."  # 使用本地 Git 仓库
-# Capistrano recommends using SCM plugin instead of deprecated :scm setting
-# This is configured in Capfile now
-set :deploy_via, :copy
-set :copy_strategy, :export
-set :copy_remote_dir, "/tmp"
+set :repo_url, "git@gitee.com:dreamlx/sci2.git"
+
+# Default value for :scm is :git
+set :scm, :git
 
 # 添加详细日志输出
 set :log_level, :debug
