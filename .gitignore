@@ -59,3 +59,7 @@ docs/user_data/*.sql
 docs/user_data/*.dump
 docs/user_data/*.csv
 docs/user_data/*.xlsx
+
+# Ignore test files in root directory
+/test_*.rb
+!/test/
