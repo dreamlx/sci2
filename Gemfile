@@ -44,8 +44,8 @@ group :development do
   gem 'capistrano', '~> 3.19'
   gem 'capistrano-rails', '~> 1.6'
   gem 'capistrano-bundler', '~> 2.1'
-  gem 'capistrano-rvm', '~> 0.1'
-  gem 'capistrano3-puma', '~> 6.0'
+  gem 'capistrano-rvm', '~> 0.1'  # 服务器使用系统级RVM，需要此gem
+  gem 'capistrano3-puma', '~> 6.0', require: false
   gem 'sshkit', '~> 1.22'
   # ED25519 SSH key support for net-ssh
   gem 'ed25519', '>= 1.2', '< 2.0'
@@ -80,3 +80,6 @@ gem 'chartkick'
 gem 'groupdate'
 # Use ActiveRecord as session store to prevent cookie overflow
 gem 'activerecord-session_store'
+
+# Capistrano Puma integration
+

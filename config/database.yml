@@ -15,10 +15,10 @@ test:
   database: sci2_test
 
 production:
-  adapter: mysql2
-  encoding: utf8mb4
+  adapter: sqlite3
+  # encoding: utf8mb4
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
   database: sci2_production
-  username: <%= ENV["SCI2_DATABASE_USERNAME"] %>
-  password: <%= ENV["SCI2_DATABASE_PASSWORD"] %>
-  host: localhost
+  # username: <%= ENV["SCI2_DATABASE_USERNAME"] %>
+  # password: <%= ENV["SCI2_DATABASE_PASSWORD"] %>
+  # host: localhost

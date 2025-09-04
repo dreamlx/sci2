@@ -26,6 +26,8 @@ if rails_env == "production"
   else
     preload_app!
   end
+  # Daemonization is handled by the process manager (like systemd) in production.
+  # The 'daemonize' option was removed in Puma 6.
 end
 # Specifies the `worker_timeout` threshold that Puma will use to wait before
 # terminating a worker in development environments.

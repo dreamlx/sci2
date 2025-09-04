@@ -3,7 +3,8 @@ lock "~> 3.19.2"
 
 set :application, "sci2"
 set :repo_url, "."  # 使用本地 Git 仓库
-set :scm, :git
+# Capistrano recommends using SCM plugin instead of deprecated :scm setting
+# This is configured in Capfile now
 set :deploy_via, :copy
 set :copy_strategy, :export
 set :copy_remote_dir, "/tmp"
@@ -17,6 +18,11 @@ set :format_options, command_output: true, log_file: 'log/capistrano.log', color
 # ask :branch, `git rev-parse --abbrev-ref HEAD`.chomp
 set :branch, 'main'  # Update to your main branch name
 
+# RVM configuration
+set :rvm_type, :system  # 使用系统级RVM
+set :rvm_ruby_version, '3.4.2'  # 指定Ruby版本
+# set :rvm_path, '/usr/local/rvm/scripts/rvm' # Let capistrano-rvm detect it automatically
+
 # Default deploy_to directory is /var/www/my_app_name
 set :deploy_to, "/opt/sci2"
 
@@ -27,7 +33,7 @@ set :deploy_to, "/opt/sci2"
 set :pty, true
 
 # Default value for :linked_files is []
-append :linked_files, "config/database.yml", "config/master.key"
+append :linked_files, "config/database.yml", "config/master.key", "config/puma.rb"
 
 # Default value for linked_dirs is []
 append :linked_dirs, "log", "tmp/pids", "tmp/cache", "tmp/sockets", "public/system", "storage"
@@ -56,6 +62,14 @@ set :bundle_binstubs, -> { shared_path.join('bin') }
 set :bundle_roles, :all
 set :bundle_bins, %w(gem rake rails)
 set :bundle_env_variables, { BUNDLE_IGNORE_CONFIG: '1', RAILS_ENV: 'production' }
+
+# rbenv Configuration
+# set :rbenv_type, :user
+# set :rbenv_ruby, '3.4.2'
+# set :rbenv_path, '/home/test/.rbenv'
+# set :rbenv_prefix, "RBENV_ROOT=#{fetch(:rbenv_path)} RBENV_VERSION=#{fetch(:rbenv_ruby)} #{fetch(:rbenv_path)}/bin/rbenv exec"
+# set :rbenv_map_bins, %w{rake gem bundle ruby rails}
+# set :rbenv_roles, :all
 
 # RVM Configuration
 set :rvm_type, :system
@@ -137,12 +151,9 @@ namespace :deploy do
     end
   end
 
-  desc 'Restart application'
-  task :restart do
-    on roles(:app), in: :sequence, wait: 5 do
-      invoke! 'puma:restart'
-    end
-  end
+  after 'deploy:publishing', 'puma:restart'
+
+  after 'deploy:publishing', 'deploy:restart'
 
   desc 'Setup environment variables'
   task :setup_environment do
@@ -178,6 +189,7 @@ namespace :deploy do
     on roles(:app) do
       upload! 'config/database.yml', "#{shared_path}/config/database.yml"
       upload! 'config/master.key', "#{shared_path}/config/master.key"
+      upload! 'config/puma.rb', "#{shared_path}/config/puma.rb"
     end
   end
 
@@ -186,8 +198,8 @@ namespace :deploy do
     on roles(:db) do
       within release_path do
         # Source environment variables
-        execute :bash, "-c 'source #{shared_path}/config/environment && cd #{release_path} && bundle exec rails db:create RAILS_ENV=production'"
-        execute :bash, "-c 'source #{shared_path}/config/environment && cd #{release_path} && bundle exec rails db:migrate RAILS_ENV=production'"
+        execute :rvm, fetch(:rvm_ruby_version), :do, :bundle, :exec, :rails, 'db:create', 'RAILS_ENV=production'
+        execute :rvm, fetch(:rvm_ruby_version), :do, :bundle, :exec, :rails, 'db:migrate', 'RAILS_ENV=production'
       end
     end
   end
@@ -208,3 +220,5 @@ namespace :deploy do
 end
 
 after 'deploy:finishing', 'deploy:restart'
+# Link puma restart task to deploy flow
+after 'deploy:publishing', 'puma:restart'

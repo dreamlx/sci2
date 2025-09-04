@@ -22,7 +22,8 @@ namespace :database do
       
       # Execute MySQL commands
       begin
-        execute :mysql, "-u root -p < #{temp_sql_file}"
+        # 使用 sudo mysql 访问 root 用户（Ubuntu 默认配置）
+        execute :sudo, :mysql, "-u root < #{temp_sql_file}"
         puts "✅ MySQL database and user created successfully"
       rescue => e
         puts "❌ Failed to create MySQL database. Please run manually:"
@@ -41,23 +42,22 @@ namespace :database do
     on roles(:db) do
       within release_path do
         # Source environment variables and test connection
-        test_command = <<~BASH
-          source #{shared_path}/config/environment && \
-          cd #{release_path} && \
-          bundle exec rails runner "
-            begin
-              puts 'Testing database connection...'
-              puts 'Adapter: ' + ActiveRecord::Base.connection.adapter_name
+        # Source environment variables and test connection
+        runner_command = <<~RUBY
+          begin
+            puts 'Testing database connection...'
+            puts 'Adapter: ' + ActiveRecord::Base.connection.adapter_name
+            if ActiveRecord::Base.connection.adapter_name != 'SQLite'
               puts 'Database: ' + ActiveRecord::Base.connection.current_database
-              puts 'Connection successful!'
-            rescue => e
-              puts 'Connection failed: ' + e.message
-              exit 1
             end
-          " RAILS_ENV=production
-        BASH
+            puts 'Connection successful!'
+          rescue => e
+            puts 'Connection failed: ' + e.message
+            exit 1
+          end
+        RUBY
         
-        execute :bash, "-c '#{test_command}'"
+        execute :rvm, fetch(:rvm_ruby_version), :do, :bundle, :exec, :rails, :runner, "\"#{runner_command}\"", "RAILS_ENV=production"
       end
     end
   end
@@ -83,5 +83,8 @@ namespace :database do
 end
 
 # Hook into deployment process
-before 'deploy:migrate', 'database:create_mysql_setup'
+# Only run MySQL setup if adapter is mysql2
+if fetch(:database_config, "").include?("mysql2")
+  before 'deploy:migrate', 'database:create_mysql_setup'
+end
 after 'deploy:migrate', 'database:test_connection'
