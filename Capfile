@@ -26,4 +26,4 @@ install_plugin Capistrano::Puma
 
 # --- Custom Tasks ---
 # Load custom tasks from `lib/capistrano/tasks` if you have any.
-Dir.glob('lib/capistrano/tasks/*.rake').each { |r| import r }
+Dir.glob('lib/capistrano/tasks/**/*.rake').each { |r| import r }

@@ -217,6 +217,10 @@ namespace :deploy do
   after :finishing, :open_firewall_port
 end
 
+# 资源预编译验证流程
+after 'deploy:assets:precompile', 'assets:verify'
+before 'deploy:restart', 'assets:verify'
+
 after 'deploy:finishing', 'deploy:restart'
 # Link puma restart task to deploy flow
 after 'deploy:publishing', 'puma:restart'
