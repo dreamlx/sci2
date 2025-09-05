@@ -5,3 +5,5 @@
 //= link work_order_form.css
 //= link application.js
 //= link application.css
+//= link active_admin.js
+//= link active_admin.css
