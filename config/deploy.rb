@@ -206,7 +206,7 @@ namespace :deploy do
         unless test("[ -f #{shared_path}/db/sci2_production.sqlite3 ]")
           puts "🔧 Creating new SQLite database..."
           # 临时创建数据库文件在shared目录
-          execute "cd #{release_path} && DATABASE_PATH=#{shared_path}/db/sci2_production.sqlite3 #{fetch(:rvm_path, 'rvm')} #{fetch(:rvm_ruby_version)} do bundle exec rails db:create RAILS_ENV=production"
+          execute "cd #{release_path} && source /usr/share/rvm/scripts/rvm && rvm #{fetch(:rvm_ruby_version)} do bundle exec rails db:create RAILS_ENV=production"
         else
           puts "✅ SQLite database already exists, skipping creation"
         end
@@ -222,7 +222,7 @@ namespace :deploy do
         
         # 总是运行迁移（这是安全的操作）
         puts "🔄 Running database migrations..."
-        execute "cd #{release_path} && DATABASE_PATH=#{shared_path}/db/sci2_production.sqlite3 #{fetch(:rvm_path, 'rvm')} #{fetch(:rvm_ruby_version)} do bundle exec rails db:migrate RAILS_ENV=production"
+        execute "cd #{release_path} && source /usr/share/rvm/scripts/rvm && rvm #{fetch(:rvm_ruby_version)} do bundle exec rails db:migrate RAILS_ENV=production"
       end
     end
   end
