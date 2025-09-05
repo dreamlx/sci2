@@ -34,7 +34,7 @@ set :pty, true
 append :linked_files, "config/database.yml", "config/master.key", "config/puma.rb"
 
 # Default value for linked_dirs is []
-append :linked_dirs, "log", "tmp/pids", "tmp/cache", "tmp/sockets", "public/system", "storage"
+append :linked_dirs, "log", "tmp/pids", "tmp/cache", "tmp/sockets", "public/system", "storage", "db"
 
 # Exclude SQLite database files from deployment
 set :copy_exclude, %w[
@@ -195,9 +195,34 @@ namespace :deploy do
   task :setup_database do
     on roles(:db) do
       within release_path do
-        # Source environment variables
-        execute :rvm, fetch(:rvm_ruby_version), :do, :bundle, :exec, :rails, 'db:create', 'RAILS_ENV=production'
-        execute :rvm, fetch(:rvm_ruby_version), :do, :bundle, :exec, :rails, 'db:migrate', 'RAILS_ENV=production'
+        # 确保shared/db目录存在并设置正确权限
+        execute :mkdir, "-p #{shared_path}/db"
+        execute :chmod, "755", "#{shared_path}/db"
+        
+        # 创建release中的db目录
+        execute :mkdir, "-p #{release_path}/db"
+        
+        # 只在数据库文件不存在时创建数据库
+        unless test("[ -f #{shared_path}/db/sci2_production.sqlite3 ]")
+          puts "🔧 Creating new SQLite database..."
+          # 临时创建数据库文件在shared目录
+          execute "cd #{release_path} && DATABASE_PATH=#{shared_path}/db/sci2_production.sqlite3 #{fetch(:rvm_path, 'rvm')} #{fetch(:rvm_ruby_version)} do bundle exec rails db:create RAILS_ENV=production"
+        else
+          puts "✅ SQLite database already exists, skipping creation"
+        end
+        
+        # 确保数据库文件权限正确
+        if test("[ -f #{shared_path}/db/sci2_production.sqlite3 ]")
+          execute :chmod, "664", "#{shared_path}/db/sci2_production.sqlite3"
+        end
+        
+        # 删除可能存在的数据库文件，然后创建符号链接指向shared目录中的数据库文件
+        execute :rm, "-f", "#{release_path}/db/sci2_production.sqlite3"
+        execute :ln, "-sf", "#{shared_path}/db/sci2_production.sqlite3", "#{release_path}/db/sci2_production.sqlite3"
+        
+        # 总是运行迁移（这是安全的操作）
+        puts "🔄 Running database migrations..."
+        execute "cd #{release_path} && DATABASE_PATH=#{shared_path}/db/sci2_production.sqlite3 #{fetch(:rvm_path, 'rvm')} #{fetch(:rvm_ruby_version)} do bundle exec rails db:migrate RAILS_ENV=production"
       end
     end
   end

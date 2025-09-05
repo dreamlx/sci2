@@ -18,7 +18,7 @@ production:
   adapter: sqlite3
   # encoding: utf8mb4
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
-  database: sci2_production
+  database: <%= ENV.fetch("DATABASE_PATH") { "/opt/sci2/shared/db/sci2_production.sqlite3" } %>
   # username: <%= ENV["SCI2_DATABASE_USERNAME"] %>
   # password: <%= ENV["SCI2_DATABASE_PASSWORD"] %>
   # host: localhost
