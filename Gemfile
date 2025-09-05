@@ -57,7 +57,6 @@ end
 group :development, :test do
   gem 'shoulda-matchers'
   gem 'factory_bot_rails'
-  gem 'roo', '~> 2.9'
   # Call 'byebug' anywhere in the code to stop execution and get a debugger console
   gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]
   gem 'rspec-rails'
@@ -66,6 +65,9 @@ group :development, :test do
   gem 'selenium-webdriver' # Add selenium-webdriver gem for Capybara
   gem 'database_cleaner-active_record' # Add database_cleaner for test database cleanup
 end
+
+# Roo gem for Excel file processing (needed in production for reimbursement import)
+gem 'roo', '~> 2.9'
 
 # Use Devise for authentication
 gem 'devise'
