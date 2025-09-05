@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_17_26_000014) do
+ActiveRecord::Schema[7.1].define(version: 2025_17_26_000015) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -106,6 +106,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000014) do
     t.integer "attachment_file_size"
     t.text "attachment_description"
     t.integer "uploaded_by"
+    t.string "invoice_number"
     t.index ["document_number", "is_attachment"], name: "idx_fee_details_document_attachment"
     t.index ["document_number"], name: "index_fee_details_on_document_number"
     t.index ["external_fee_id"], name: "index_fee_details_on_external_fee_id", unique: true
@@ -138,7 +139,15 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000014) do
     t.text "notes"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "import_batch_id"
+    t.text "imported_record_ids"
+    t.string "import_source_file"
+    t.integer "admin_user_id"
+    t.text "import_summary"
+    t.index ["admin_user_id"], name: "index_import_performances_on_admin_user_id"
     t.index ["created_at"], name: "index_import_performances_on_created_at"
+    t.index ["import_batch_id"], name: "index_import_performances_on_import_batch_id"
+    t.index ["operation_type", "created_at"], name: "index_import_performances_on_operation_type_and_created_at"
     t.index ["operation_type"], name: "index_import_performances_on_operation_type"
     t.index ["optimization_level"], name: "index_import_performances_on_optimization_level"
   end
@@ -345,6 +354,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000014) do
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "communication_records", "work_orders", column: "communication_work_order_id"
   add_foreign_key "fee_details", "admin_users", column: "uploaded_by", on_delete: :nullify
+  add_foreign_key "import_performances", "admin_users"
   add_foreign_key "problem_types", "fee_types"
   add_foreign_key "reimbursement_assignments", "admin_users", column: "assignee_id"
   add_foreign_key "reimbursement_assignments", "admin_users", column: "assigner_id"

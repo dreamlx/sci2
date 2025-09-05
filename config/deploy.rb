@@ -31,10 +31,10 @@ set :deploy_to, "/opt/sci2"
 set :pty, true
 
 # Default value for :linked_files is []
-append :linked_files, "config/database.yml", "config/master.key", "config/puma.rb"
+append :linked_files, "config/database.yml", "config/master.key", "config/puma.rb", "db/sci2_production.sqlite3"
 
 # Default value for linked_dirs is []
-append :linked_dirs, "log", "tmp/pids", "tmp/cache", "tmp/sockets", "public/system", "storage", "db"
+append :linked_dirs, "log", "tmp/pids", "tmp/cache", "tmp/sockets", "public/system", "storage"
 
 # Exclude SQLite database files from deployment
 set :copy_exclude, %w[
@@ -194,35 +194,17 @@ namespace :deploy do
   desc 'Setup database'
   task :setup_database do
     on roles(:db) do
-      within release_path do
-        # 确保shared/db目录存在并设置正确权限
-        execute :mkdir, "-p #{shared_path}/db"
-        execute :chmod, "755", "#{shared_path}/db"
-        
-        # 创建release中的db目录
-        execute :mkdir, "-p #{release_path}/db"
-        
-        # 只在数据库文件不存在时创建数据库
-        unless test("[ -f #{shared_path}/db/sci2_production.sqlite3 ]")
-          puts "🔧 Creating new SQLite database..."
-          # 临时创建数据库文件在shared目录
-          execute "cd #{release_path} && source /usr/share/rvm/scripts/rvm && rvm #{fetch(:rvm_ruby_version)} do bundle exec rails db:create RAILS_ENV=production"
-        else
-          puts "✅ SQLite database already exists, skipping creation"
-        end
-        
-        # 确保数据库文件权限正确
-        if test("[ -f #{shared_path}/db/sci2_production.sqlite3 ]")
-          execute :chmod, "664", "#{shared_path}/db/sci2_production.sqlite3"
-        end
-        
-        # 删除可能存在的数据库文件，然后创建符号链接指向shared目录中的数据库文件
-        execute :rm, "-f", "#{release_path}/db/sci2_production.sqlite3"
-        execute :ln, "-sf", "#{shared_path}/db/sci2_production.sqlite3", "#{release_path}/db/sci2_production.sqlite3"
-        
-        # 总是运行迁移（这是安全的操作）
-        puts "🔄 Running database migrations..."
-        execute "cd #{release_path} && source /usr/share/rvm/scripts/rvm && rvm #{fetch(:rvm_ruby_version)} do bundle exec rails db:migrate RAILS_ENV=production"
+      # 确保 shared/db 目录存在
+      execute :mkdir, "-p #{shared_path}/db"
+      
+      # 检查 shared 路径下的数据库文件是否存在，如果不存在就创建它
+      # 这是为了让 Capistrano 的 linked_files 任务能够成功创建符号链接
+      unless test("[ -f #{shared_path}/db/sci2_production.sqlite3 ]")
+        puts "🔧 Touching new SQLite database file in shared path..."
+        execute :touch, "#{shared_path}/db/sci2_production.sqlite3"
+        execute :chmod, "664", "#{shared_path}/db/sci2_production.sqlite3"
+      else
+        puts "✅ SQLite database already exists in shared path, skipping creation"
       end
     end
   end
@@ -238,7 +220,7 @@ namespace :deploy do
 
   before :starting, :upload_config_files
   before :starting, :setup_environment
-  after 'deploy:migrate', :setup_database
+  before 'deploy:check:linked_files', 'deploy:setup_database'
   after :finishing, :open_firewall_port
 end
 
