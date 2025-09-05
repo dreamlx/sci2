@@ -73,25 +73,8 @@ ActiveAdmin.register ProblemType do
   end
 
   # 添加JSON端点
-  collection_action :index, format: :json do
-    if params[:fee_type_id].present?
-      # 单个费用类型查询
-      @problem_types = ProblemType.active.by_fee_type(params[:fee_type_id])
-    elsif params[:fee_type_ids].present?
-      # 多个费用类型查询
-      fee_type_ids = params[:fee_type_ids].split(',')
-      @problem_types = ProblemType.active.where(fee_type_id: fee_type_ids)
-    else
-      @problem_types = ProblemType.active
-    end
-    
-    render json: @problem_types.as_json(
-      only: [:id, :code, :title, :fee_type_id, :sop_description, :standard_handling],
-      methods: [:display_name]
-    )
-  end
+  # 移除重复的collection_action，使用controller中的index方法统一处理
 
-  # 确保HTML格式的index正常工作
   controller do
     before_action :authenticate_admin_user!, except: [:index]
     

@@ -84,20 +84,8 @@ ActiveAdmin.register FeeType do
   end
 
   # 添加JSON端点
-  collection_action :index, format: :json do
-    @fee_types = if params[:meeting_type].present?
-                  FeeType.active.by_meeting_type(params[:meeting_type])
-                else
-                  FeeType.active
-                end
-    
-    render json: @fee_types.as_json(
-      only: [:id, :code, :title, :meeting_type],
-      methods: [:display_name]
-    )
-  end
+  # 移除重复的collection_action，使用controller中的index方法统一处理
   
-  # 确保HTML格式的index正常工作
   controller do
     before_action :authenticate_admin_user!, except: [:index]
     
