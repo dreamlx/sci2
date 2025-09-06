@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_17_26_000015) do
+ActiveRecord::Schema[7.1].define(version: 2025_17_26_000019) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -119,15 +119,15 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000015) do
 
   create_table "fee_types", force: :cascade do |t|
     t.string "name"
-    t.string "code", null: false
-    t.string "title", null: false
-    t.string "meeting_type", null: false
     t.boolean "active", default: true, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "reimbursement_type_code"
+    t.string "meeting_type_code"
+    t.string "expense_type_code"
+    t.string "meeting_name"
     t.index ["active"], name: "index_fee_types_on_active"
-    t.index ["code"], name: "index_fee_types_on_code", unique: true
-    t.index ["meeting_type"], name: "index_fee_types_on_meeting_type"
+    t.index ["reimbursement_type_code", "meeting_type_code", "expense_type_code"], name: "index_fee_types_on_context", unique: true
   end
 
   create_table "import_performances", force: :cascade do |t|
@@ -196,9 +196,11 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000015) do
     t.string "title", default: "", null: false
     t.text "sop_description"
     t.text "standard_handling"
-    t.integer "fee_type_id"
-    t.index ["code", "fee_type_id"], name: "index_problem_types_on_code_and_fee_type_id", unique: true
-    t.index ["fee_type_id"], name: "index_problem_types_on_fee_type_id"
+    t.string "reimbursement_type_code"
+    t.string "meeting_type_code"
+    t.string "expense_type_code"
+    t.string "legacy_problem_code"
+    t.index ["reimbursement_type_code", "meeting_type_code", "expense_type_code", "code"], name: "index_problem_types_on_context_and_code", unique: true
   end
 
   create_table "reimbursement_assignments", force: :cascade do |t|
@@ -355,7 +357,6 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000015) do
   add_foreign_key "communication_records", "work_orders", column: "communication_work_order_id"
   add_foreign_key "fee_details", "admin_users", column: "uploaded_by", on_delete: :nullify
   add_foreign_key "import_performances", "admin_users"
-  add_foreign_key "problem_types", "fee_types"
   add_foreign_key "reimbursement_assignments", "admin_users", column: "assignee_id"
   add_foreign_key "reimbursement_assignments", "admin_users", column: "assigner_id"
   add_foreign_key "reimbursement_assignments", "reimbursements"
