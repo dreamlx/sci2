@@ -1,10 +1,10 @@
 ActiveAdmin.register ProblemType do
-  permit_params :code, :title, :sop_description, :standard_handling, :fee_type_id, :active
+  permit_params :issue_code, :title, :sop_description, :standard_handling, :fee_type_id, :active
 
   menu priority: 7, label: "问题类型", parent: "系统设置"
 
   # 过滤器
-  filter :code
+  filter :issue_code
   filter :title
   filter :fee_type
   filter :active
@@ -33,7 +33,8 @@ ActiveAdmin.register ProblemType do
   index do
     selectable_column
     id_column
-    column :code
+    column :legacy_problem_code
+    column :issue_code
     column :title
     column :fee_type
     column :sop_description
@@ -48,7 +49,8 @@ ActiveAdmin.register ProblemType do
   show do
     attributes_table do
       row :id
-      row :code
+      row :legacy_problem_code
+      row :issue_code
       row :title
       row :fee_type
       row :sop_description
@@ -63,7 +65,7 @@ ActiveAdmin.register ProblemType do
   form do |f|
     f.inputs do
       f.input :fee_type
-      f.input :code
+      f.input :issue_code
       f.input :title
       f.input :sop_description
       f.input :standard_handling
@@ -91,8 +93,8 @@ ActiveAdmin.register ProblemType do
             @problem_types = ProblemType.active
           end
           render json: @problem_types.as_json(
-            only: [:id, :code, :title, :fee_type_id, :sop_description, :standard_handling],
-            methods: [:display_name]
+            only: [:id, :issue_code, :title, :fee_type_id, :sop_description, :standard_handling],
+            methods: [:display_name, :legacy_problem_code]
           )
         }
       end

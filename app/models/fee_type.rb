@@ -1,6 +1,5 @@
 class FeeType < ApplicationRecord
-  # No longer directly associated with ProblemType
-  # has_many :problem_types, dependent: :destroy
+  has_many :problem_types, dependent: :destroy
   
   # Validations
   validates :name, presence: true
@@ -29,6 +28,6 @@ class FeeType < ApplicationRecord
 
   def self.ransackable_associations(auth_object = nil)
     # problem_types is no longer a direct association
-    %w[]
+    %w[problem_types]
   end
 end

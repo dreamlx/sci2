@@ -1,12 +1,14 @@
 ActiveAdmin.register FeeType do
-  permit_params :code, :title, :meeting_type, :active
+  permit_params :reimbursement_type_code, :meeting_type_code, :expense_type_code, :name, :meeting_name, :active
 
-  menu priority: 6, label: "会议/费用类型", parent: "系统设置"
+  menu priority: 6, label: "费用类型", parent: "系统设置"
 
   # 过滤器
-  filter :code
-  filter :title
-  filter :meeting_type
+  filter :reimbursement_type_code
+  filter :meeting_type_code
+  filter :expense_type_code
+  filter :name
+  filter :meeting_name
   filter :active
 
   # 批量操作
@@ -27,18 +29,18 @@ ActiveAdmin.register FeeType do
   # 范围过滤器
   scope :all, default: true
   scope :active
-  scope :by_meeting_type, ->(type) { where(meeting_type: type) }, if: proc { params[:meeting_type].present? }
 
   # 列表页
   index do
     selectable_column
     id_column
-    column :code
-    column :title
-    column :meeting_type
-    column :active
-    column :created_at
-    column :updated_at
+    column "报销类型", :reimbursement_type_code
+    column "会议代码", :meeting_type_code
+    column "会议名称", :meeting_name
+    column "费用代码", :expense_type_code
+    column "费用类型名称", :name
+    column "是否启用", :active
+    column "创建时间", :created_at
     actions
   end
 
@@ -46,9 +48,11 @@ ActiveAdmin.register FeeType do
   show do
     attributes_table do
       row :id
-      row :code
-      row :title
-      row :meeting_type
+      row :name
+      row :reimbursement_type_code
+      row :meeting_name
+      row :meeting_type_code
+      row :expense_type_code
       row :active
       row :created_at
       row :updated_at
@@ -57,16 +61,11 @@ ActiveAdmin.register FeeType do
     panel "关联的问题类型" do
       table_for fee_type.problem_types do
         column :id
-        column :code
+        column :issue_code
         column :title
         column :active
-        column :created_at
-        column :updated_at
         column "操作" do |problem_type|
-          links = []
-          links << link_to("查看", admin_problem_type_path(problem_type))
-          links << link_to("编辑", edit_admin_problem_type_path(problem_type))
-          links.join(" | ").html_safe
+          link_to("查看", admin_problem_type_path(problem_type))
         end
       end
     end
@@ -75,9 +74,11 @@ ActiveAdmin.register FeeType do
   # 表单
   form do |f|
     f.inputs do
-      f.input :code
-      f.input :title
-      f.input :meeting_type, as: :select, collection: ["个人", "学术论坛"]
+      f.input :name
+      f.input :reimbursement_type_code
+      f.input :meeting_name
+      f.input :meeting_type_code
+      f.input :expense_type_code
       f.input :active
     end
     f.actions
@@ -93,13 +94,10 @@ ActiveAdmin.register FeeType do
       respond_to do |format|
         format.html { super }
         format.json {
-          @fee_types = if params[:meeting_type].present?
-                       FeeType.active.by_meeting_type(params[:meeting_type])
-                     else
-                       FeeType.active
-                     end
+          @fee_types = FeeType.active
+          # Add filtering based on params if needed in the future
           render json: @fee_types.as_json(
-            only: [:id, :code, :title, :meeting_type],
+            only: [:id, :name, :reimbursement_type_code, :meeting_type_code, :expense_type_code],
             methods: [:display_name]
           )
         }

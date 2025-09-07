@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_17_26_000019) do
+ActiveRecord::Schema[7.1].define(version: 2025_17_26_000021) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -192,15 +192,13 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000019) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.boolean "active", default: true, null: false
-    t.string "code", default: "", null: false
+    t.string "issue_code", default: "", null: false
     t.string "title", default: "", null: false
     t.text "sop_description"
     t.text "standard_handling"
-    t.string "reimbursement_type_code"
-    t.string "meeting_type_code"
-    t.string "expense_type_code"
     t.string "legacy_problem_code"
-    t.index ["reimbursement_type_code", "meeting_type_code", "expense_type_code", "code"], name: "index_problem_types_on_context_and_code", unique: true
+    t.integer "fee_type_id", null: false
+    t.index ["fee_type_id"], name: "index_problem_types_on_fee_type_id"
   end
 
   create_table "reimbursement_assignments", force: :cascade do |t|
@@ -357,6 +355,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000019) do
   add_foreign_key "communication_records", "work_orders", column: "communication_work_order_id"
   add_foreign_key "fee_details", "admin_users", column: "uploaded_by", on_delete: :nullify
   add_foreign_key "import_performances", "admin_users"
+  add_foreign_key "problem_types", "fee_types"
   add_foreign_key "reimbursement_assignments", "admin_users", column: "assignee_id"
   add_foreign_key "reimbursement_assignments", "admin_users", column: "assigner_id"
   add_foreign_key "reimbursement_assignments", "reimbursements"
