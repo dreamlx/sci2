@@ -50,6 +50,12 @@ Rails.application.routes.draw do
 
     # Audit work orders routes
 
+    # Custom routes that need to be defined before ActiveAdmin
+    resources :problem_type_queries, only: [] do
+      collection do
+        get :for_fee_details
+      end
+    end
   end
 
   # 设置根路由重定向到管理界面
