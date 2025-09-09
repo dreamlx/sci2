@@ -1,13 +1,15 @@
 # app/services/optimized_fee_detail_import_service.rb
 class OptimizedFeeDetailImportService
-  def initialize(file, current_admin_user)
+  def initialize(file, current_admin_user, skip_existing: false)
     @file = file
     @current_admin_user = current_admin_user
+    @skip_existing = skip_existing
     @batch_manager = BatchImportManager.new(FeeDetail, optimization_level: :moderate)
     @results = {
       success: false,
       created: 0,
       updated: 0,
+      skipped: 0,
       errors: 0,
       error_details: [],
       unmatched_reimbursement: 0,
@@ -32,9 +34,7 @@ class OptimizedFeeDetailImportService
       
       # 4. 批量处理（禁用回调以提升性能）
       disabled_callbacks = [
-        [:save, :after, :update_reimbursement_status],
-        [:create, :after, :update_reimbursement_notification_status],
-        [:update, :after, :update_reimbursement_notification_status]
+        [:save, :after, :update_reimbursement_status]
       ]
       
       @batch_manager.batch_import_with_disabled_callbacks(validated_data, disabled_callbacks) do |batch|
@@ -179,9 +179,10 @@ class OptimizedFeeDetailImportService
   end
   
   def process_fee_detail_batch(batch)
-    # 1. 分离新增和更新数据
+    # 1. 分离新增、更新和跳过的数据
     new_records = []
     update_records = []
+    skipped_count = 0
     
     batch.each do |data|
       external_fee_id = data[:external_fee_id]
@@ -191,12 +192,17 @@ class OptimizedFeeDetailImportService
       attributes = data.except(:row_number)
       
       if existing_record
-        # 更新记录：保留ID和创建时间，保留现有验证状态
-        update_records << attributes.merge(
-          id: existing_record.id,
-          created_at: existing_record.created_at,
-          verification_status: existing_record.verification_status || attributes[:verification_status]
-        )
+        if @skip_existing
+          # 跳过已存在的记录
+          skipped_count += 1
+        else
+          # 更新记录：保留ID和创建时间，保留现有验证状态
+          update_records << attributes.merge(
+            id: existing_record.id,
+            created_at: existing_record.created_at,
+            verification_status: existing_record.verification_status || attributes[:verification_status]
+          )
+        end
       else
         # 新增记录
         new_records << attributes
@@ -209,8 +215,9 @@ class OptimizedFeeDetailImportService
     
     @results[:created] += created_count
     @results[:updated] += updated_count
+    @results[:skipped] += skipped_count
     
-    Rails.logger.info "Fee detail batch processed: #{created_count} created, #{updated_count} updated"
+    Rails.logger.info "Fee detail batch processed: #{created_count} created, #{updated_count} updated, #{skipped_count} skipped"
   end
   
   def batch_update_reimbursement_statuses(validated_data)

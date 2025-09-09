@@ -80,9 +80,9 @@ ActiveAdmin.register FeeDetail do
         "文件必须包含以下列：报销单号,费用id,费用类型,原始金额,费用发生日期",
         "其他有用字段：所属月,首次提交日期,计划/预申请,产品,弹性字段6,弹性字段7,费用对应计划,费用关联申请单,备注",
         "系统会根据报销单号关联到已存在的报销单",
-        "如果费用明细已存在（根据费用id判断）且报销单号相同，将更新现有记录",
-        "如果费用明细已存在但报销单号不同，将更新费用明细的报销单号（前提是新报销单号存在于系统中）",
-        "如果费用明细不存在，将创建新记录",
+        "🚀 <strong>性能优化选项</strong>：勾选'跳过已存在的记录'可大幅提升大文件导入速度",
+        "• 不勾选：更新已存在的记录（适用于数据修正场景）",
+        "• 勾选：跳过已存在的记录，只导入新记录（适用于增量导入，速度更快）",
         "⚡ 已启用批量优化，大文件导入速度提升30-40倍"
       ]
     }
@@ -94,17 +94,18 @@ ActiveAdmin.register FeeDetail do
       return
     end
 
-    # 使用原始的费用明细导入服务（保持兼容性）
-    service = FeeDetailImportService.new(params[:file], current_admin_user)
+    # 使用优化的费用明细导入服务
+    skip_existing = params[:skip_existing] == '1'
+    service = OptimizedFeeDetailImportService.new(params[:file], current_admin_user, skip_existing: skip_existing)
     result = service.import
 
     if result[:success]
       # 增强的成功消息，包含详细统计信息
       notice_message = "🎉 费用明细导入成功完成！"
       notice_message += " 📊 处理结果: #{result[:created]}条新增, #{result[:updated]}条更新"
-      notice_message += ", #{result[:reimbursement_number_updated]}条报销单号已更新" if result[:reimbursement_number_updated].to_i > 0
-      notice_message += ", #{result[:skipped_errors]}条错误记录" if result[:skipped_errors].to_i > 0
-      notice_message += ", #{result[:unmatched_count]}条未匹配报销单" if result[:unmatched_count].to_i > 0
+      notice_message += ", #{result[:skipped]}条跳过" if result[:skipped].to_i > 0
+      notice_message += ", #{result[:errors]}条错误记录" if result[:errors].to_i > 0
+      notice_message += ", #{result[:unmatched_reimbursement]}条未匹配报销单" if result[:unmatched_reimbursement].to_i > 0
       
       redirect_to admin_fee_details_path, notice: notice_message
     else

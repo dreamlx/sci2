@@ -62,8 +62,21 @@ class BatchImportManager
       )
     end
     
-    @model_class.insert_all(timestamped_data)
-    Rails.logger.info "Batch inserted #{records_data.size} #{@model_class.name} records"
+    # 使用原始 SQL 插入来完全避免 ActiveRecord 回调
+    table_name = @model_class.table_name
+    columns = timestamped_data.first.keys
+    column_names = columns.join(', ')
+    
+    # 构建批量插入的 SQL
+    values_sql = timestamped_data.map do |record|
+      values = columns.map { |col| ActiveRecord::Base.connection.quote(record[col]) }
+      "(#{values.join(', ')})"
+    end.join(', ')
+    
+    sql = "INSERT INTO #{table_name} (#{column_names}) VALUES #{values_sql}"
+    ActiveRecord::Base.connection.execute(sql)
+    
+    Rails.logger.info "Batch inserted #{records_data.size} #{@model_class.name} records using raw SQL"
     records_data.size
   end
   
