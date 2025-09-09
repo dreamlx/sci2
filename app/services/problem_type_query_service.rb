@@ -28,19 +28,23 @@ class ProblemTypeQueryService
     @selected_fee_details.each do |fee_detail|
       Rails.logger.debug "FeeDetail: fee_type='#{fee_detail.fee_type}', flex_field_7='#{fee_detail.flex_field_7}'"
       
-      meeting_code = MeetingCodeMappingService.call(fee_detail.flex_field_7)
-      Rails.logger.debug "Mapped meeting_code: #{meeting_code}"
-
+      # Dynamically find meeting_type_code from database via meeting_name
+      meeting_name = fee_detail.flex_field_7
+      next if meeting_name.blank?
+      
+      fee_type_for_meeting_code = FeeType.find_by(meeting_name: meeting_name)
+      meeting_code = fee_type_for_meeting_code&.meeting_type_code
+      Rails.logger.debug "Dynamically found meeting_code: #{meeting_code}"
       next if meeting_code.blank?
       
-      # Find the FeeType by its name and the context codes
+      # Find the specific FeeType by its name and the context codes
       fee_type = FeeType.find_by(
         reimbursement_type_code: reimbursement_type,
         meeting_type_code: meeting_code,
         name: fee_detail.fee_type
       )
       
-      Rails.logger.debug "Found FeeType: #{fee_type.inspect}"
+      Rails.logger.debug "Found specific FeeType: #{fee_type.inspect}"
       problems.concat(fee_type.problem_types) if fee_type
     end
     
@@ -50,11 +54,12 @@ class ProblemTypeQueryService
   def find_general_problems
     reimbursement_type = determine_reimbursement_type
     
-    # Collect all unique meeting_type_codes from the selected fee details
-    meeting_type_descriptions = @selected_fee_details.map(&:flex_field_7).uniq
-    meeting_type_codes = meeting_type_descriptions.map { |desc| MeetingCodeMappingService.call(desc) }.compact.uniq
-    Rails.logger.debug "Mapped meeting type codes: #{meeting_type_codes.inspect}"
+    # Dynamically find all relevant meeting_type_codes from the database
+    meeting_names = @selected_fee_details.map(&:flex_field_7).uniq.compact
+    return [] if meeting_names.empty?
     
+    meeting_type_codes = FeeType.where(meeting_name: meeting_names).pluck(:meeting_type_code).uniq
+    Rails.logger.debug "Dynamically found meeting type codes: #{meeting_type_codes.inspect}"
     return [] if meeting_type_codes.empty?
     
     # Find all general fee types that match the context

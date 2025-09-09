@@ -10,13 +10,28 @@ class ProblemCodeImportService
     result = initialize_result
     
     begin
-      content = File.read(@file_path)
-      content.strip!
-      content.sub!("\xEF\xBB\xBF", '')
+      # 强制使用 UTF-8 a编码读取文件，并处理BOM
+      content = File.read(@file_path, encoding: 'bom|utf-8')
+      Rails.logger.debug "========== [Debug Import] File content read with BOM|UTF-8 encoding. =========="
+      Rails.logger.debug "  Content encoding before processing: #{content.encoding.name}"
+      Rails.logger.debug "  Content starts with (first 50 chars): #{content[0..49].dump}"
 
-      CSV.parse(content, headers: true, encoding: 'UTF-8').each do |row|
+      content.strip!
+      # BOM should be removed by 'bom|utf-8', but we can log for verification
+      original_length = content.bytesize
+      content.sub!("\xEF\xBB\xBF", '')
+      new_length = content.bytesize
+
+      Rails.logger.debug "  BOM removal check: #{original_length - new_length} bytes removed."
+      Rails.logger.debug "  Content encoding after processing: #{content.encoding.name}"
+      Rails.logger.debug "  Content starts with after processing (first 50 chars): #{content[0..49].dump}"
+      
+      Rails.logger.debug "========== [Debug Import] Starting CSV parsing... =========="
+      CSV.parse(content, headers: true, encoding: 'UTF-8').each.with_index do |row, index|
+        Rails.logger.debug "  Processing row #{index + 1}: #{row.to_h.inspect}"
         process_row(row, result)
       end
+      Rails.logger.debug "========== [Debug Import] CSV parsing finished. =========="
     rescue => e
       result[:success] = false
       result[:error] = e.message
@@ -34,14 +49,14 @@ class ProblemCodeImportService
   def process_row(row, result)
     fee_type_params = {
       reimbursement_type_code: row['reimbursement_type_code'],
-      meeting_type_code: row['meeting_type_code'],
-      expense_type_code: row['expense_type_code'],
+      meeting_type_code: format_code_value(row['meeting_type_code']),
+      expense_type_code: format_code_value(row['expense_type_code']),
       name: row['expense_type_name'],
       meeting_name: row['meeting_type_name']
     }
 
     problem_type_params = {
-      issue_code: row['issue_code'],
+      issue_code: format_code_value(row['issue_code']),
       title: row['problem_title'],
       sop_description: row['sop_description'],
       standard_handling: row['standard_handling'],
@@ -107,5 +122,24 @@ class ProblemCodeImportService
     return unless action
     details['action'] = action
     result[:details][type] << details
+  end
+
+  def format_code_value(value)
+    return nil if value.nil? || value.to_s.strip.empty?
+    
+    # 转换为字符串并去除前后空格
+    code_str = value.to_s.strip
+    
+    # 如果已经是2位数字格式，直接返回
+    return code_str if code_str.match?(/^\d{2}$/)
+    
+    # 如果是1位数字，前面补0
+    return code_str.rjust(2, '0') if code_str.match?(/^\d$/)
+    
+    # 如果是 "00"（通用类型），直接返回
+    return code_str if code_str == '00'
+    
+    # 其他情况，原样返回（包括非数字格式）
+    code_str
   end
 end

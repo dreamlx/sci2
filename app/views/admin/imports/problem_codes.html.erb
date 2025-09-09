@@ -7,29 +7,46 @@
   <div class="panel_contents">
     <p>通过CSV文件导入问题代码库。CSV文件应包含以下列：</p>
     <ul>
-      <li><strong>MN Code</strong> - 完整问题代码</li>
-      <li><strong>Meeting Code</strong> - 会议类型代码</li>
-      <li><strong>会议类型</strong> - 会议类型名称</li>
-      <li><strong>Exp. Code</strong> - 费用类型代码</li>
-      <li><strong>费用类型</strong> - 费用类型名称</li>
-      <li><strong>Issue Code</strong> - 问题类型代码</li>
-      <li><strong>问题类型</strong> - 问题类型名称</li>
-      <li><strong>SOP描述</strong> - 标准操作流程描述</li>
-      <li><strong>标准处理方法</strong> - 问题的标准处理方法</li>
+      <li><strong>reimbursement_type_code</strong> - 报销单类型（EN 或 MN，个人或者学术）</li>
+      <li><strong>meeting_type_code</strong> - 会议类型代码（会议的编码00-99）</li>
+      <li><strong>meeting_type_name</strong> - 会议类型名称（会议的可读名称）</li>
+      <li><strong>expense_type_code</strong> - 费用类型代码（费用的编码，00 代表通用）</li>
+      <li><strong>expense_type_name</strong> - 费用类型名称（费用的可读名称，00 代表通用）</li>
+      <li><strong>issue_code</strong> - 问题编码（在特定上下文中的唯一问题编码）</li>
+      <li><strong>problem_title</strong> - 问题标题（问题的简短描述）</li>
+      <li><strong>sop_description</strong> - SOP描述（详细的SOP描述）</li>
+      <li><strong>standard_handling</strong> - 标准处理方法（推荐的标准处理方法）</li>
+      <li><strong>legacy_problem_code</strong> - 可选，原来8位编码（可选字段）</li>
     </ul>
     
-    <p><strong>注意：</strong> 费用类型代码将自动生成为 Meeting Code + Expense Code 的组合</p>
+    <p><strong>业务逻辑说明：</strong></p>
+    <ul>
+      <li>前端过滤逻辑：报销单类型（个人/学术会议）→ 会议类型 → 费用类型</li>
+      <li>根据费用类型显示对应的问题列表</li>
+      <li>同时也会显示 reimbursement_type_code 和 meeting_type_code 下的通用类型（expense_type_code 设置为 "00"）的所有问题列表</li>
+      <li>原来的 generalxx 编码不再使用，统一为 expense_type_code 设置为 "00"</li>
+    </ul>
     
     <p>示例CSV格式：</p>
     <pre>
-Document Code,Meeting Code,会议类型,Expense Code,费用类型,Issue Code,问题类型,SOP描述,标准处理方法
-EN000101,00,个人,01,月度交通费（销售/SMO/CO),01,燃油费行程问题,根据SOP规定，月度交通费报销燃油费需提供每张燃油费的使用时间区间，行程为医院的需具体到科室,请根据要求在评论区将行程补充完整
+reimbursement_type_code,meeting_type_code,meeting_type_name,expense_type_code,expense_type_name,issue_code,problem_title,sop_description,standard_handling,legacy_problem_code
+EN,0,个人,1,月度交通费（销售/SMO/CO),1,燃油费行程问题,根据SOP规定，月度交通费报销燃油费需提供每张燃油费的使用时间区间，行程为医院的需具体到科室,请根据要求在评论区将行程补充完整,EN000101
+EN,0,个人,1,月度交通费（销售/SMO/CO),2,出租车行程问题,根据SOP规定，月度交通费报销出租车费用，需注明具体的行程地点和事由，行程为医院的，应明确注明拜访医院及科室,请根据要求补充至HLY评论区,EN000102
+MN,01,学术论坛,01,会议讲课费,01,非讲者库讲者,根据SOP规定，报销讲课费的讲者必须是讲者库中的讲者，且不能在会议结束后特批补入库,不符合要求不予支付讲课费,MN010101
+MN,01,学术论坛,00,通用,01,会议权限问题,根据SOP规定，学术论坛可举办的组织者岗位为地区业务销售经理及以上、市场、医学、临床运营、市场准入和商务，您无权限举办此类型会议,请提供逐级审批至部门负责人的授权邮件并抄送合规,MN010001
     </pre>
     
     <p><strong>在上面的例子中：</strong></p>
     <ul>
-      <li>费用类型代码将为 "0001"（Meeting Code "00" + Expense Code "01"）</li>
-      <li>问题类型代码将为 "EN000101"（Document Code）</li>
+      <li>前两行为个人报销（EN）的月度交通费相关具体问题（expense_type_code 为 "1"）</li>
+      <li>第三行为学术会议（MN）的会议讲课费相关具体问题（expense_type_code 为 "01"）</li>
+      <li>第四行为学术会议（MN）的通用问题（expense_type_code 为 "00"），适用于该会议类型下的所有费用场景</li>
+    </ul>
+    
+    <p><strong>注意：</strong> 在前端选择问题时，系统会同时显示：</p>
+    <ul>
+      <li>根据费用类型精确匹配的问题列表</li>
+      <li>该报销单类型和会议类型下的所有通用问题（expense_type_code 为 "00"）</li>
     </ul>
   </div>
 </div>
@@ -66,11 +83,13 @@ EN000101,00,个人,01,月度交通费（销售/SMO/CO),01,燃油费行程问题,
   <div class="panel_contents">
     <ul>
       <li>CSV文件必须使用UTF-8编码</li>
-      <li>CSV文件必须包含Meeting Code列和Expense Code列，用于生成费用类型代码</li>
-      <li><strong>费用类型代码</strong>将自动生成为 Meeting Code + Expense Code 的组合</li>
-      <li>如果费用类型代码已存在，将更新其名称和会议类型</li>
-      <li>如果问题代码在同一费用类型下已存在，将更新其信息</li>
+      <li>CSV文件必须包含 reimbursement_type_code, meeting_type_code, expense_type_code 列作为唯一标识</li>
+      <li><strong>expense_type_code</strong> 为 "00" 时代表通用类型，适用于该报销单类型和会议类型下的所有费用场景</li>
+      <li><strong>代码格式自动处理：</strong> 系统会自动将1位数字的代码（如 "0", "1", "2"）格式化为2位数字（如 "00", "01", "02"）</li>
+      <li>如果费用类型（reimbursement_type_code + meeting_type_code + expense_type_code）已存在，将更新其名称和会议类型名称</li>
+      <li>如果问题类型在同一费用类型下已存在（相同的 issue_code），将更新其信息</li>
       <li>所有导入的费用类型和问题类型默认为激活状态</li>
+      <li>legacy_problem_code 字段为可选，主要用于 legacy 系统的兼容性</li>
     </ul>
   </div>
 </div>

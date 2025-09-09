@@ -92,9 +92,15 @@ ActiveAdmin.register ProblemType do
           else
             @problem_types = ProblemType.active
           end
-          render json: @problem_types.as_json(
+        
+          render json: @problem_types.to_json(
             only: [:id, :issue_code, :title, :fee_type_id, :sop_description, :standard_handling],
-            methods: [:display_name, :legacy_problem_code]
+            methods: [:display_name, :legacy_problem_code],
+            include: {
+              fee_type: {
+                only: [:id, :name, :reimbursement_type_code, :meeting_type_code, :expense_type_code]
+              }
+            }
           )
         }
       end
