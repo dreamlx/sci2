@@ -99,13 +99,15 @@ class OptimizedFeeDetailImportService
     # 预加载所有需要的报销单和费用明细
     document_numbers = all_rows_data.map { |row| row['报销单单号']&.strip }.compact.uniq
     external_fee_ids = all_rows_data.map { |row| row['费用id']&.strip }.compact.uniq
+    fee_type_names = all_rows_data.map { |row| row['费用类型']&.strip }.compact.uniq
     
-    Rails.logger.info "Preloading associations: #{document_numbers.size} reimbursements, #{external_fee_ids.size} fee details"
+    Rails.logger.info "Preloading associations: #{document_numbers.size} reimbursements, #{external_fee_ids.size} fee details, #{fee_type_names.size} fee types"
     
     @existing_reimbursements = @batch_manager.batch_find_existing(:invoice_number, document_numbers)
     @existing_fee_details = @batch_manager.batch_find_existing(:external_fee_id, external_fee_ids)
+    @fee_types_map = FeeType.where(name: fee_type_names).index_by(&:name)
     
-    Rails.logger.info "Preloaded #{@existing_reimbursements.size} existing reimbursements, #{@existing_fee_details.size} existing fee details"
+    Rails.logger.info "Preloaded #{@existing_reimbursements.size} existing reimbursements, #{@existing_fee_details.size} existing fee details, #{@fee_types_map.size} fee types"
   end
   
   def validate_and_preprocess_data(all_rows_data)
@@ -158,6 +160,16 @@ class OptimizedFeeDetailImportService
         # 元数据
         row_number: row_data[:row_number]
       }
+      
+      # 动态填充个人日常报销单的 flex_field_7
+      reimbursement = @existing_reimbursements[document_number]
+      if reimbursement&.document_name&.include?('个人日常和差旅（含小沟会）报销单') && processed_data[:flex_field_7].blank?
+        fee_type_record = @fee_types_map[fee_type]
+        if fee_type_record
+          processed_data[:flex_field_7] = fee_type_record.meeting_name
+          Rails.logger.info "Row #{row_data[:row_number]}: Patched flex_field_7 with '#{fee_type_record.meeting_name}' for document #{document_number}"
+        end
+      end
       
       valid_data << processed_data
     end
