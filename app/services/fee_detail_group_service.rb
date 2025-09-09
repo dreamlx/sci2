@@ -61,7 +61,7 @@ class FeeDetailGroupService
       # 添加到分组
       result[fee_type_id] << {
         id: problem_type.id,
-        code: problem_type.code,
+        code: problem_type.legacy_problem_code,
         title: problem_type.title,
         display_name: problem_type.display_name,
         fee_type_id: fee_type_id

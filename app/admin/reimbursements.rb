@@ -485,7 +485,7 @@ ActiveAdmin.register Reimbursement do
               latest_wo = fee_detail.latest_associated_work_order
               if latest_wo && latest_wo.problem_types.any?
                 problem_details = latest_wo.problem_types.map do |problem_type|
-                  "#{problem_type.code}-#{problem_type.title}-#{problem_type.sop_description}+#{problem_type.standard_handling}"
+                  "#{problem_type.legacy_problem_code}-#{problem_type.title}-#{problem_type.sop_description}+#{problem_type.standard_handling}"
                 end.join("\n")
                 
                 content_tag(:pre, problem_details,
@@ -607,7 +607,7 @@ ActiveAdmin.register Reimbursement do
                 problem_details = work_order.problem_types.map do |problem_type|
                   [
                     "工单号: ##{work_order.id}",
-                    "问题类型: #{problem_type.code}",
+                    "问题类型: #{problem_type.legacy_problem_code}",
                     "标题: #{problem_type.title}",
                     "SOP描述: #{problem_type.sop_description}",
                     "处理方法: #{problem_type.standard_handling}"

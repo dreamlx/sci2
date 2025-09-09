@@ -197,7 +197,7 @@ ActiveAdmin.register FeeDetail do
       latest_wo = fee_detail.latest_associated_work_order
       if latest_wo && latest_wo.problem_types.any?
         problem_details = latest_wo.problem_types.map do |problem_type|
-          "#{problem_type.code}-#{problem_type.title}-#{problem_type.sop_description}+#{problem_type.standard_handling}"
+          "#{problem_type.legacy_problem_code}-#{problem_type.title}-#{problem_type.sop_description}+#{problem_type.standard_handling}"
         end.join("\n")
         
         content_tag(:pre, problem_details,

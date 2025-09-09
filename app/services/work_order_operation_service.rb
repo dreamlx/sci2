@@ -53,7 +53,7 @@ class WorkOrderOperationService
       WorkOrderOperation::OPERATION_TYPE_ADD_PROBLEM,
       {
         problem_type_id: problem_type_id,
-        problem_type_code: problem_type&.code,
+        problem_type_code: problem_type&.legacy_problem_code,
         problem_type_title: problem_type&.title
       },
       { audit_comment: @work_order.audit_comment_was },
@@ -69,7 +69,7 @@ class WorkOrderOperationService
       WorkOrderOperation::OPERATION_TYPE_REMOVE_PROBLEM,
       {
         problem_type_id: problem_type_id,
-        problem_type_code: problem_type&.code,
+        problem_type_code: problem_type&.legacy_problem_code,
         problem_type_title: problem_type&.title
       },
       { audit_comment: old_content },
@@ -85,7 +85,7 @@ class WorkOrderOperationService
       WorkOrderOperation::OPERATION_TYPE_MODIFY_PROBLEM,
       {
         problem_type_id: problem_type_id,
-        problem_type_code: problem_type&.code,
+        problem_type_code: problem_type&.legacy_problem_code,
         problem_type_title: problem_type&.title
       },
       { audit_comment: old_text },

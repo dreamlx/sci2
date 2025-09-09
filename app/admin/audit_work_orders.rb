@@ -310,10 +310,10 @@ ActiveAdmin.register AuditWorkOrder do
     end
     column "问题类型", :problem_types do |wo|
       if wo.problem_types.any?
-        wo.problem_types.map { |pt| "#{pt.code} - #{pt.title}" }.join(", ")
+        wo.problem_types.map { |pt| "#{pt.legacy_problem_code} - #{pt.title}" }.join(", ")
       else
         # 兼容旧数据
-        wo.problem_type ? "#{wo.problem_type.code} - #{wo.problem_type.title}" : nil
+        wo.problem_type ? "#{wo.problem_type.legacy_problem_code} - #{wo.problem_type.title}" : nil
       end
     end
     column "创建人", :creator
@@ -344,8 +344,8 @@ ActiveAdmin.register AuditWorkOrder do
       
       work_orders.find_each do |wo|
         problem_types = wo.problem_types.any? ?
-          wo.problem_types.map { |pt| "#{pt.code}-#{pt.title}" }.join(", ") :
-          (wo.problem_type ? "#{wo.problem_type.code}-#{wo.problem_type.title}" : "")
+          wo.problem_types.map { |pt| "#{pt.legacy_problem_code}-#{pt.title}" }.join(", ") :
+          (wo.problem_type ? "#{wo.problem_type.legacy_problem_code}-#{wo.problem_type.title}" : "")
           
         document_numbers = wo.reimbursement&.fee_details&.pluck(:document_number)&.uniq&.join(", ") || ""
         
