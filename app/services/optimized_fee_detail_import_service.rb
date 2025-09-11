@@ -103,7 +103,7 @@ class OptimizedFeeDetailImportService
     
     Rails.logger.info "Preloading associations: #{document_numbers.size} reimbursements, #{external_fee_ids.size} fee details, #{fee_type_names.size} fee types"
     
-    @existing_reimbursements = @batch_manager.batch_find_existing(:invoice_number, document_numbers)
+    @existing_reimbursements = Reimbursement.where(invoice_number: document_numbers).index_by(&:invoice_number)
     @existing_fee_details = @batch_manager.batch_find_existing(:external_fee_id, external_fee_ids)
     @fee_types_map = FeeType.where(name: fee_type_names).index_by(&:name)
     

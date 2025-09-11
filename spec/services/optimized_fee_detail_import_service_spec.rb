@@ -23,29 +23,40 @@ RSpec.describe OptimizedFeeDetailImportService, type: :service do
   describe '#import' do
     context 'when importing a simple fee detail' do
       it 'should create a fee detail without callback errors' do
+        # 确保必要的数据存在
+        reimbursement # 触发创建
+        fee_type # 触发创建
+        
         service = OptimizedFeeDetailImportService.new(temp_file, admin_user)
         
-        expect {
-          result = service.import
-          expect(result[:success]).to be true
-          expect(result[:created]).to eq 1
-        }.to change(FeeDetail, :count).by(1)
+        result = service.import
+        
+        expect(result[:success]).to be true
+        expect(result[:created]).to eq 1
+        expect(FeeDetail.count).to eq 1
       end
     end
     
     context 'with skip_existing option' do
       it 'should skip existing records when option is enabled' do
-        # 先创建一个已存在的记录
-        create(:fee_detail, external_fee_id: 'FEE001', document_number: 'TEST001')
+        # 确保必要的数据存在
+        reimbursement # 触发创建
+        fee_type # 触发创建
+        
+        # 先创建一个已存在的记录，使用正确的关联
+        create(:fee_detail,
+               external_fee_id: 'FEE001',
+               document_number: 'TEST001',
+               reimbursement: reimbursement)
         
         service = OptimizedFeeDetailImportService.new(temp_file, admin_user, skip_existing: true)
         
-        expect {
-          result = service.import
-          expect(result[:success]).to be true
-          expect(result[:created]).to eq 0
-          expect(result[:skipped]).to eq 1
-        }.not_to change(FeeDetail, :count)
+        result = service.import
+        
+        expect(result[:success]).to be true
+        expect(result[:created]).to eq 0
+        expect(result[:skipped]).to eq 1
+        expect(FeeDetail.count).to eq 1 # 应该还是1条记录
       end
     end
   end
