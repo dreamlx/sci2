@@ -82,9 +82,9 @@ RSpec.describe ReimbursementImportService do
         reimbursement1 = Reimbursement.find_by(invoice_number: 'R202501001')
         reimbursement2 = Reimbursement.find_by(invoice_number: 'R202501002')
 
-        # For new records, internal status should always be 'pending'
-        expect(reimbursement1.status).to eq('pending')
-        expect(reimbursement2.status).to eq('pending')
+        # For new records, internal status should be determined by external status
+        expect(reimbursement1.status).to eq('pending') # '审批中' -> pending
+        expect(reimbursement2.status).to eq('closed')  # '已付款' -> closed
       end
     end
 
@@ -143,36 +143,70 @@ RSpec.describe ReimbursementImportService do
         expect(reimbursement.status).to eq(Reimbursement::STATUS_PENDING)
       end
 
-      it 'does not change internal status for existing records when external status changes' do
-        # Create an existing reimbursement with a specific internal status
-        existing_reimbursement = create(:reimbursement, invoice_number: 'R202501004', status: Reimbursement::STATUS_PROCESSING, external_status: '处理中')
+      it 'updates internal status for existing records when external status changes to paid status' do
+        # Create an existing reimbursement without manual override
+        existing_reimbursement = create(:reimbursement,
+          invoice_number: 'R202501004',
+          status: Reimbursement::STATUS_PROCESSING,
+          external_status: '处理中',
+          manual_override: false
+        )
 
-        # Scenario 1: Existing record, internal status is 'processing', CSV external status maps to 'closed'
-        # Expect internal status to remain 'processing'
-        row_data_1 = ['R202501004', '更新报销单', '更新用户', 'UPD001', '更新公司', '更新部门', '600.00', '已付款'] # '已付款' maps to closed
-        spreadsheet_1 = mock_spreadsheet(row_data_1)
+        # Scenario: External status changes to '已付款' which should map to closed
+        row_data = ['R202501004', '更新报销单', '更新用户', 'UPD001', '更新公司', '更新部门', '600.00', '已付款']
+        spreadsheet = mock_spreadsheet(row_data)
 
         expect {
-          service.import(spreadsheet_1)
+          service.import(spreadsheet)
         }.not_to change(Reimbursement, :count)
 
         existing_reimbursement.reload
         expect(existing_reimbursement.external_status).to eq('已付款')
-        expect(existing_reimbursement.status).to eq(Reimbursement::STATUS_PROCESSING) # Should remain processing
+        expect(existing_reimbursement.status).to eq(Reimbursement::STATUS_CLOSED) # Should update to closed
+      end
 
-        # Scenario 2: Existing record, internal status is 'closed', CSV external status maps to 'pending'
-        # Expect internal status to remain 'closed'
-        existing_reimbursement.update(status: Reimbursement::STATUS_CLOSED, external_status: '已完成')
-        row_data_2 = ['R202501004', '再次更新', '更新用户', 'UPD001', '更新公司', '更新部门', '700.00', '待审核'] # '待审核' maps to pending
-        spreadsheet_2 = mock_spreadsheet(row_data_2)
+      it 'updates internal status for existing records when external status changes to pending payment status' do
+        # Create an existing reimbursement without manual override
+        existing_reimbursement = create(:reimbursement,
+          invoice_number: 'R202501005',
+          status: Reimbursement::STATUS_PENDING,
+          external_status: '审批中',
+          manual_override: false
+        )
+
+        # Scenario: External status changes to '待付款' which should map to closed
+        row_data = ['R202501005', '更新报销单', '更新用户', 'UPD002', '更新公司', '更新部门', '700.00', '待付款']
+        spreadsheet = mock_spreadsheet(row_data)
 
         expect {
-          service.import(spreadsheet_2)
+          service.import(spreadsheet)
         }.not_to change(Reimbursement, :count)
 
         existing_reimbursement.reload
-        expect(existing_reimbursement.external_status).to eq('待审核')
-        expect(existing_reimbursement.status).to eq(Reimbursement::STATUS_CLOSED) # Should remain closed
+        expect(existing_reimbursement.external_status).to eq('待付款')
+        expect(existing_reimbursement.status).to eq(Reimbursement::STATUS_CLOSED) # Should update to closed
+      end
+
+      it 'does not change internal status when manual override is enabled' do
+        # Create an existing reimbursement with manual override enabled
+        existing_reimbursement = create(:reimbursement,
+          invoice_number: 'R202501006',
+          status: Reimbursement::STATUS_PROCESSING,
+          external_status: '处理中',
+          manual_override: true
+        )
+
+        # Scenario: External status changes to '已付款' but manual override should prevent status change
+        row_data = ['R202501006', '更新报销单', '更新用户', 'UPD003', '更新公司', '更新部门', '800.00', '已付款']
+        spreadsheet = mock_spreadsheet(row_data)
+
+        expect {
+          service.import(spreadsheet)
+        }.not_to change(Reimbursement, :count)
+
+        existing_reimbursement.reload
+        expect(existing_reimbursement.external_status).to eq('已付款')
+        expect(existing_reimbursement.status).to eq(Reimbursement::STATUS_PROCESSING) # Should remain unchanged due to manual override
       end
     end
 

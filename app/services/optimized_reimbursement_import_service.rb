@@ -58,6 +58,39 @@ class OptimizedReimbursementImportService
     end
   end
   
+  # Make this method public for testing
+  def batch_update_statuses(validated_data)
+    # 批量更新状态（在所有数据导入完成后执行）
+    Rails.logger.info "Starting batch status updates..."
+    
+    invoice_numbers = validated_data.map { |data| data[:invoice_number] }.uniq
+    
+    # 批量查询需要更新状态的报销单
+    reimbursements_to_update = Reimbursement.where(invoice_number: invoice_numbers)
+    
+    updated_count = 0
+    reimbursements_to_update.each do |reimbursement|
+      external_status = validated_data.find { |d| d[:invoice_number] == reimbursement.invoice_number }&.dig(:external_status)
+      
+      if external_status.present?
+        # 使用模型方法确定内部状态
+        new_status = reimbursement.determine_internal_status_from_external(external_status)
+        
+        # 只有状态发生变化或外部状态更新时才保存
+        if new_status != reimbursement.status || external_status != reimbursement.last_external_status
+          reimbursement.update!(
+            external_status: external_status,
+            last_external_status: external_status,
+            status: new_status
+          )
+          updated_count += 1
+        end
+      end
+    end
+    
+    Rails.logger.info "Batch updated #{updated_count} reimbursement statuses"
+  end
+  
   private
   
   def parse_all_rows(test_spreadsheet)
@@ -188,35 +221,6 @@ class OptimizedReimbursementImportService
     Rails.logger.info "Batch processed: #{created_count} created, #{updated_count} updated"
   end
   
-  def batch_update_statuses(validated_data)
-    # 批量更新状态（在所有数据导入完成后执行）
-    Rails.logger.info "Starting batch status updates..."
-    
-    invoice_numbers = validated_data.map { |data| data[:invoice_number] }.uniq
-    
-    # 批量查询需要更新状态的报销单
-    reimbursements_to_update = Reimbursement.where(invoice_number: invoice_numbers)
-    
-    # 简化状态更新，避免复杂的业务逻辑
-    status_updates = []
-    reimbursements_to_update.each do |reimbursement|
-      external_status = validated_data.find { |d| d[:invoice_number] == reimbursement.invoice_number }&.dig(:external_status)
-      
-      if external_status.present?
-        status_updates << {
-          id: reimbursement.id,
-          last_external_status: external_status,
-          updated_at: Time.current
-        }
-      end
-    end
-    
-    # 批量更新状态
-    if status_updates.any?
-      Reimbursement.upsert_all(status_updates, unique_by: :id)
-      Rails.logger.info "Batch updated #{status_updates.size} reimbursement external statuses"
-    end
-  end
   
   def process_in_batches(data_array, &block)
     @batch_manager.send(:process_in_batches, data_array, &block)

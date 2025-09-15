@@ -12,9 +12,14 @@ FactoryBot.define do
     status { "pending" } # 内部状态
     external_status { "审批中" } # 示例外部状态
     is_electronic { false }
+    manual_override { false }
 
     trait :electronic do
       is_electronic { true }
+    end
+
+    trait :manual_override do
+      manual_override { true }
     end
 
     trait :received do
