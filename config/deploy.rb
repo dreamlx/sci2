@@ -85,8 +85,16 @@ set :puma_preload_app, true
 set :puma_worker_timeout, nil
 set :puma_init_active_record, true
 
-# Skip assets precompilation to avoid JavaScript build issues
-set :assets_roles, []
+# Default value for :linked_files is []
+# append :linked_files, "config/database.yml", 'config/master.key'
+
+# Default value for linked_dirs is []
+append :linked_dirs, "log", "tmp/pids", "tmp/cache", "tmp/sockets", "public/system", "storage"
+
+# Add this to ensure assets are precompiled during deployment
+namespace :deploy do
+  after :finishing, 'deploy:assets:precompile'
+end
 
 # Custom tasks
 namespace :deploy do
