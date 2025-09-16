@@ -68,10 +68,16 @@ class ExpressReceiptImportService
   private
   
   def import_express_receipt(row, row_number)
-    document_number = row['单据编号']&.strip
+    # 添加调试日志
+    Rails.logger.debug "ExpressReceiptImportService: 行 #{row_number} 原始数据: #{row.inspect}"
+    
+    document_number = row['单据编号']&.strip || row['单号']&.strip # 兼容新旧列名
     operation_notes = row['操作意见']&.strip
     received_at_str = row['操作时间']
     filling_id = row['Filling ID']&.strip
+    
+    # 添加调试日志
+    Rails.logger.debug "ExpressReceiptImportService: 行 #{row_number} 解析结果 - 单据编号: #{document_number.inspect}, 操作时间: #{received_at_str.inspect}, Filling ID: #{filling_id.inspect}"
     
     # 使用正则表达式提取快递单号
     tracking_number = operation_notes&.match(TRACKING_NUMBER_REGEX)&.captures&.first&.strip
@@ -100,7 +106,32 @@ class ExpressReceiptImportService
         return
       end
       
-      received_at = parse_datetime(received_at_str) || Time.current
+      received_at = parse_datetime(received_at_str)
+      
+      # 添加调试日志
+      Rails.logger.debug "ExpressReceiptImportService: 行 #{row_number} 时间处理 (更新记录) - 原始时间字符串: #{received_at_str.inspect}, 解析后时间: #{parse_datetime(received_at_str).inspect}"
+      
+      # 严格的时间验证
+      if received_at.nil?
+        if received_at_str.present?
+          Rails.logger.error "ExpressReceiptImportService: 行 #{row_number} 错误：时间解析失败！原始时间字符串: #{received_at_str.inspect}"
+          @error_count += 1
+          @errors << "行 #{row_number}: 无法解析操作时间 '#{received_at_str}'，请检查时间格式是否正确（支持格式：YYYY-MM-DD HH:MM:SS、YYYY/MM/DD HH:MM:SS等）"
+          return
+        else
+          Rails.logger.error "ExpressReceiptImportService: 行 #{row_number} 错误：操作时间为空！"
+          @error_count += 1
+          @errors << "行 #{row_number}: 操作时间不能为空"
+          return
+        end
+      end
+      
+      # 验证时间是否在合理范围内（不能是未来时间，不能太早）
+      if received_at > Time.current + 1.day
+        Rails.logger.warn "ExpressReceiptImportService: 行 #{row_number} 警告：操作时间 #{received_at} 是未来时间"
+      elsif received_at < Time.current - 10.years
+        Rails.logger.warn "ExpressReceiptImportService: 行 #{row_number} 警告：操作时间 #{received_at} 过于久远"
+      end
       
       # 更新现有记录
       ActiveRecord::Base.transaction do
@@ -135,7 +166,32 @@ class ExpressReceiptImportService
         return
       end
       
-      received_at = parse_datetime(received_at_str) || Time.current
+      received_at = parse_datetime(received_at_str)
+      
+      # 添加调试日志
+      Rails.logger.debug "ExpressReceiptImportService: 行 #{row_number} 时间处理 (创建新记录) - 原始时间字符串: #{received_at_str.inspect}, 解析后时间: #{parse_datetime(received_at_str).inspect}"
+      
+      # 严格的时间验证
+      if received_at.nil?
+        if received_at_str.present?
+          Rails.logger.error "ExpressReceiptImportService: 行 #{row_number} 错误：时间解析失败！原始时间字符串: #{received_at_str.inspect}"
+          @error_count += 1
+          @errors << "行 #{row_number}: 无法解析操作时间 '#{received_at_str}'，请检查时间格式是否正确（支持格式：YYYY-MM-DD HH:MM:SS、YYYY/MM/DD HH:MM:SS等）"
+          return
+        else
+          Rails.logger.error "ExpressReceiptImportService: 行 #{row_number} 错误：操作时间为空！"
+          @error_count += 1
+          @errors << "行 #{row_number}: 操作时间不能为空"
+          return
+        end
+      end
+      
+      # 验证时间是否在合理范围内（不能是未来时间，不能太早）
+      if received_at > Time.current + 1.day
+        Rails.logger.warn "ExpressReceiptImportService: 行 #{row_number} 警告：操作时间 #{received_at} 是未来时间"
+      elsif received_at < Time.current - 10.years
+        Rails.logger.warn "ExpressReceiptImportService: 行 #{row_number} 警告：操作时间 #{received_at} 过于久远"
+      end
       
       # 创建快递收单工单
       work_order = ExpressReceiptWorkOrder.new(
@@ -181,10 +237,57 @@ class ExpressReceiptImportService
   
   def parse_datetime(datetime_string)
     return nil unless datetime_string.present?
+    
+    # 如果已经是时间对象，直接返回
+    return datetime_string if datetime_string.is_a?(Date) || datetime_string.is_a?(DateTime) || datetime_string.is_a?(Time)
+    
+    datetime_str = datetime_string.to_s.strip
+    return nil if datetime_str.blank?
+    
+    # 检查是否是Excel序列号格式（纯数字，可能包含小数点）
+    # Excel序列号不应该被当作有效的时间格式处理
+    if datetime_str.match?(/^\d+(\.\d+)?$/)
+      Rails.logger.warn "ExpressReceiptImportService: 拒绝Excel序列号格式的时间字符串: '#{datetime_str}'"
+      return nil
+    end
+    
     begin
-      datetime_string.is_a?(Date) || datetime_string.is_a?(DateTime) ? datetime_string : DateTime.parse(datetime_string.to_s)
+      # 尝试标准解析
+      return DateTime.parse(datetime_str)
     rescue ArgumentError
-      nil
+      # 如果标准解析失败，尝试常见格式
+      begin
+        # 尝试常见的时间格式
+        common_formats = [
+          '%Y-%m-%d %H:%M:%S',    # 2025-01-01 10:00:00
+          '%Y/%m/%d %H:%M:%S',    # 2025/01/01 10:00:00
+          '%Y-%m-%d %H:%M',       # 2025-01-01 10:00
+          '%Y/%m/%d %H:%M',       # 2025/01/01 10:00
+          '%Y-%m-%d',             # 2025-01-01
+          '%Y/%m/%d',             # 2025/01/01
+          '%d/%m/%Y %H:%M:%S',    # 01/01/2025 10:00:00
+          '%m/%d/%Y %H:%M:%S',    # 01/01/2025 10:00:00
+          '%d-%m-%Y %H:%M:%S',    # 01-01-2025 10:00:00
+          '%m-%d-%Y %H:%M:%S',    # 01-01-2025 10:00:00
+        ]
+        
+        common_formats.each do |format|
+          begin
+            parsed_time = DateTime.strptime(datetime_str, format)
+            Rails.logger.debug "ExpressReceiptImportService: 成功解析时间 '#{datetime_str}' 使用格式 '#{format}' => #{parsed_time}"
+            return parsed_time
+          rescue ArgumentError
+            # 继续尝试下一种格式
+          end
+        end
+        
+        # 所有格式都尝试失败，记录警告
+        Rails.logger.warn "ExpressReceiptImportService: 无法解析时间字符串: '#{datetime_str}'，尝试的格式: #{common_formats.inspect}"
+        return nil
+      rescue => e
+        Rails.logger.error "ExpressReceiptImportService: 时间解析异常: '#{datetime_str}' - #{e.message}"
+        return nil
+      end
     end
   end
 end
