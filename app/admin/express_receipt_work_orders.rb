@@ -25,6 +25,7 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
   filter :creator
   filter :created_at
   filter :reimbursement_current_assignee_id, as: :select, collection: -> { AdminUser.all.map { |u| [u.name.presence || u.email, u.id] } }, label: "Current Assignee"
+  filter :filling_id
 
   # 批量操作
   batch_action :mark_as_received do |ids|
@@ -94,7 +95,7 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
   # 列表页
   index do
     selectable_column
-    column "Filling ID", :id
+    column "Filling ID", :filling_id
     column "报销单单号", :reimbursement do |wo|
       link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement)
     end
@@ -179,7 +180,7 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
 
   # ActiveAdmin 标准 CSV 导出配置
   csv do
-    column("Filling ID") { |wo| wo.id }
+    column("Filling ID") { |wo| wo.filling_id }
     column("报销单单号") { |wo| wo.reimbursement&.invoice_number }
     column("单据名称") { |wo| wo.reimbursement&.document_name }
     column("报销单申请人") { |wo| wo.reimbursement&.applicant }

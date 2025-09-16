@@ -3,12 +3,12 @@ class ExpressReceiptWorkOrder < WorkOrder
   # 验证
   validates :tracking_number, presence: true
   validates :status, inclusion: { in: ['completed'] } # 仅允许的状态
-  
-  # 可选的其他验证
   validates :received_at, presence: true
+  validates :filling_id, presence: true, uniqueness: true, format: { with: /\A\d{10}\z/ }
   
   # 回调
   before_validation :set_default_status, on: :create
+  before_validation :generate_filling_id, on: :create
   
   # 业务方法
   def mark_reimbursement_as_received
@@ -34,5 +34,10 @@ class ExpressReceiptWorkOrder < WorkOrder
   
   def set_default_status
     self.status = 'completed'  # Always set to completed, don't use ||= because state machine sets initial value
+  end
+
+  def generate_filling_id
+    return if filling_id.present?  # Don't regenerate if already set
+    self.filling_id = FillingIdGenerator.generate(received_at)
   end
 end

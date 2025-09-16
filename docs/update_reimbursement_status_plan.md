@@ -57,8 +57,14 @@ end
 
 ```bash
 # 执行状态回补
-rails reimbursement_statuses:update
+rails reimbursements:update_statuses
 ```
+
+**优化特性**：
+- 批量处理：每批处理50条记录，避免长时间事务锁定
+- 错误重试：自动重试机制，处理数据库锁定问题
+- 指数退避：重试时使用递增延迟，减少锁竞争
+- 进度跟踪：实时显示处理进度和更新详情
 
 ## 测试覆盖
 

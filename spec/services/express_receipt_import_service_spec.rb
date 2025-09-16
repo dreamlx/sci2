@@ -191,5 +191,106 @@ RSpec.describe ExpressReceiptImportService do
         expect(result[:errors].first).to include('导入过程中发生错误')
       end
     end
+    context 'with filling_id based updates' do
+  describe '#csv export functionality' do
+    let!(:work_order) { create(:express_receipt_work_order, filling_id: '2025010002') }
+    
+    it 'includes filling_id in CSV export' do
+      # Mock the CSV generation to test the column mapping
+      csv_data = CSV.generate(headers: true) do |csv|
+        csv << ['Filling ID', '报销单单号', '单据名称', '报销单申请人', '报销单申请人工号', '申请人部门', '快递单号', '收单时间', '创建人', '创建时间', 'Current Assignee']
+        csv << [
+          work_order.filling_id,
+          work_order.reimbursement&.invoice_number,
+          work_order.reimbursement&.document_name,
+          work_order.reimbursement&.applicant,
+          work_order.reimbursement&.applicant_id,
+          work_order.reimbursement&.department,
+          work_order.tracking_number,
+          work_order.received_at&.strftime('%Y-%m-%d %H:%M:%S'),
+          work_order.creator&.name || work_order.creator&.email,
+          work_order.created_at.strftime('%Y年%m月%d日 %H:%M'),
+          work_order.reimbursement&.current_assignee&.name || work_order.reimbursement&.current_assignee&.email || "未分配"
+        ]
+      end
+      
+      # Parse the CSV to verify the filling_id is included
+      parsed_csv = CSV.parse(csv_data, headers: true)
+      expect(parsed_csv[0]['Filling ID']).to eq('2025010002')
+      expect(parsed_csv[0]['快递单号']).to eq(work_order.tracking_number)
+    end
+  end
+      let!(:reimbursement1) { create(:reimbursement, invoice_number: 'R202501001', status: 'pending') }
+      let!(:reimbursement2) { create(:reimbursement, invoice_number: 'R202501002', status: 'pending') }
+      let!(:existing_work_order) do
+        Current.admin_user = admin_user
+        create(:express_receipt_work_order,
+               reimbursement: reimbursement1,
+               tracking_number: 'OLD123',
+               received_at: Time.current - 1.day,
+               filling_id: '2025010001')
+      end
+
+      before do
+        Current.admin_user = admin_user
+      end
+
+      it 'updates existing record when filling_id is provided' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(['单据编号', '操作意见', '操作时间', 'Filling ID'])
+        allow(spreadsheet).to receive(:each_with_index).and_yield(['R202501001', '快递单号: NEW123', '2025-01-03 10:00:00', '2025010001'], 1)
+
+        result = nil
+        expect { 
+          result = service.import(spreadsheet) 
+        }.to change(ExpressReceiptWorkOrder, :count).by(0) # 不创建新记录，只更新
+
+        expect(result[:success]).to be true
+        expect(result[:created]).to eq(1) # 更新计数为1
+        expect(result[:skipped]).to eq(0)
+        
+        # 验证记录已更新
+        existing_work_order.reload
+        expect(existing_work_order.tracking_number).to eq('NEW123')
+        expect(existing_work_order.reimbursement).to eq(reimbursement1)
+        expect(existing_work_order.filling_id).to eq('2025010001') # filling_id 保持不变
+        expect(existing_work_order.status).to eq('completed') # 状态保持不变
+      end
+
+      it 'returns error when filling_id does not exist' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(['单据编号', '操作意见', '操作时间', 'Filling ID'])
+        allow(spreadsheet).to receive(:each_with_index).and_yield(['R202501001', '快递单号: NEW123', '2025-01-03 10:00:00', 'INVALID001'], 1)
+
+        result = service.import(spreadsheet)
+
+        expect(result[:success]).to be true # 整体导入成功，但具体行有错误
+        expect(result[:errors]).to eq(1)
+        expect(result[:error_details].first).to include('找不到对应的填充ID记录')
+      end
+
+      it 'creates new record when no filling_id is provided' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(['单据编号', '操作意见', '操作时间'])
+        allow(spreadsheet).to receive(:each_with_index).and_yield(['R202501002', '快递单号: NEW456', '2025-01-03 10:00:00'], 1)
+
+        result = nil
+        expect { 
+          result = service.import(spreadsheet) 
+        }.to change(ExpressReceiptWorkOrder, :count).by(1) # 创建新记录
+
+        expect(result[:success]).to be true
+        expect(result[:created]).to eq(1)
+        
+        # 验证新记录已创建
+        new_work_order = ExpressReceiptWorkOrder.last
+        expect(new_work_order.tracking_number).to eq('NEW456')
+        expect(new_work_order.reimbursement).to eq(reimbursement2)
+        expect(new_work_order.filling_id).to be_present # 自动生成filling_id
+      end
+    end
   end
 end
