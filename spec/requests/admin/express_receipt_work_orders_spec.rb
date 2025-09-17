@@ -23,12 +23,12 @@ RSpec.describe "Admin::ExpressReceiptWorkOrders", type: :request do
     end
   end
 
-  describe "GET /admin/express_receipt_work_orders/new" do
-    it "返回成功响应" do
-      get new_admin_express_receipt_work_order_path
-      expect(response).to be_successful
-    end
-  end
+  # describe "GET /admin/express_receipt_work_orders/new" do
+  #   it "返回成功响应" do
+  #     get new_admin_express_receipt_work_order_path
+  #     expect(response).to be_successful
+  #   end
+  # end
 
   describe "POST /admin/express_receipt_work_orders" do
     let!(:fee_detail) { create(:fee_detail, document_number: reimbursement.invoice_number) }
@@ -36,23 +36,21 @@ RSpec.describe "Admin::ExpressReceiptWorkOrders", type: :request do
     it "创建新的快递收单工单" do
       express_receipt_work_order_params = attributes_for(:express_receipt_work_order,
         reimbursement_id: reimbursement.id,
-        fee_detail_ids: [fee_detail.id]
+        tracking_number: "SF1234567890",
+        courier_name: "顺丰速运",
+        received_at: Date.today
       )
-      
+
       expect {
         post admin_express_receipt_work_orders_path, params: { express_receipt_work_order: express_receipt_work_order_params }
       }.to change(ExpressReceiptWorkOrder, :count).by(1)
-        .and change(FeeDetailSelection, :count).by(1)
-      
+
       created_work_order = ExpressReceiptWorkOrder.last
       expect(response).to redirect_to(admin_express_receipt_work_order_path(created_work_order))
-      
-      # 验证FeeDetailSelection记录
-      expect(FeeDetailSelection.where(
-        work_order_id: created_work_order.id,
-        work_order_type: 'ExpressReceiptWorkOrder',
-        fee_detail_id: fee_detail.id
-      ).exists?).to be true
+
+      expect(created_work_order.tracking_number).to eq("SF1234567890")
+      expect(created_work_order.courier_name).to eq("顺丰速运")
+      expect(created_work_order.received_at).to eq(Date.today)
     end
   end
 

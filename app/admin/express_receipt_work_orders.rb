@@ -11,7 +11,7 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
     end
 
     def create
-      super do |resource|
+      super do |format, resource|
         resource.created_by ||= current_admin_user.id if resource.new_record? && resource.created_by.blank?
       end
     end
@@ -268,44 +268,6 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
         end
       end
       
-      tab "关联附件 (#{resource.reimbursement.fee_details.joins(:attachments_attachments).distinct.count})" do
-        panel "报销单附件信息" do
-          fee_details_with_attachments = resource.reimbursement.fee_details.includes(attachments_attachments: :blob).select { |fd| fd.attachments.attached? }
-          
-          if fee_details_with_attachments.any?
-            div class: "attachments-summary", style: "margin-bottom: 15px; padding: 10px; background: #e8f4fd; border-radius: 4px;" do
-              strong "附件概览："
-              span " 共 #{fee_details_with_attachments.count} 个费用明细包含附件，"
-              total_attachments = fee_details_with_attachments.sum(&:attachment_count)
-              span "总计 #{total_attachments} 个文件"
-            end
-            
-            table_for fee_details_with_attachments do
-              column "费用明细" do |fd|
-                div do
-                  link_to "费用明细 ##{fd.id}", admin_fee_detail_path(fd), style: "font-weight: bold;"
-                  br
-                  span "#{fd.fee_type} - #{number_to_currency(fd.amount, unit: '¥')}", style: "color: #666; font-size: 12px;"
-                end
-              end
-              column "附件数量" do |fd|
-                status_tag "#{fd.attachment_count}个文件", class: 'blue'
-              end
-              column "文件类型" do |fd|
-                fd.attachment_types_summary
-              end
-              column "总大小" do |fd|
-                number_to_human_size(fd.attachment_total_size)
-              end
-              column "操作" do |fd|
-                link_to "查看详情", admin_fee_detail_path(fd), class: "button small"
-              end
-            end
-          else
-            para "该工单关联的报销单暂无附件", style: "text-align: center; color: #999; padding: 30px;"
-          end
-        end
-      end
     end
 
   # 表单页

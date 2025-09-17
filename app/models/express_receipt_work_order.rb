@@ -18,7 +18,7 @@ class ExpressReceiptWorkOrder < WorkOrder
   # ActiveAdmin 支持
   def self.ransackable_attributes(auth_object = nil)
     # 调用父类并添加 ExpressReceiptWorkOrder 特有的
-    (super + %w[tracking_number courier_name received_at]).uniq
+    (super + %w[tracking_number courier_name received_at filling_id]).uniq
   end
   
   def self.ransackable_associations(auth_object = nil)
