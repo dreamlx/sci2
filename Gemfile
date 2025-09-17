@@ -82,6 +82,10 @@ gem 'chartkick'
 gem 'groupdate'
 # Use ActiveRecord as session store to prevent cookie overflow
 gem 'activerecord-session_store'
+gem 'cancancan'
+
+# Authorization gem for role-based permissions
+gem 'cancancan'
 
 # Capistrano Puma integration
 

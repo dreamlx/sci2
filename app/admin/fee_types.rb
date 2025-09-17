@@ -103,5 +103,20 @@ ActiveAdmin.register FeeType do
         }
       end
     end
+
+    def create
+      authorize! :manage, FeeType
+      super
+    end
+
+    def update
+      authorize! :manage, resource
+      super
+    end
+
+    def destroy
+      authorize! :manage, resource
+      super
+    end
   end
 end

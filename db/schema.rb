@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_17_26_000022) do
+ActiveRecord::Schema[7.1].define(version: 2025_17_26_000023) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -342,7 +342,9 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000022) do
     t.string "initiator_role", default: "internal"
     t.string "communication_method"
     t.integer "fee_type_id"
+    t.string "filling_id", limit: 10
     t.index ["created_by"], name: "index_work_orders_on_created_by"
+    t.index ["filling_id"], name: "index_work_orders_on_filling_id", unique: true, where: "type = 'ExpressReceiptWorkOrder' AND filling_id IS NOT NULL"
     t.index ["reimbursement_id", "tracking_number"], name: "index_work_orders_on_reimbursement_and_tracking", where: "type = 'ExpressReceiptWorkOrder' AND tracking_number IS NOT NULL"
     t.index ["reimbursement_id"], name: "index_work_orders_on_reimbursement_id"
     t.index ["status"], name: "index_work_orders_on_status"

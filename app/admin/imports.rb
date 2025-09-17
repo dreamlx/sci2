@@ -7,6 +7,7 @@ ActiveAdmin.register_page "Imports" do
   end
 
   page_action :import_operation_histories, method: :post do
+    authorize! :import, OperationHistory
     unless params[:file].present?
       redirect_to operation_histories_admin_imports_path, alert: "请选择要导入的文件。"
       return

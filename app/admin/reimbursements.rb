@@ -1,6 +1,7 @@
 ActiveAdmin.register Reimbursement do
   # 添加附件上传的成员动作
   member_action :upload_attachment, method: :post do
+    authorize! :upload_attachment, resource
     begin
       # 生成唯一的 external_fee_id，使用 ATTACHMENT_ 前缀确保不与导入数据冲突
       external_fee_id = "ATTACHMENT_#{resource.invoice_number}_#{Time.current.strftime('%Y%m%d%H%M%S')}_#{SecureRandom.hex(3).upcase}"
@@ -42,7 +43,23 @@ ActiveAdmin.register Reimbursement do
   controller do
     # 当用户查看详情页面时，标记当前报销单为已查看
     def show
+      authorize! :read, resource
       resource.mark_as_viewed! if resource.has_unread_updates?
+      super
+    end
+    
+    def create
+      authorize! :create, Reimbursement
+      super
+    end
+    
+    def update
+      authorize! :update, resource
+      super
+    end
+    
+    def destroy
+      authorize! :destroy, resource
       super
     end
     
