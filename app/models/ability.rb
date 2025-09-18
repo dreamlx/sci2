@@ -34,9 +34,9 @@ class Ability
       # 禁止的操作（只有超级管理员可以执行）
       cannot :import, :all
       cannot :destroy, :all
-      cannot :manage, AdminUser
-      cannot :manage, FeeType
-      cannot :manage, ProblemType
+      cannot [:create, :update, :destroy], AdminUser
+      cannot [:create, :update, :destroy], FeeType
+      cannot [:create, :update, :destroy], ProblemType
       cannot :assign, Reimbursement
       cannot :update_status, Reimbursement
       cannot :upload_attachment, Reimbursement

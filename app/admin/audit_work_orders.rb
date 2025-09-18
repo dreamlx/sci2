@@ -128,14 +128,12 @@ ActiveAdmin.register AuditWorkOrder do
     end
   end
 
-  # 过滤器 - Temporarily disabled to fix the "First argument in form cannot contain nil or be empty" error
-  # filter :reimbursement_invoice_number, as: :string, label: '报销单号'
-  # filter :status, as: :select, collection: -> { AuditWorkOrder.state_machine(:status).states.map(&:value) }
-  # filter :creator # 过滤创建人
-  # filter :created_at
-  
-  # Disable filters completely
-  config.filters = false
+  # 过滤器
+  filter :reimbursement_invoice_number, as: :string, label: '报销单号'
+  filter :status, as: :select, collection: -> { AuditWorkOrder.state_machine(:status).states.map(&:value) }
+  filter :creator, as: :select, collection: -> { AdminUser.all.map { |u| [u.name.presence || u.email.presence || "用户 ##{u.id}", u.id] } }
+  filter :created_at, label: "创建时间"
+  filter :processing_opinion, as: :string, label: "处理意见"
 
   # 批量操作
   # batch_action :start_processing, if: proc { params[:scope] == 'pending' || params[:q].blank? } do
