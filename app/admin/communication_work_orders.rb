@@ -203,11 +203,12 @@ ActiveAdmin.register CommunicationWorkOrder do
   filter :audit_comment, as: :string, label: "沟通内容"
   filter :creator, as: :select, collection: -> {
     begin
-      AdminUser.accessible_by(current_ability).map { |u|
+      AdminUser.all.map { |u|
         label = u.name.presence || u.email.presence || "用户 ##{u.id}"
         [label, u.id]
       }
-    rescue CanCan::AccessDenied
+    rescue => e
+      Rails.logger.warn "沟通工单过滤器错误: #{e.message}"
       []
     end
   }
