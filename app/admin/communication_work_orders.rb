@@ -203,13 +203,18 @@ ActiveAdmin.register CommunicationWorkOrder do
   filter :audit_comment, as: :string, label: "沟通内容"
   filter :creator, as: :select, collection: -> {
     begin
-      AdminUser.all.map { |u|
+      collection = AdminUser.all.map { |u|
         label = u.name.presence || u.email.presence || "用户 ##{u.id}"
         [label, u.id]
       }
+      # 确保永远不返回空数组或nil，防止ActiveAdmin表单构建错误
+      collection.empty? ? [["无可用用户", ""]] : collection
+    rescue CanCan::AccessDenied => e
+      Rails.logger.warn "创建者过滤器权限被拒绝: #{e.message}"
+      [["权限不足", ""]]
     rescue => e
-      Rails.logger.warn "沟通工单过滤器错误: #{e.message}"
-      []
+      Rails.logger.warn "创建者过滤器错误: #{e.message}"
+      [["系统错误", ""]]
     end
   }
   filter :created_at, label: "创建时间"
