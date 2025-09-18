@@ -201,7 +201,16 @@ ActiveAdmin.register CommunicationWorkOrder do
   filter :reimbursement_invoice_number, as: :string, label: "报销单号"
   filter :communication_method, as: :select, collection: ['电话', '微信', '邮件', '现场沟通']
   filter :audit_comment, as: :string, label: "沟通内容"
-  filter :creator, as: :select, collection: -> { AdminUser.all.map { |u| [u.name.presence || u.email.presence || "用户 ##{u.id}", u.id] } }
+  filter :creator, as: :select, collection: -> {
+    begin
+      AdminUser.accessible_by(current_ability).map { |u|
+        label = u.name.presence || u.email.presence || "用户 ##{u.id}"
+        [label, u.id]
+      }
+    rescue CanCan::AccessDenied
+      []
+    end
+  }
   filter :created_at, label: "创建时间"
   filter :status, as: :select, collection: [['已完成', 'completed'], ['处理中', 'pending']]
 end
