@@ -8,7 +8,7 @@ server server_ip, user: 'test', roles: %w{app db web}
 
 # Production-specific settings
 set :stage, :production
-set :rails_env, 'production'
+set :rails_env, 'development'
 set :branch, 'main'  # Or your production branch name
 # 使用 Gitee 仓库用于国内部署
 set :repo_url, 'https://gitee.com/dreamlx/sci2.git'

@@ -80,6 +80,53 @@ namespace :database do
       end
     end
   end
+
+  desc 'Setup development database symlink'
+  task :setup_development_symlink do
+    on roles(:db) do
+      within release_path do
+        # Create shared database directory if it doesn't exist
+        execute :mkdir, '-p', "#{shared_path}/db"
+        
+        # Remove existing development database file if it exists
+        execute :rm, '-f', "#{release_path}/db/sci2_development.sqlite3"
+        
+        # Create symlink to shared development database
+        shared_dev_db = "#{shared_path}/db/sci2_development.sqlite3"
+        release_dev_db = "#{release_path}/db/sci2_development.sqlite3"
+        
+        # Create empty database file in shared location if it doesn't exist
+        execute :touch, shared_dev_db
+        
+        # Create the symlink
+        execute :ln, '-sf', shared_dev_db, release_dev_db
+        
+        puts "✅ Created symlink: #{release_dev_db} -> #{shared_dev_db}"
+      end
+    end
+  end
+
+  desc 'Copy production database to development database'
+  task :copy_production_to_development do
+    on roles(:db) do
+      within release_path do
+        # Path to production and development databases
+        prod_db = "#{shared_path}/db/sci2_production.sqlite3"
+        dev_db = "#{shared_path}/db/sci2_development.sqlite3"
+        
+        # Check if production database exists
+        if test("[ -f #{prod_db} ]")
+          puts "📋 Copying production database to development..."
+          execute :cp, prod_db, dev_db
+          puts "✅ Successfully copied production database to development"
+        else
+          puts "⚠️  Production database not found at #{prod_db}"
+          puts "Creating empty development database..."
+          execute :touch, dev_db
+        end
+      end
+    end
+  end
 end
 
 # Hook into deployment process
@@ -87,4 +134,10 @@ end
 if fetch(:database_config, "").include?("mysql2")
   before 'deploy:migrate', 'database:create_mysql_setup'
 end
+
+# Setup development database symlink when using development environment
+if fetch(:rails_env) == 'development'
+  before 'deploy:migrate', 'database:setup_development_symlink'
+end
+
 after 'deploy:migrate', 'database:test_connection'

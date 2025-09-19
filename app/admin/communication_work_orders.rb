@@ -77,7 +77,9 @@ ActiveAdmin.register CommunicationWorkOrder do
     
     div class: "action_items" do
       span class: "action_item" do
-        link_to "导出CSV", export_csv_admin_communication_work_orders_path(q: params[:q]), class: "button"
+        # 安全地处理 params[:q]，避免传递 nil 或空值
+        query_params = params[:q].present? ? { q: params[:q] } : {}
+        link_to "导出CSV", export_csv_admin_communication_work_orders_path(query_params), class: "button"
       end
     end
   end
