@@ -131,7 +131,22 @@ ActiveAdmin.register AuditWorkOrder do
   # 过滤器
   filter :reimbursement_invoice_number, as: :string, label: '报销单号'
   filter :status, as: :select, collection: -> { AuditWorkOrder.state_machine(:status).states.map(&:value) }
-  filter :creator, as: :select, collection: -> { AdminUser.all.map { |u| [u.name.presence || u.email.presence || "用户 ##{u.id}", u.id] } }
+  filter :creator, as: :select, collection: -> {
+    begin
+      collection = AdminUser.accessible_by(current_ability).map { |u|
+        label = u.name.presence || u.email.presence || "用户 ##{u.id}"
+        [label, u.id]
+      }
+      # 确保过滤器永远不返回空数组或nil，ActiveAdmin要求至少有一个选项
+      collection.empty? ? [['无可用用户', '']] : collection
+    rescue CanCan::AccessDenied => e
+      Rails.logger.warn "审核工单页面创建者过滤器权限被拒绝: #{e.message}"
+      [['权限不足', '']]
+    rescue => e
+      Rails.logger.error "审核工单页面创建者过滤器系统错误: #{e.message}"
+      [['系统错误', '']]
+    end
+  }
   filter :created_at, label: "创建时间"
   filter :processing_opinion, as: :string, label: "处理意见"
 

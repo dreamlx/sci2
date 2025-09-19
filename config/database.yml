@@ -8,11 +8,11 @@ default: &default
 
 development:
   <<: *default
-  database: sci2_development
+  database: ./db/sci2_development.sqlite3
 
 test:
   <<: *default
-  database: sci2_test
+  database: ./db/sci2_test.sqlite3
 
 production:
   adapter: sqlite3

@@ -1,10 +1,10 @@
 #!/bin/bash
 set -e
 
-# Default configuration (same as deploy_to_server.sh)
-REMOTE_USER="root"
-REMOTE_HOST="47.97.35.0"
-REMOTE_DIR="/var/www/sci2"
+# Default configuration for VPN environment (using Capistrano paths)
+REMOTE_USER="test"
+REMOTE_HOST="100.98.75.43"
+REMOTE_DIR="/opt/sci2"
 LOCAL_DIR="."
 
 # Parse command line arguments
@@ -52,30 +52,33 @@ fi
 
 echo "Local database backup created in db_backup/ directory"
 
-# Download database files from server's db/ directory
-echo "=== Downloading database files from server's db/ directory ==="
-rsync -avz --progress ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/db/*.sqlite3 ${LOCAL_DIR}/db/
+# Download production database from shared directory (Capistrano structure)
+echo "=== Downloading production database from shared directory ==="
+rsync -avz --progress ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/shared/db/sci2_production.sqlite3 ${LOCAL_DIR}/
 
-# Download database files from server's root directory
-echo "=== Downloading database files from server's root directory ==="
-rsync -avz --progress ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR}/sci2_development* ${LOCAL_DIR}/
+# Rename to development database for local use
+echo "=== Setting up local development database ==="
+if [ -f "${LOCAL_DIR}/sci2_production.sqlite3" ]; then
+  cp "${LOCAL_DIR}/sci2_production.sqlite3" "${LOCAL_DIR}/sci2_development.sqlite3"
+  echo "Production database copied to sci2_development.sqlite3 for local development"
+fi
 
 echo "=== Database fetch completed ==="
 
 # Optional: Verify the downloaded files
 echo "=== Verifying downloaded files ==="
-if ls ${LOCAL_DIR}/db/*.sqlite3 1> /dev/null 2>&1; then
-  echo "Successfully downloaded SQLite database files:"
-  ls -la ${LOCAL_DIR}/db/*.sqlite3
+if [ -f "${LOCAL_DIR}/sci2_production.sqlite3" ]; then
+  echo "Successfully downloaded production database:"
+  ls -la ${LOCAL_DIR}/sci2_production.sqlite3
 else
-  echo "Warning: No SQLite database files found in db/ directory after download"
+  echo "Warning: Production database file not found after download"
 fi
 
-if ls ${LOCAL_DIR}/sci2_development* 1> /dev/null 2>&1; then
-  echo "Successfully downloaded development database files:"
-  ls -la ${LOCAL_DIR}/sci2_development*
+if [ -f "${LOCAL_DIR}/sci2_development.sqlite3" ]; then
+  echo "Successfully created development database:"
+  ls -la ${LOCAL_DIR}/sci2_development.sqlite3
 else
-  echo "Warning: No development database files found in root directory after download"
+  echo "Warning: Development database file not created"
 fi
 
 echo "=== Database fetch from server completed successfully ==="
