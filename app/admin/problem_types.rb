@@ -83,6 +83,8 @@ ActiveAdmin.register ProblemType do
     def index
       respond_to do |format|
         format.html { super }
+        # 添加CSV格式支持
+        format.csv { super }
         format.json {
           if params[:fee_type_id].present?
             @problem_types = ProblemType.active.by_fee_type(params[:fee_type_id])

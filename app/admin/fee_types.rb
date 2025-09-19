@@ -93,6 +93,8 @@ ActiveAdmin.register FeeType do
     def index
       respond_to do |format|
         format.html { super }
+        # 添加CSV格式支持
+        format.csv { super }
         format.json {
           @fee_types = FeeType.active
           # Add filtering based on params if needed in the future
