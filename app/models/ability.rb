@@ -21,6 +21,10 @@ class Ability
       can :update, WorkOrder
       can :show, WorkOrder
       
+      # 明确的 STI 子类权限
+      can :manage, CommunicationWorkOrder
+      can :manage, AuditWorkOrder
+      
       # 费用明细相关权限
       can :create, FeeDetail
       can :update, FeeDetail
