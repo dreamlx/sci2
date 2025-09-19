@@ -197,26 +197,26 @@ ActiveAdmin.register CommunicationWorkOrder do
     end
   end
 
-  # 过滤器 - 临时注释掉用于调试服务端问题
-  # filter :reimbursement_invoice_number, as: :string, label: "报销单号"
-  # filter :communication_method, as: :select, collection: ['电话', '微信', '邮件', '现场沟通']
-  # filter :audit_comment, as: :string, label: "沟通内容"
-  # filter :creator, as: :select, collection: -> {
-  #   begin
-  #     collection = AdminUser.accessible_by(current_ability).map { |u|
-  #       label = u.name.presence || u.email.presence || "用户 ##{u.id}"
-  #       [label, u.id]
-  #     }
-  #     # 确保过滤器永远不返回空数组或nil，ActiveAdmin要求至少有一个选项
-  #     collection.empty? ? [['无可用用户', '']] : collection
-  #   rescue CanCan::AccessDenied => e
-  #     Rails.logger.warn "沟通工单页面创建者过滤器权限被拒绝: #{e.message}"
-  #     [['权限不足', '']]
-  #   rescue => e
-  #     Rails.logger.error "沟通工单页面创建者过滤器系统错误: #{e.message}"
-  #     [['系统错误', '']]
-  #   end
-  # }
-  # filter :created_at, label: "创建时间"
-  # filter :status, as: :select, collection: [['已完成', 'completed'], ['处理中', 'pending']]
+  # 过滤器
+  filter :reimbursement_invoice_number, as: :string, label: "报销单号"
+  filter :communication_method, as: :select, collection: ['电话', '微信', '邮件', '现场沟通']
+  filter :audit_comment, as: :string, label: "沟通内容"
+  filter :creator, as: :select, collection: -> {
+    begin
+      collection = AdminUser.accessible_by(current_ability).map { |u|
+        label = u.name.presence || u.email.presence || "用户 ##{u.id}"
+        [label, u.id]
+      }
+      # 确保过滤器永远不返回空数组或nil，ActiveAdmin要求至少有一个选项
+      collection.empty? ? [['无可用用户', '']] : collection
+    rescue CanCan::AccessDenied => e
+      Rails.logger.warn "沟通工单页面创建者过滤器权限被拒绝: #{e.message}"
+      [['权限不足', '']]
+    rescue => e
+      Rails.logger.error "沟通工单页面创建者过滤器系统错误: #{e.message}"
+      [['系统错误', '']]
+    end
+  }
+  filter :created_at, label: "创建时间"
+  filter :status, as: :select, collection: [['已完成', 'completed'], ['处理中', 'pending']]
 end
