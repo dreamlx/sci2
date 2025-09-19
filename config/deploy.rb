@@ -1,9 +1,6 @@
 # config valid for current version and patch releases of Capistrano
 lock "~> 3.19.2"
 
-# 设置默认部署环境为开发环境
-set :rails_env, 'development'
-
 set :application, "sci2"
 set :repo_url, "git@gitee.com:dreamlx/sci2.git"
 
