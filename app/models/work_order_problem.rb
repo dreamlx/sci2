@@ -6,6 +6,15 @@ class WorkOrderProblem < ApplicationRecord
   # 验证
   validates :work_order_id, uniqueness: { scope: :problem_type_id, message: "已关联此问题类型" }
 
+  # Ransack 搜索权限
+  def self.ransackable_attributes(auth_object = nil)
+    ["created_at", "id", "id_value", "problem_type_id", "updated_at", "work_order_id"]
+  end
+
+  def self.ransackable_associations(auth_object = nil)
+    ["problem_type", "work_order"]
+  end
+
   # 回调
   after_create :log_problem_added
   after_destroy :log_problem_removed

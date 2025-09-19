@@ -80,10 +80,10 @@ class WorkOrder < ApplicationRecord
   end
   # Ransack 搜索支持
   def self.ransackable_attributes(auth_object = nil)
-    ["audit_comment", "audit_date", "audit_result", "communication_method", "courier_name", 
-     "created_at", "created_by", "fee_type_id", "id", "id_value", "initiator_role", 
-     "problem_type_id", "processing_opinion", "received_at", "reimbursement_id", 
-     "status", "tracking_number", "type", "updated_at", "vat_verified"]
+    ["audit_comment", "audit_date", "audit_result", "communication_method", "courier_name",
+     "created_at", "created_by", "fee_type_id", "id", "id_value", "initiator_role",
+     "problem_type_id", "processing_opinion", "received_at", "reimbursement_id",
+     "status", "tracking_number", "type", "updated_at", "vat_verified", "filling_id"]
   end
 
   def self.ransackable_associations(auth_object = nil)

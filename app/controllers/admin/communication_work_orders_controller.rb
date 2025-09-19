@@ -12,10 +12,6 @@ module Admin
                                                         .result(distinct: true)
                                                         .page(params[:page])
                                                         .per(20)
-      Rails.logger.info "Communication Work Orders: #{@communication_work_orders.inspect}"
-      @communication_work_orders.each_with_index do |work_order, index|
-        Rails.logger.info "Work Order #{index}: #{work_order.inspect}"
-      end
     end
 
     def show

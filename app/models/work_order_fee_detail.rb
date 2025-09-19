@@ -7,6 +7,15 @@ class WorkOrderFeeDetail < ApplicationRecord
   validates :fee_detail_id, uniqueness: { scope: :work_order_id, message: "已经与此工单关联" }
   validates :fee_detail_id, presence: true
   validates :work_order_id, presence: true
+
+  # Ransack 搜索权限
+  def self.ransackable_attributes(auth_object = nil)
+    ["created_at", "fee_detail_id", "id", "id_value", "updated_at", "work_order_id"]
+  end
+
+  def self.ransackable_associations(auth_object = nil)
+    ["fee_detail", "work_order"]
+  end
   
   # 添加按工单类型筛选的scope
   scope :by_work_order_type, ->(type) { joins(:work_order).where(work_orders: { type: type }) }
