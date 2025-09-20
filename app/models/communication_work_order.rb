@@ -19,7 +19,7 @@ class CommunicationWorkOrder < WorkOrder
   
   # ActiveAdmin 支持 - 简化搜索属性
   def self.ransackable_attributes(auth_object = nil)
-    super + %w[communication_method]
+    super + %w[communication_method audit_comment]
   end
 
   def self.ransackable_associations(auth_object = nil)

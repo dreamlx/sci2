@@ -199,26 +199,50 @@ ActiveAdmin.register CommunicationWorkOrder do
     end
   end
 
-  # 过滤器
-  filter :reimbursement_invoice_number, as: :string, label: "报销单号"
-  filter :communication_method, as: :select, collection: ['电话', '微信', '邮件', '现场沟通']
-  filter :audit_comment, as: :string, label: "沟通内容"
-  filter :creator, as: :select, collection: -> {
-    begin
-      collection = AdminUser.accessible_by(current_ability).map { |u|
-        label = u.name.presence || u.email.presence || "用户 ##{u.id}"
-        [label, u.id]
-      }
-      # 确保过滤器永远不返回空数组或nil，ActiveAdmin要求至少有一个选项
-      collection.empty? ? [['无可用用户', '']] : collection
-    rescue CanCan::AccessDenied => e
-      Rails.logger.warn "沟通工单页面创建者过滤器权限被拒绝: #{e.message}"
-      [['权限不足', '']]
-    rescue => e
-      Rails.logger.error "沟通工单页面创建者过滤器系统错误: #{e.message}"
-      [['系统错误', '']]
-    end
-  }
-  filter :created_at, label: "创建时间"
-  filter :status, as: :select, collection: [['已完成', 'completed'], ['处理中', 'pending']]
+  # 暂时完全禁用过滤器 - 任何过滤器都会导致 ArgumentError
+  # 这是一个深层的 ActiveAdmin + CanCan + STI 兼容性问题
+  config.filters = false
+  
+  # 所有过滤器都暂时禁用，直到找到根本解决方案
+  # filter :id
+  # filter :communication_method, as: :select, collection: ['电话', '微信', '邮件', '现场沟通']
+  # filter :audit_comment, as: :string, label: "沟通内容"
+  # filter :reimbursement_invoice_number, as: :string, label: "报销单号"
+  # filter :creator, as: :select, collection: -> { ... }
+  # filter :created_at, label: "创建时间"
+  # filter :status, as: :select, collection: [['已完成', 'completed'], ['处理中', 'pending']]
+  # filter :creator, as: :select, collection: -> {
+  #   begin
+  #     # 使用更安全的权限检查方式
+  #     if defined?(current_ability) && current_ability
+  #       begin
+  #         accessible_users = AdminUser.accessible_by(current_ability)
+  #         collection = accessible_users.map { |u|
+  #           label = u.name.presence || u.email.presence || "用户 ##{u.id}"
+  #           [label, u.id]
+  #         }
+  #       rescue CanCan::AccessDenied, NoMethodError => e
+  #         Rails.logger.warn "权限检查失败，使用所有用户: #{e.message}"
+  #         collection = AdminUser.all.map { |u|
+  #           label = u.name.presence || u.email.presence || "用户 ##{u.id}"
+  #           [label, u.id]
+  #         }
+  #       end
+  #     else
+  #       # 如果没有权限系统，使用所有用户
+  #       collection = AdminUser.all.map { |u|
+  #         label = u.name.presence || u.email.presence || "用户 ##{u.id}"
+  #         [label, u.id]
+  #       }
+  #     end
+  #
+  #     # 确保过滤器永远不返回空数组或nil，ActiveAdmin要求至少有一个选项
+  #     collection.empty? ? [['无可用用户', '']] : collection
+  #   rescue => e
+  #     Rails.logger.error "沟通工单页面创建者过滤器系统错误: #{e.message}"
+  #     [['系统错误', '']]
+  #   end
+  # }
+  # filter :created_at, label: "创建时间"
+  # filter :status, as: :select, collection: [['已完成', 'completed'], ['处理中', 'pending']]
 end
