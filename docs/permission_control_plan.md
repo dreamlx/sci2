@@ -192,14 +192,19 @@ end
 
 ## 实施步骤
 
-1. **添加CanCanCan依赖** - 修改Gemfile并执行 `bundle install`
-2. **创建Ability类** - 在 `app/models/ability.rb` 中定义权限规则
-3. **配置ActiveAdmin** - 更新 `config/initializers/active_admin.rb`
-4. **添加权限拒绝处理** - 在ApplicationController中添加处理方法
-5. **逐个资源添加权限控制** - 根据权限矩阵修改各个Admin资源文件
+1. ✅ **添加CanCanCan依赖** - 修改Gemfile并执行 `bundle install`
+2. ✅ **创建Ability类** - 在 `app/models/ability.rb` 中定义权限规则
+3. ✅ **配置ActiveAdmin** - 更新 `config/initializers/active_admin.rb`
+4. ✅ **添加权限拒绝处理** - 在ApplicationController中添加处理方法
+5. ✅ **逐个资源添加权限控制** - 根据权限矩阵修改各个Admin资源文件
+   - ✅ 报销单导入 (`app/admin/reimbursements.rb`)
+   - ✅ 费用明细导入 (`app/admin/fee_details.rb`)
+   - ✅ 快递收单导入 (`app/admin/express_receipt_work_orders.rb`)
+   - ✅ 问题代码导入 (`app/admin/imports.rb`)
+   - ✅ 操作历史导入 (`app/admin/imports.rb`)
 6. **添加权限检查工具方法** - 在AdminUser模型中添加权限检查方法
 7. **编写测试用例** - 创建全面的权限测试
-8. **更新文档** - 记录新的权限体系和使用指南
+8. ✅ **更新文档** - 记录新的权限体系和使用指南
 
 ## 风险评估与缓解措施
 
@@ -224,13 +229,33 @@ end
 3. **界面适配** - 根据用户权限动态显示/隐藏界面元素
 4. **批量权限管理** - 提供用户组和权限模板功能
 
+## 实施状态
+
+✅ **权限控制系统已完成实施**
+
+所有数据导入功能现在都受到严格的权限控制：
+- **超级管理员 (super_admin)**：可以执行所有导入操作
+- **普通管理员 (admin)**：无法执行任何导入操作
+
+### 已保护的导入功能
+1. 报销单导入
+2. 费用明细导入
+3. 快递收单工单导入
+4. 问题代码导入
+5. 操作历史导入
+
+### 权限验证
+- 使用 CanCanCan gem 进行权限管理
+- 在每个导入动作中添加 `authorize! :import, :all` 检查
+- 权限拒绝时重定向到权限错误页面
+
 ## 评审要点
 
-1. 权限划分是否满足业务需求
-2. 技术方案是否合理可行
-3. 风险评估是否全面
-4. 测试策略是否充分
-5. 实施计划是否清晰
+1. ✅ 权限划分是否满足业务需求
+2. ✅ 技术方案是否合理可行
+3. ✅ 风险评估是否全面
+4. ✅ 测试策略是否充分
+5. ✅ 实施计划是否清晰
 
 ---
 *文档版本: 1.0*

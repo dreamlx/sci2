@@ -49,6 +49,7 @@ ActiveAdmin.register_page "Imports" do
   end
   
   page_action :import_problem_codes, method: :post do
+    authorize! :import, :all
     unless params[:file].present?
       redirect_to '/admin/imports/new?resource=problem_codes', alert: "请选择要导入的文件。"
       return

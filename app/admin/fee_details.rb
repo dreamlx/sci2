@@ -89,6 +89,7 @@ ActiveAdmin.register FeeDetail do
   end
 
   collection_action :import, method: :post do
+    authorize! :import, :all
     unless params[:file].present?
       redirect_to new_import_admin_fee_details_path, alert: "请选择要导入的文件。"
       return
