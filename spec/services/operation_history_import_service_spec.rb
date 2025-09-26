@@ -106,6 +106,148 @@ RSpec.describe OperationHistoryImportService, type: :service do
         expect(processing_reimbursement.status).to eq(original_statuses['R003'])
       end
     end
+  
+    describe 'automatic auditor assignment from operation history' do
+      let(:admin_user) { create(:admin_user) }
+      let!(:auditor1) { create(:admin_user, name: '张三') }
+      let!(:auditor2) { create(:admin_user, name: '李四') }
+  
+      context 'when reimbursement has no active assignment and operation type is "加签"' do
+        let(:unassigned_reimbursement) { create(:reimbursement, invoice_number: 'R010') }
+        let(:csv_content) do
+          <<~CSV
+            单据编号,操作类型,操作日期,操作人,操作意见
+            R010,加签,2025-01-01 10:00:00,张三,添加审核人
+          CSV
+        end
+        let(:csv_file) { Tempfile.new(['test', '.csv']) }
+  
+        before do
+          unassigned_reimbursement
+          csv_file.write(csv_content)
+          csv_file.rewind
+        end
+  
+        after do
+          csv_file.close
+          csv_file.unlink
+        end
+  
+        it 'automatically assigns the reimbursement to the matching operator' do
+          expect(unassigned_reimbursement.active_assignment).to be_nil
+  
+          service = described_class.new(csv_file, admin_user)
+          result = service.import
+  
+          expect(result[:success]).to be_truthy
+          expect(result[:imported]).to eq(1)
+  
+          unassigned_reimbursement.reload
+          assignment = unassigned_reimbursement.active_assignment
+  
+          expect(assignment).to be_present
+          expect(assignment.assignee).to eq(auditor1)
+          expect(assignment.assigner).to eq(admin_user)
+          expect(assignment.is_active).to be true
+          expect(assignment.notes).to include('自动分配：操作历史中检测到加签操作和操作人匹配')
+        end
+  
+        it 'handles operator name with extra content' do
+          csv_content_modified = <<~CSV
+            单据编号,操作类型,操作日期,操作人,操作意见
+            R010,加签,2025-01-01 10:00:00,审核员张三,添加审核人
+          CSV
+  
+          csv_file.rewind
+          csv_file.truncate(0)
+          csv_file.write(csv_content_modified)
+          csv_file.rewind
+  
+          service = described_class.new(csv_file, admin_user)
+          service.import
+  
+          unassigned_reimbursement.reload
+          assignment = unassigned_reimbursement.active_assignment
+  
+          expect(assignment).to be_present
+          expect(assignment.assignee).to eq(auditor1)
+        end
+      end
+  
+      context 'when reimbursement already has an active assignment' do
+        let(:assigned_reimbursement) { create(:reimbursement, invoice_number: 'R011') }
+        let!(:existing_assignment) { create(:reimbursement_assignment, reimbursement: assigned_reimbursement, assignee: auditor2, assigner: admin_user, is_active: true) }
+        let(:csv_content) do
+          <<~CSV
+            单据编号,操作类型,操作日期,操作人,操作意见
+            R011,加签,2025-01-01 10:00:00,张三,添加审核人
+          CSV
+        end
+        let(:csv_file) { Tempfile.new(['test', '.csv']) }
+  
+        before do
+          assigned_reimbursement
+          existing_assignment
+          csv_file.write(csv_content)
+          csv_file.rewind
+        end
+  
+        after do
+          csv_file.close
+          csv_file.unlink
+        end
+  
+        it 'does not create a new assignment' do
+          expect(assigned_reimbursement.active_assignment).to eq(existing_assignment)
+  
+          service = described_class.new(csv_file, admin_user)
+          result = service.import
+  
+          expect(result[:success]).to be_truthy
+          expect(result[:imported]).to eq(1)
+  
+          assigned_reimbursement.reload
+          expect(assigned_reimbursement.active_assignment).to eq(existing_assignment)
+          expect(ReimbursementAssignment.where(reimbursement: assigned_reimbursement).count).to eq(1)
+        end
+      end
+  
+      context 'when operation type is not "加签"' do
+        let(:unassigned_reimbursement) { create(:reimbursement, invoice_number: 'R012') }
+        let(:csv_content) do
+          <<~CSV
+            单据编号,操作类型,操作日期,操作人,操作意见
+            R012,审核,2025-01-01 10:00:00,张三,审核通过
+          CSV
+        end
+        let(:csv_file) { Tempfile.new(['test', '.csv']) }
+  
+        before do
+          unassigned_reimbursement
+          csv_file.write(csv_content)
+          csv_file.rewind
+        end
+  
+        after do
+          csv_file.close
+          csv_file.unlink
+        end
+  
+        it 'does not assign the reimbursement' do
+          expect(unassigned_reimbursement.active_assignment).to be_nil
+  
+          service = described_class.new(csv_file, admin_user)
+          result = service.import
+  
+          expect(result[:success]).to be_truthy
+          expect(result[:imported]).to eq(1)
+  
+          unassigned_reimbursement.reload
+          expect(unassigned_reimbursement.active_assignment).to be_nil
+        end
+      end
+  
+    end
   end
   
   describe 'Operation History Creation' do

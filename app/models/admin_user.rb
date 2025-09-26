@@ -35,6 +35,12 @@ class AdminUser < ApplicationRecord
     ["active_assigned_reimbursements", "assigned_reimbursements", "reimbursement_assignments_made", "reimbursements_to_process", "work_order_operations"]
   end
 
+  # Find admin user by checking if the given string contains the admin user's name
+  def self.find_by_name_substring(name_substring)
+    return nil unless name_substring.present?
+    all.find { |user| name_substring.include?(user.name) }
+  end
+
   private
 
   def set_default_role

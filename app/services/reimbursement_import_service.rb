@@ -154,6 +154,10 @@ class ReimbursementImportService
 
     if reimbursement.save
       Rails.logger.debug "  Reimbursement saved successfully. Final external_status: #{reimbursement.external_status.inspect}, Final internal_status: #{reimbursement.status.inspect}"
+
+      # 自动分配审核员：如果当前审批节点是审核，且当前审批人匹配到admin_user，则自动指派
+      assign_auditor_if_needed(reimbursement, row)
+
       if is_new_record
         @created_count += 1
       else
@@ -189,6 +193,35 @@ class ReimbursementImportService
       datetime_string.is_a?(Date) || datetime_string.is_a?(DateTime) ? datetime_string : DateTime.parse(datetime_string.to_s)
     rescue ArgumentError
       nil
+    end
+  end
+
+  def assign_auditor_if_needed(reimbursement, row)
+    current_approval_node = row['当前审批节点']&.strip
+    current_approver = row['当前审批人']&.strip
+
+    return unless current_approval_node == '审核' && current_approver.present?
+
+    # 查找匹配的审核员
+    auditor = AdminUser.find_by_name_substring(current_approver)
+
+    if auditor
+      # 创建分配记录
+      assignment = ReimbursementAssignment.new(
+        reimbursement: reimbursement,
+        assignee: auditor,
+        assigner: @current_admin_user,
+        is_active: true,
+        notes: "自动分配：导入时检测到审核节点和审核人匹配"
+      )
+
+      if assignment.save
+        Rails.logger.info "  自动分配成功：报销单 #{reimbursement.invoice_number} 分配给 #{auditor.name}"
+      else
+        Rails.logger.warn "  自动分配失败：#{assignment.errors.full_messages.join(', ')}"
+      end
+    else
+      Rails.logger.debug "  未找到匹配的审核员：#{current_approver}"
     end
   end
 end

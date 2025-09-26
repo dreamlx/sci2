@@ -250,6 +250,105 @@ RSpec.describe ReimbursementImportService do
         expect(result[:success]).to be false
         expect(result[:error_details].first).to include('导入过程中发生错误')
       end
+  
+      describe 'automatic auditor assignment' do
+        let!(:auditor1) { create(:admin_user, name: '张三') }
+        let!(:auditor2) { create(:admin_user, name: '李四') }
+  
+        context 'when current approval node is "审核" and approver matches admin user' do
+          let(:csv_content) do
+            <<~CSV
+              报销单单号,单据名称,报销单申请人,报销单申请人工号,申请人公司,申请人部门,报销金额（单据币种）,报销单状态,当前审批节点,当前审批人
+              R202501010,测试报销单,测试用户,TEST001,测试公司,测试部门,100.00,审批中,审核,张三
+            CSV
+          end
+  
+          it 'automatically assigns the reimbursement to the matching auditor' do
+            spreadsheet = double('spreadsheet')
+            allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+            allow(spreadsheet).to receive(:row).with(1).and_return(['报销单单号', '单据名称', '报销单申请人', '报销单申请人工号', '申请人公司', '申请人部门', '报销金额（单据币种）', '报销单状态', '当前审批节点', '当前审批人'])
+            allow(spreadsheet).to receive(:each_with_index).and_yield(['R202501010', '测试报销单', '测试用户', 'TEST001', '测试公司', '测试部门', '100.00', '审批中', '审核', '张三'], 1)
+  
+            expect {
+              service.import(spreadsheet)
+            }.to change(ReimbursementAssignment, :count).by(1)
+  
+            reimbursement = Reimbursement.find_by(invoice_number: 'R202501010')
+            assignment = reimbursement.active_assignment
+  
+            expect(assignment).to be_present
+            expect(assignment.assignee).to eq(auditor1)
+            expect(assignment.assigner).to eq(admin_user)
+            expect(assignment.is_active).to be true
+            expect(assignment.notes).to include('自动分配：导入时检测到审核节点和审核人匹配')
+          end
+  
+          it 'handles approver name with extra content' do
+            spreadsheet = double('spreadsheet')
+            allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+            allow(spreadsheet).to receive(:row).with(1).and_return(['报销单单号', '单据名称', '报销单申请人', '报销单申请人工号', '申请人公司', '申请人部门', '报销金额（单据币种）', '报销单状态', '当前审批节点', '当前审批人'])
+            allow(spreadsheet).to receive(:each_with_index).and_yield(['R202501011', '测试报销单', '测试用户', 'TEST001', '测试公司', '测试部门', '100.00', '审批中', '审核', '财务经理张三'], 1)
+  
+            expect {
+              service.import(spreadsheet)
+            }.to change(ReimbursementAssignment, :count).by(1)
+  
+            reimbursement = Reimbursement.find_by(invoice_number: 'R202501011')
+            assignment = reimbursement.active_assignment
+  
+            expect(assignment).to be_present
+            expect(assignment.assignee).to eq(auditor1)
+          end
+        end
+  
+        context 'when current approval node is not "审核"' do
+          it 'does not assign the reimbursement' do
+            spreadsheet = double('spreadsheet')
+            allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+            allow(spreadsheet).to receive(:row).with(1).and_return(['报销单单号', '单据名称', '报销单申请人', '报销单申请人工号', '申请人公司', '申请人部门', '报销金额（单据币种）', '报销单状态', '当前审批节点', '当前审批人'])
+            allow(spreadsheet).to receive(:each_with_index).and_yield(['R202501012', '测试报销单', '测试用户', 'TEST001', '测试公司', '测试部门', '100.00', '审批中', '提交', '张三'], 1)
+  
+            expect {
+              service.import(spreadsheet)
+            }.not_to change(ReimbursementAssignment, :count)
+  
+            reimbursement = Reimbursement.find_by(invoice_number: 'R202501012')
+            expect(reimbursement.active_assignment).to be_nil
+          end
+        end
+  
+        context 'when approver does not match any admin user' do
+          it 'does not assign the reimbursement' do
+            spreadsheet = double('spreadsheet')
+            allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+            allow(spreadsheet).to receive(:row).with(1).and_return(['报销单单号', '单据名称', '报销单申请人', '报销单申请人工号', '申请人公司', '申请人部门', '报销金额（单据币种）', '报销单状态', '当前审批节点', '当前审批人'])
+            allow(spreadsheet).to receive(:each_with_index).and_yield(['R202501013', '测试报销单', '测试用户', 'TEST001', '测试公司', '测试部门', '100.00', '审批中', '审核', '王五'], 1)
+  
+            expect {
+              service.import(spreadsheet)
+            }.not_to change(ReimbursementAssignment, :count)
+  
+            reimbursement = Reimbursement.find_by(invoice_number: 'R202501013')
+            expect(reimbursement.active_assignment).to be_nil
+          end
+        end
+  
+        context 'when approver field is blank' do
+          it 'does not assign the reimbursement' do
+            spreadsheet = double('spreadsheet')
+            allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+            allow(spreadsheet).to receive(:row).with(1).and_return(['报销单单号', '单据名称', '报销单申请人', '报销单申请人工号', '申请人公司', '申请人部门', '报销金额（单据币种）', '报销单状态', '当前审批节点', '当前审批人'])
+            allow(spreadsheet).to receive(:each_with_index).and_yield(['R202501014', '测试报销单', '测试用户', 'TEST001', '测试公司', '测试部门', '100.00', '审批中', '审核', ''], 1)
+  
+            expect {
+              service.import(spreadsheet)
+            }.not_to change(ReimbursementAssignment, :count)
+  
+            reimbursement = Reimbursement.find_by(invoice_number: 'R202501014')
+            expect(reimbursement.active_assignment).to be_nil
+          end
+        end
+      end
     end
   end
 end

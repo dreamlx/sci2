@@ -125,6 +125,10 @@ class OperationHistoryImportService
     
     if operation_history.save
       @imported_count += 1
+
+      # 自动分配审核员：如果报销单没有分配人，且操作类型是加签，且操作人匹配到admin_user，则自动指派
+      assign_auditor_from_operation_history(operation_history, reimbursement)
+
       # Note: Removed automatic reopening of closed reimbursements
       # Status changes should now be driven by external status priority system
     else
@@ -140,6 +144,39 @@ class OperationHistoryImportService
       datetime_string.is_a?(Date) || datetime_string.is_a?(DateTime) ? datetime_string : DateTime.parse(datetime_string.to_s).in_time_zone
     rescue ArgumentError
       nil
+    end
+  end
+
+  def assign_auditor_from_operation_history(operation_history, reimbursement)
+    # 检查报销单是否没有分配人
+    return if reimbursement.active_assignment.present?
+
+    # 检查操作类型是否为加签
+    return unless operation_history.operation_type == '加签'
+
+    # 检查操作人是否匹配到admin_user
+    operator = operation_history.operator
+    return unless operator.present?
+
+    auditor = AdminUser.find_by_name_substring(operator)
+
+    if auditor
+      # 创建分配记录
+      assignment = ReimbursementAssignment.new(
+        reimbursement: reimbursement,
+        assignee: auditor,
+        assigner: @current_admin_user,
+        is_active: true,
+        notes: "自动分配：操作历史中检测到加签操作和操作人匹配"
+      )
+
+      if assignment.save
+        Rails.logger.info "  自动分配成功：报销单 #{reimbursement.invoice_number} 通过操作历史分配给 #{auditor.name}"
+      else
+        Rails.logger.warn "  自动分配失败：#{assignment.errors.full_messages.join(', ')}"
+      end
+    else
+      Rails.logger.debug "  未找到匹配的操作人：#{operator}"
     end
   end
 end
