@@ -551,6 +551,7 @@ ActiveAdmin.register Reimbursement do
         panel "快递收单工单信息" do
           table_for resource.express_receipt_work_orders.order(created_at: :desc) do
             column(:id) { |wo| link_to wo.id, admin_express_receipt_work_order_path(wo) }
+            column "Filling ID", :filling_id
             column :tracking_number
             column :received_at
             column :courier_name
