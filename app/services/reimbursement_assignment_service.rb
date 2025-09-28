@@ -10,7 +10,7 @@ class ReimbursementAssignmentService
   # @return [ReimbursementAssignment] 创建的分配记录
   def assign(reimbursement_id, assignee_id, notes = nil)
     reimbursement = Reimbursement.find(reimbursement_id)
-    assignee = AdminUser.find(assignee_id)
+    assignee = AdminUser.available.find(assignee_id)  # 只选择可用的用户（非删除状态）
     
     # 先取消该报销单的其他活跃分配
     ReimbursementAssignment.where(reimbursement_id: reimbursement_id, is_active: true)
@@ -39,7 +39,7 @@ class ReimbursementAssignmentService
   # @param notes [String] 分配备注
   # @return [Array<ReimbursementAssignment>] 创建的分配记录数组
   def batch_assign(reimbursement_ids, assignee_id, notes = nil)
-    assignee = AdminUser.find(assignee_id)
+    assignee = AdminUser.available.find(assignee_id)  # 只选择可用的用户（非删除状态）
     assignments = []
     
     Reimbursement.where(id: reimbursement_ids).find_each do |reimbursement|
@@ -87,7 +87,7 @@ class ReimbursementAssignmentService
   # @return [ReimbursementAssignment] 创建的分配记录
   def transfer(reimbursement_id, new_assignee_id, notes = nil)
     reimbursement = Reimbursement.find(reimbursement_id)
-    new_assignee = AdminUser.find(new_assignee_id)
+    new_assignee = AdminUser.available.find(new_assignee_id)  # 只选择可用的用户（非删除状态）
     
     # 获取当前分配
     current_assignment = reimbursement.active_assignment

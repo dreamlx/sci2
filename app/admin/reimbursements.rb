@@ -139,7 +139,7 @@ ActiveAdmin.register Reimbursement do
   filter :document_tags, label: "单据标签", as: :string
   filter :created_at
   filter :approval_date
-  filter :current_assignee_id, as: :select, collection: -> { AdminUser.all.map { |u| [u.name.presence || u.email, u.id] } }, label: "Current Assignee"
+  filter :current_assignee_id, as: :select, collection: -> { AdminUser.available.map { |u| [u.name.presence || u.email, u.id] } }, label: "Current Assignee"
   filter :with_unread_updates, label: '有新通知', as: :boolean
 
   # 列表页范围过滤器 - 使用标准ActiveRecord scope确保计数一致性
@@ -191,7 +191,7 @@ ActiveAdmin.register Reimbursement do
                },
                form: -> {
     {
-      assignee: AdminUser.all.map { |u| [u.email, u.id] },
+      assignee: AdminUser.available.map { |u| [u.email, u.id] },
       notes: :text
     }
   } do |ids, inputs|

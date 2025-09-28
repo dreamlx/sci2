@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_17_26_000023) do
+ActiveRecord::Schema[7.1].define(version: 2025_17_26_000024) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -61,11 +61,15 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000023) do
     t.datetime "remember_created_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.string "role"
     t.string "name"
     t.string "telephone"
+    t.string "role"
+    t.string "status", default: "active", null: false
+    t.datetime "deleted_at"
+    t.index ["deleted_at"], name: "index_admin_users_on_deleted_at"
     t.index ["email"], name: "index_admin_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_admin_users_on_reset_password_token", unique: true
+    t.index ["status"], name: "index_admin_users_on_status"
   end
 
   create_table "communication_records", force: :cascade do |t|
@@ -91,7 +95,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000023) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.text "notes"
-    t.string "external_fee_id", null: false
+    t.string "external_fee_id"
     t.string "plan_or_pre_application"
     t.string "product"
     t.string "flex_field_11"
@@ -99,21 +103,9 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000023) do
     t.string "expense_associated_application"
     t.string "flex_field_6"
     t.string "flex_field_7"
-    t.boolean "is_attachment", default: false, null: false
-    t.string "attachment_file_name", limit: 255
-    t.string "attachment_file_path", limit: 500
-    t.string "attachment_content_type", limit: 100
-    t.integer "attachment_file_size"
-    t.text "attachment_description"
-    t.integer "uploaded_by"
-    t.string "invoice_number"
-    t.index ["document_number", "is_attachment"], name: "idx_fee_details_document_attachment"
     t.index ["document_number"], name: "index_fee_details_on_document_number"
     t.index ["external_fee_id"], name: "index_fee_details_on_external_fee_id", unique: true
-    t.index ["external_fee_id"], name: "index_fee_details_on_external_fee_id_unique", unique: true
     t.index ["fee_date"], name: "index_fee_details_on_fee_date"
-    t.index ["is_attachment"], name: "index_fee_details_on_is_attachment"
-    t.index ["uploaded_by"], name: "index_fee_details_on_uploaded_by"
     t.index ["verification_status"], name: "index_fee_details_on_verification_status"
   end
 
@@ -139,15 +131,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000023) do
     t.text "notes"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.string "import_batch_id"
-    t.text "imported_record_ids"
-    t.string "import_source_file"
-    t.integer "admin_user_id"
-    t.text "import_summary"
-    t.index ["admin_user_id"], name: "index_import_performances_on_admin_user_id"
     t.index ["created_at"], name: "index_import_performances_on_created_at"
-    t.index ["import_batch_id"], name: "index_import_performances_on_import_batch_id"
-    t.index ["operation_type", "created_at"], name: "index_import_performances_on_operation_type_and_created_at"
     t.index ["operation_type"], name: "index_import_performances_on_operation_type"
     t.index ["optimization_level"], name: "index_import_performances_on_optimization_level"
   end
@@ -243,22 +227,18 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000023) do
     t.datetime "erp_node_entry_time"
     t.datetime "erp_first_submitted_at"
     t.string "erp_flexible_field_8"
-    t.datetime "last_viewed_operation_histories_at"
-    t.datetime "last_viewed_express_receipts_at"
-    t.boolean "has_updates", default: false, null: false
-    t.datetime "last_update_at"
-    t.datetime "last_viewed_at"
     t.boolean "manual_override", default: false, null: false
     t.datetime "manual_override_at"
     t.string "last_external_status", limit: 50
+    t.datetime "last_viewed_operation_histories_at"
+    t.datetime "last_viewed_express_receipts_at"
+    t.datetime "last_viewed_at"
+    t.datetime "last_update_at"
+    t.boolean "has_updates", default: false, null: false
     t.index ["external_status"], name: "index_reimbursements_on_external_status"
-    t.index ["has_updates", "last_update_at"], name: "index_reimbursements_on_notification_status"
-    t.index ["has_updates"], name: "index_reimbursements_on_has_updates"
     t.index ["invoice_number"], name: "index_reimbursements_on_invoice_number", unique: true
     t.index ["is_electronic"], name: "index_reimbursements_on_is_electronic"
     t.index ["last_external_status"], name: "index_reimbursements_on_last_external_status"
-    t.index ["last_update_at"], name: "index_reimbursements_on_last_update_at"
-    t.index ["last_viewed_at"], name: "index_reimbursements_on_last_viewed_at"
     t.index ["last_viewed_express_receipts_at"], name: "index_reimbursements_on_last_viewed_express_receipts_at"
     t.index ["last_viewed_operation_histories_at"], name: "index_reimbursements_on_last_viewed_operation_histories_at"
     t.index ["manual_override"], name: "index_reimbursements_on_manual_override"
@@ -355,8 +335,6 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000023) do
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "communication_records", "work_orders", column: "communication_work_order_id"
-  add_foreign_key "fee_details", "admin_users", column: "uploaded_by", on_delete: :nullify
-  add_foreign_key "import_performances", "admin_users"
   add_foreign_key "problem_types", "fee_types"
   add_foreign_key "reimbursement_assignments", "admin_users", column: "assignee_id"
   add_foreign_key "reimbursement_assignments", "admin_users", column: "assigner_id"

@@ -24,7 +24,7 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
   filter :received_at
   filter :creator
   filter :created_at
-  filter :reimbursement_current_assignee_id, as: :select, collection: -> { AdminUser.all.map { |u| [u.name.presence || u.email, u.id] } }, label: "Current Assignee"
+  filter :reimbursement_current_assignee_id, as: :select, collection: -> { AdminUser.available.map { |u| [u.name.presence || u.email, u.id] } }, label: "Current Assignee"
   filter :filling_id
 
   # 批量操作
