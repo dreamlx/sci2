@@ -60,8 +60,7 @@ class Ability
     end
     
     # 全局限制：不能对已删除的用户执行任何操作
-    cannot :manage, AdminUser do |user|
-      user.deleted? && user.id != admin_user.id
-    end
+    # 由于CanCan的accessible_by限制，我们改为在查询层面处理
+    # 具体逻辑在AdminUser模型的scope中实现
   end
 end

@@ -23,6 +23,7 @@ class AdminUser < ApplicationRecord
   scope :available, -> { where(status: ['active', 'inactive', 'suspended']) }
   scope :deleted, -> { where.not(deleted_at: nil) }
   scope :active_users, -> { where(status: 'active') }
+  scope :exclude_deleted, -> { where.not(status: 'deleted').or(where(deleted_at: nil)) }
 
   # Callbacks
   after_create :assign_super_admin_role, if: -> { AdminUser.count == 1 }

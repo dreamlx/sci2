@@ -3,11 +3,26 @@ ActiveAdmin.register AdminUser do
 
   menu priority: 10, label: "管理员用户"
 
+  # 重写默认的查询范围，排除已删除的用户
+  controller do
+    def scoped_collection
+      end_of_association_chain.exclude_deleted
+    end
+  end
+
   # Scopes for filtering
-  scope :all, default: true
-  scope :active_users
-  scope :available
-  scope :deleted
+  scope :all, default: true do |users|
+    users.exclude_deleted
+  end
+  scope :active_users do |users|
+    users.exclude_deleted.active_users
+  end
+  scope :available do |users|
+    users.exclude_deleted.available
+  end
+  scope :deleted do |users|
+    users.deleted
+  end
 
   index do
     selectable_column
@@ -16,7 +31,18 @@ ActiveAdmin.register AdminUser do
     column :name
     column :role
     column :status do |user|
-      status_tag user.status_display, class: status_class_for_user(user)
+      status_tag user.status_display, class: (case user.status
+      when 'active'
+        'ok'
+      when 'inactive'
+        'warning'
+      when 'suspended'
+        'error'
+      when 'deleted'
+        'error'
+      else
+        ''
+      end)
     end
     column :telephone
     column :current_sign_in_at
