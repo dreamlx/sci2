@@ -64,3 +64,7 @@ docs/user_data/*.xlsx
 /test_*.rb
 !/test//db/*.sqlite3
 /db_backup/
+
+# SQLite临时文件
+db/*.sqlite3-shm
+db/*.sqlite3-wal
