@@ -53,7 +53,7 @@ group :development do
 end
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
-  gem "tzinfo-data"
+gem "tzinfo-data", platforms: [:mingw, :mswin, :x64_mingw, :jruby]
 group :development, :test do
   gem 'shoulda-matchers'
   gem 'factory_bot_rails'
@@ -85,7 +85,6 @@ gem 'activerecord-session_store'
 gem 'cancancan'
 
 # Authorization gem for role-based permissions
-gem 'cancancan'
 
 # Capistrano Puma integration
 
