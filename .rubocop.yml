@@ -1,6 +1,3 @@
-inherit_gem:
-  rubocop-rails:
-    - config/default.yml
 
 AllCops:
   NewCops: enable
@@ -57,11 +54,3 @@ Metrics/ClassLength:
 Metrics/AbcSize:
   Max: 30
 
-Rails/HasAndBelongsToMany:
-  Enabled: true
-
-Rails/SkipsModelValidations:
-  Enabled: false
-
-Rails/HelperInstanceVariable:
-  Enabled: true
