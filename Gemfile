@@ -6,6 +6,7 @@ ruby "3.4.2"
 # === CORE ===================================================================
 gem "activeadmin"
 gem "activeadmin_addons"
+gem "activerecord-session_store"
 gem "activerecord-transactionable"
 gem "bootsnap", require: false
 gem "cancancan"
@@ -15,7 +16,7 @@ gem "image_processing", "~> 1.2"
 gem "jbuilder"
 gem "paper_trail"
 gem "pg", "~> 1.1"
-gem "puma", "~> 5.0"
+gem "puma", "~> 6.0"
 gem "rails", "~> 7.1.3"
 gem "ransack", "~> 4.1.1"
 gem "roo", "~> 2.10.0"
@@ -56,5 +57,6 @@ group :test do
   gem "capybara"
   gem "rails-controller-testing"
   gem "selenium-webdriver"
+  gem "sqlite3", "~> 1.4"
   gem "webdrivers"
 end

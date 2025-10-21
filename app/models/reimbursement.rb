@@ -380,5 +380,4 @@ class Reimbursement < ApplicationRecord
 
   # 保留原有方法以确保向后兼容
   alias_method :has_unviewed_records?, :has_unread_updates?
-  end
 end

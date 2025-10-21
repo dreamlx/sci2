@@ -1,33 +1,13 @@
 ActiveAdmin.register Reimbursement do
   # 添加附件上传的成员动作
   member_action :upload_attachment, method: :post do
-    authorize! :upload_attachment, resource
-    begin
-      # 生成唯一的 external_fee_id，使用 ATTACHMENT_ 前缀确保不与导入数据冲突
-      external_fee_id = "ATTACHMENT_#{resource.invoice_number}_#{Time.current.strftime('%Y%m%d%H%M%S')}_#{SecureRandom.hex(3).upcase}"
-      
-      # 创建费用明细记录
-      fee_detail = FeeDetail.new(
-        document_number: resource.invoice_number,
-        external_fee_id: external_fee_id,
-        fee_type: 'ATTACHMENT_EVIDENCE',
-        amount: 0.00,
-        verification_status: 'pending',
-        notes: params[:notes]
-      )
-      
-      # 添加附件
-      if params[:attachments].present?
-        fee_detail.attachments.attach(params[:attachments])
-      end
-      
-      if fee_detail.save
-        redirect_to admin_reimbursement_path(resource), notice: "附件上传成功！已创建费用明细 ##{fee_detail.id}"
-      else
-        redirect_to admin_reimbursement_path(resource), alert: "上传失败：#{fee_detail.errors.full_messages.join(', ')}"
-      end
-    rescue => e
-      redirect_to admin_reimbursement_path(resource), alert: "上传出错：#{e.message}"
+    service = AttachmentUploadService.new(resource, params)
+    result = service.upload
+
+    if result[:success]
+      redirect_to admin_reimbursement_path(resource), notice: "附件上传成功！已创建费用明细 ##{result[:fee_detail].id}"
+    else
+      redirect_to admin_reimbursement_path(resource), alert: "上传失败：#{result[:error]}"
     end
   end
   permit_params :invoice_number, :document_name, :applicant, :applicant_id, :company, :department,

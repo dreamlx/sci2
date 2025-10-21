@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add .)"
+      "Bash(git add .)",
+      "Bash(git commit -m \"feat: Complete Phase 0 - Establish Foundation & Safety Net\n\n- Resolve Gemfile dependency conflicts for a stable build\n- Generate a baseline RuboCop configuration for code quality\n- Create a test-driven safety net for the Reimbursement model\")",
+      "Bash(bundle exec rubocop app/models --format json)",
+      "Bash(git add .rubocop.yml app/models/ability.rb app/models/reimbursement.rb app/models/work_order.rb)",
+      "Bash(git commit -m \"refactor: Clean up major models with RuboCop\n\n- Apply automated refactoring to ability.rb, work_order.rb, and reimbursement.rb.\n- Fix RuboCop offenses related to style, layout, and complexity.\n- Update .rubocop.yml to allow for a clean run.\")",
+      "Bash(git push origin feature/example-rebase)",
+      "Bash(bundle exec rspec spec/services/attachment_upload_service_spec.rb)",
+      "Bash(bundle exec rspec spec/models/reimbursement_spec.rb --dry-run)",
+      "Bash(bundle exec rspec spec/services/attachment_upload_service_spec.rb:19 --format documentation)",
+      "Bash(bundle exec rspec spec/services/attachment_upload_service_spec.rb:19)"
     ],
     "deny": [],
     "ask": []
