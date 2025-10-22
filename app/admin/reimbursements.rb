@@ -802,38 +802,46 @@ ActiveAdmin.register Reimbursement do
 
   # Manual Override Controls - 手动状态覆盖控制
   member_action :manual_set_pending, method: :put do
-    begin
-      resource.manual_status_change!('pending')
-      redirect_to admin_reimbursement_path(resource), notice: "状态已手动设置为：待处理 (手动覆盖)"
-    rescue => e
-      redirect_to admin_reimbursement_path(resource), alert: "手动状态更改失败: #{e.message}"
+    service = ReimbursementStatusOverrideService.new(current_admin_user)
+    result = service.set_status(resource, 'pending')
+
+    if result.success?
+      redirect_to admin_reimbursement_path(resource), notice: result.message
+    else
+      redirect_to admin_reimbursement_path(resource), alert: result.message
     end
   end
 
   member_action :manual_set_processing, method: :put do
-    begin
-      resource.manual_status_change!('processing')
-      redirect_to admin_reimbursement_path(resource), notice: "状态已手动设置为：处理中 (手动覆盖)"
-    rescue => e
-      redirect_to admin_reimbursement_path(resource), alert: "手动状态更改失败: #{e.message}"
+    service = ReimbursementStatusOverrideService.new(current_admin_user)
+    result = service.set_status(resource, 'processing')
+
+    if result.success?
+      redirect_to admin_reimbursement_path(resource), notice: result.message
+    else
+      redirect_to admin_reimbursement_path(resource), alert: result.message
     end
   end
 
   member_action :manual_set_closed, method: :put do
-    begin
-      resource.manual_status_change!('closed')
-      redirect_to admin_reimbursement_path(resource), notice: "状态已手动设置为：已关闭 (手动覆盖)"
-    rescue => e
-      redirect_to admin_reimbursement_path(resource), alert: "手动状态更改失败: #{e.message}"
+    service = ReimbursementStatusOverrideService.new(current_admin_user)
+    result = service.set_status(resource, 'closed')
+
+    if result.success?
+      redirect_to admin_reimbursement_path(resource), notice: result.message
+    else
+      redirect_to admin_reimbursement_path(resource), alert: result.message
     end
   end
 
   member_action :reset_manual_override, method: :put do
-    begin
-      resource.reset_manual_override!
-      redirect_to admin_reimbursement_path(resource), notice: "手动覆盖已重置，状态将根据系统逻辑自动确定"
-    rescue => e
-      redirect_to admin_reimbursement_path(resource), alert: "重置手动覆盖失败: #{e.message}"
+    service = ReimbursementStatusOverrideService.new(current_admin_user)
+    result = service.reset_override(resource)
+
+    if result.success?
+      redirect_to admin_reimbursement_path(resource), notice: result.message
+    else
+      redirect_to admin_reimbursement_path(resource), alert: result.message
     end
   end
   

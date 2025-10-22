@@ -17,7 +17,14 @@
       "Bash(ruby -c spec/services/reimbursement_scope_service_spec.rb)",
       "Bash(bundle exec rspec spec/services/reimbursement_scope_service_spec.rb)",
       "Bash(bundle exec rspec spec/services/ --format progress)",
-      "Bash(bundle exec rspec spec/services/attachment_upload_service_spec.rb spec/services/reimbursement_scope_service_spec.rb --format documentation)"
+      "Bash(bundle exec rspec spec/services/attachment_upload_service_spec.rb spec/services/reimbursement_scope_service_spec.rb --format documentation)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: Extract scoped_collection logic into dedicated service object\n\n- Create ReimbursementScopeService to encapsulate complex permission and filtering logic\n- Add comprehensive RSpec tests with 100% coverage for all scope scenarios\n- Refactor the scoped_collection method in app/admin/reimbursements.rb to use the new service\n- Simplify controller logic from 30+ lines to 3 lines while maintaining all functionality\n- Support all existing scopes: assigned_to_me, with_unread_updates, pending/processing/closed, unassigned, all\n- Maintain special handling for single record view (params[:id] present)\n\nThis refactoring significantly improves the Single Responsibility Principle by moving complex business logic out of the ActiveAdmin controller and into a dedicated, testable service object.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "mcp__serena__find_file",
+      "Bash(bundle exec rspec spec/services/reimbursement_status_override_service_spec.rb -v)",
+      "Bash(bundle exec rspec spec/services/reimbursement_status_override_service_spec.rb)",
+      "Bash(ruby -c app/services/reimbursement_status_override_service.rb)",
+      "Bash(ruby -c spec/services/reimbursement_status_override_service_spec.rb)",
+      "Bash(bundle exec rspec spec/services/attachment_upload_service_spec.rb spec/services/reimbursement_scope_service_spec.rb spec/services/reimbursement_status_override_service_spec.rb --format progress)"
     ],
     "deny": [],
     "ask": []
