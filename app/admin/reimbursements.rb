@@ -147,8 +147,9 @@ ActiveAdmin.register Reimbursement do
       notes: :text
     }
   } do |ids, inputs|
-    unless current_admin_user.super_admin?
-      redirect_to collection_path, alert: '您没有权限执行分配操作，请联系超级管理员'
+    policy = ReimbursementPolicy.new(current_admin_user)
+    unless policy.can_batch_assign?
+      redirect_to collection_path, alert: policy.authorization_error_message(action: :batch_assign)
       return
     end
     
@@ -201,7 +202,7 @@ ActiveAdmin.register Reimbursement do
   end
 
   # Manual Override Controls - 手动状态覆盖控制按钮
-  action_item :manual_override_section, label: "手动状态控制", only: :show, priority: 10, if: proc { current_admin_user.super_admin? } do
+  action_item :manual_override_section, label: "手动状态控制", only: :show, priority: 10, if: proc { ReimbursementPolicy.new(current_admin_user).can_manual_override? } do
     content_tag :div, class: "manual-override-controls", style: "margin: 10px 0; padding: 10px; border: 2px solid #ff6b35; border-radius: 5px; background-color: #fff3f0;" do
       content_tag(:h4, "⚠️ 手动状态覆盖控制", style: "margin: 0 0 10px 0; color: #ff6b35;") +
       content_tag(:p, "注意：手动状态更改将覆盖系统自动逻辑，请谨慎使用！", style: "margin: 0 0 10px 0; font-size: 12px; color: #666;") +
@@ -319,22 +320,15 @@ ActiveAdmin.register Reimbursement do
   index do
     # 添加角色和权限提示信息
     div class: "role_notice_panel" do
-      role_display = case current_admin_user.role
-                     when 'admin'
-                       '普通管理员'
-                     when 'super_admin'
-                       '超级管理员'
-                     else
-                       '未知角色'
-                     end
-      
+      policy = ReimbursementPolicy.new(current_admin_user)
+
       div class: "role_info" do
-        span "当前角色: #{role_display}", class: "role_badge"
+        span "当前角色: #{policy.role_display_name}", class: "role_badge"
       end
-      
-      unless current_admin_user.super_admin?
+
+      unless policy.can_assign?
         div class: "permission_notice" do
-          span '您没有权限执行分配操作，请联系超级管理员', class: "warning_text"
+          span policy.authorization_error_message(action: :assign), class: "warning_text"
         end
       end
     end
@@ -802,8 +796,13 @@ ActiveAdmin.register Reimbursement do
 
   # Manual Override Controls - 手动状态覆盖控制
   member_action :manual_set_pending, method: :put do
-    service = ReimbursementStatusOverrideService.new(current_admin_user)
-    result = service.set_status(resource, 'pending')
+    command = Commands::SetReimbursementStatusCommand.new(
+      reimbursement_id: resource.id,
+      status: 'pending',
+      current_user: current_admin_user
+    )
+
+    result = command.call
 
     if result.success?
       redirect_to admin_reimbursement_path(resource), notice: result.message
@@ -813,8 +812,13 @@ ActiveAdmin.register Reimbursement do
   end
 
   member_action :manual_set_processing, method: :put do
-    service = ReimbursementStatusOverrideService.new(current_admin_user)
-    result = service.set_status(resource, 'processing')
+    command = Commands::SetReimbursementStatusCommand.new(
+      reimbursement_id: resource.id,
+      status: 'processing',
+      current_user: current_admin_user
+    )
+
+    result = command.call
 
     if result.success?
       redirect_to admin_reimbursement_path(resource), notice: result.message
@@ -824,8 +828,13 @@ ActiveAdmin.register Reimbursement do
   end
 
   member_action :manual_set_closed, method: :put do
-    service = ReimbursementStatusOverrideService.new(current_admin_user)
-    result = service.set_status(resource, 'closed')
+    command = Commands::SetReimbursementStatusCommand.new(
+      reimbursement_id: resource.id,
+      status: 'closed',
+      current_user: current_admin_user
+    )
+
+    result = command.call
 
     if result.success?
       redirect_to admin_reimbursement_path(resource), notice: result.message
@@ -835,8 +844,12 @@ ActiveAdmin.register Reimbursement do
   end
 
   member_action :reset_manual_override, method: :put do
-    service = ReimbursementStatusOverrideService.new(current_admin_user)
-    result = service.reset_override(resource)
+    command = Commands::ResetReimbursementOverrideCommand.new(
+      reimbursement_id: resource.id,
+      current_user: current_admin_user
+    )
+
+    result = command.call
 
     if result.success?
       redirect_to admin_reimbursement_path(resource), notice: result.message
@@ -851,20 +864,28 @@ ActiveAdmin.register Reimbursement do
       redirect_to admin_reimbursement_path(resource), alert: '您没有权限执行分配操作，请联系超级管理员'
       return
     end
-    
-    service = ReimbursementAssignmentService.new(current_admin_user)
-    assignment = service.assign(resource.id, params[:assignee_id], params[:notes])
-    
-    if assignment
+
+    command = Commands::AssignReimbursementCommand.new(
+      reimbursement_id: resource.id,
+      assignee_id: params[:assignee_id],
+      notes: params[:notes],
+      current_user: current_admin_user
+    )
+
+    result = command.call
+
+    if result.success?
+      assignment = result.data
       redirect_to admin_reimbursement_path(resource), notice: "报销单已分配给 #{assignment.assignee.email}"
     else
-      redirect_to admin_reimbursement_path(resource), alert: "报销单分配失败"
+      redirect_to admin_reimbursement_path(resource), alert: "报销单分配失败: #{result.message}"
     end
   end
   
   member_action :transfer_assignment, method: :post do
-    unless current_admin_user.super_admin?
-      redirect_to admin_reimbursement_path(resource), alert: '您没有权限执行分配操作，请联系超级管理员'
+    policy = ReimbursementPolicy.new(current_admin_user)
+    unless policy.can_transfer_assignment?
+      redirect_to admin_reimbursement_path(resource), alert: policy.authorization_error_message(action: :transfer_assignment)
       return
     end
     
@@ -879,8 +900,9 @@ ActiveAdmin.register Reimbursement do
   end
   
   member_action :unassign, method: :post do
-    unless current_admin_user.super_admin?
-      redirect_to admin_reimbursement_path(resource), alert: '您没有权限执行分配操作，请联系超级管理员'
+    policy = ReimbursementPolicy.new(current_admin_user)
+    unless policy.can_unassign?
+      redirect_to admin_reimbursement_path(resource), alert: policy.authorization_error_message(action: :unassign)
       return
     end
     
@@ -899,8 +921,9 @@ ActiveAdmin.register Reimbursement do
   
   # 快速分配 - 直接进行权限检查
   collection_action :quick_assign, method: :post do
-    unless current_admin_user.super_admin?
-      redirect_to admin_dashboard_path, alert: '您没有权限执行分配操作，请联系超级管理员'
+    policy = ReimbursementPolicy.new(current_admin_user)
+    unless policy.can_assign?
+      redirect_to admin_dashboard_path, alert: policy.authorization_error_message(action: :assign)
       return
     end
     

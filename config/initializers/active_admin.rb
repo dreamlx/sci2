@@ -217,8 +217,8 @@ ActiveAdmin.setup do |config|
   # Register custom JavaScript files for work order forms
   config.register_javascript 'audit_work_order_form.js'
   config.register_javascript 'communication_work_order_form.js'
-  config.register_javascript 'chartkick'
-  config.register_javascript 'Chart.bundle'
+  # config.register_javascript 'chartkick'
+  # config.register_javascript 'Chart.bundle'
   config.register_javascript 'active_admin_custom.js'
   
   # Register custom CSS files

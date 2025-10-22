@@ -44,5 +44,10 @@ class ReimbursementScopeService
     end
   end
 
+  # Alias for filtered_collection to maintain compatibility
+  def scoped_collection(end_of_association_chain)
+    filtered_collection(end_of_association_chain)
+  end
+
   private
 end

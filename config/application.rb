@@ -29,6 +29,13 @@ module Sci2
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
 
+    # Add app/commands, app/policies, and app/repositories to autoload paths
+    config.autoload_paths += [
+      Rails.root.join("app", "commands"),
+      Rails.root.join("app", "policies"),
+      Rails.root.join("app", "repositories")
+    ]
+
     # Set the default locale to Chinese
     config.i18n.default_locale = :'zh-CN'
 

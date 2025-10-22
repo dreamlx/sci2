@@ -1,3 +1,5 @@
+require_relative '../repositories/reimbursement_repository'
+
 class ReimbursementAssignmentService
   def initialize(current_admin_user)
     @current_admin_user = current_admin_user
@@ -9,9 +11,9 @@ class ReimbursementAssignmentService
   # @param notes [String] 分配备注
   # @return [ReimbursementAssignment] 创建的分配记录
   def assign(reimbursement_id, assignee_id, notes = nil)
-    reimbursement = Reimbursement.find(reimbursement_id)
+    reimbursement = ReimbursementRepository.find(reimbursement_id)
     assignee = AdminUser.available.find(assignee_id)  # 只选择可用的用户（非删除状态）
-    
+
     # 先取消该报销单的其他活跃分配
     ReimbursementAssignment.where(reimbursement_id: reimbursement_id, is_active: true)
                           .update_all(is_active: false)
@@ -41,8 +43,8 @@ class ReimbursementAssignmentService
   def batch_assign(reimbursement_ids, assignee_id, notes = nil)
     assignee = AdminUser.available.find(assignee_id)  # 只选择可用的用户（非删除状态）
     assignments = []
-    
-    Reimbursement.where(id: reimbursement_ids).find_each do |reimbursement|
+
+    ReimbursementRepository.find_each_by_ids(reimbursement_ids) do |reimbursement|
       # 先取消该报销单的其他活跃分配
       ReimbursementAssignment.where(reimbursement_id: reimbursement.id, is_active: true)
                             .update_all(is_active: false)
@@ -86,7 +88,7 @@ class ReimbursementAssignmentService
   # @param notes [String] 分配备注
   # @return [ReimbursementAssignment] 创建的分配记录
   def transfer(reimbursement_id, new_assignee_id, notes = nil)
-    reimbursement = Reimbursement.find(reimbursement_id)
+    reimbursement = ReimbursementRepository.find(reimbursement_id)
     new_assignee = AdminUser.available.find(new_assignee_id)  # 只选择可用的用户（非删除状态）
     
     # 获取当前分配
