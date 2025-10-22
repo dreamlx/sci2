@@ -10,7 +10,14 @@
       "Bash(bundle exec rspec spec/services/attachment_upload_service_spec.rb)",
       "Bash(bundle exec rspec spec/models/reimbursement_spec.rb --dry-run)",
       "Bash(bundle exec rspec spec/services/attachment_upload_service_spec.rb:19 --format documentation)",
-      "Bash(bundle exec rspec spec/services/attachment_upload_service_spec.rb:19)"
+      "Bash(bundle exec rspec spec/services/attachment_upload_service_spec.rb:19)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: Extract attachment upload logic into a dedicated Service Object\n\n- Create AttachmentUploadService to encapsulate the business logic of uploading attachments.\n- Add corresponding RSpec tests with 100% coverage for the service.\n- Refactor the upload_attachment member action in app/admin/reimbursements.rb to use the new service.\n- Fix test suite dependencies: upgrade Puma to 6.0, add activerecord-session_store and sqlite3 gems, and update RSpec configuration.\n- Resolves an issue with the FeeDetail model having an extra ''end'' statement.\n\nThis refactoring improves the Single Responsibility Principle by moving complex business logic out of the \"Fat Controller\" and into a dedicated, testable service object.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(bundle exec rspec spec/services/reimbursement_scope_service_spec.rb --format documentation)",
+      "Bash(ruby -c app/services/reimbursement_scope_service.rb)",
+      "Bash(ruby -c spec/services/reimbursement_scope_service_spec.rb)",
+      "Bash(bundle exec rspec spec/services/reimbursement_scope_service_spec.rb)",
+      "Bash(bundle exec rspec spec/services/ --format progress)",
+      "Bash(bundle exec rspec spec/services/attachment_upload_service_spec.rb spec/services/reimbursement_scope_service_spec.rb --format documentation)"
     ],
     "deny": [],
     "ask": []

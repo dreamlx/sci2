@@ -64,36 +64,8 @@ ActiveAdmin.register Reimbursement do
     
     # 简化的scope逻辑 - 统一所有角色的权限处理
     def scoped_collection
-      # 如果是查看单个报销单（show action），则不应用任何scope，直接返回所有报销单
-      # 这样可以确保即使报销单未分配给当前用户，也能通过ID查看到
-      if params[:id].present?
-        return end_of_association_chain
-      end
-
-      # 获取当前选择的scope
-      current_scope = params[:scope]
-      
-      # 根据不同的scope应用相应的过滤器
-      case current_scope
-      when 'assigned_to_me'
-        # "分配给我的"scope - 显示分配给当前用户的报销单
-        end_of_association_chain.assigned_to_user(current_admin_user.id)
-      when 'with_unread_updates'
-        # "有新通知"scope - 只显示分配给当前用户且有未读更新的报销单
-        end_of_association_chain.assigned_with_unread_updates(current_admin_user.id)
-      when 'pending', 'processing', 'closed'
-        # 状态相关的scope - 只显示分配给当前用户且状态匹配的报销单
-        end_of_association_chain.assigned_to_user(current_admin_user.id).where(status: current_scope)
-      when 'unassigned'
-        # "未分配的"scope - 显示未分配的报销单，所有角色都可以看到
-        end_of_association_chain.left_joins(:active_assignment).where(reimbursement_assignments: { id: nil }, status: 'pending')
-      when 'all', nil, ''
-        # "所有"scope或空参数 - 显示所有报销单
-        end_of_association_chain
-      else
-        # 其他scope - 默认显示所有报销单
-        end_of_association_chain
-      end
+      service = ReimbursementScopeService.new(current_admin_user, params)
+      service.filtered_collection(end_of_association_chain)
     end
   end
 
