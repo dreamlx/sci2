@@ -1,6 +1,6 @@
 require 'simplecov'
 
-# SimpleCov configuration
+# SimpleCov configuration with migration monitoring
 SimpleCov.start 'rails' do
   # Minimum coverage threshold
   minimum_coverage 85
@@ -9,14 +9,58 @@ SimpleCov.start 'rails' do
   add_group 'Models', 'app/models'
   add_group 'Services', 'app/services'
   add_group 'Controllers', 'app/controllers'
+  add_group 'Commands', 'app/commands'
+  add_group 'Policies', 'app/policies'
+  add_group 'Repositories', 'app/repositories'
   add_group 'Libraries', 'app/lib'
   add_group 'Helpers', 'app/helpers'
+
+  # Migration monitoring groups
+  add_group 'New Architecture' do |file|
+    file.filename.include?('app/services/') ||
+    file.filename.include?('app/commands/') ||
+    file.filename.include?('app/policies/') ||
+    file.filename.include?('app/repositories/')
+  end
+
+  add_group 'Legacy Controllers' do |file|
+    file.filename.include?('app/controllers/') &&
+    !file.filename.include?('app/controllers/concerns/')
+  end
+
+  add_group 'Legacy Models' do |file|
+    file.filename.include?('app/models/') &&
+    !file.filename.match?(/concern|policy|repository/)
+  end
+
+  # Test coverage groups
+  add_group 'New Architecture Tests' do |file|
+    file.filename.include?('spec/services/') ||
+    file.filename.include?('spec/commands/') ||
+    file.filename.include?('spec/policies/') ||
+    file.filename.include?('spec/repositories/')
+  end
+
+  add_group 'Legacy Tests' do |file|
+    file.filename.include?('spec/controllers/') ||
+    file.filename.include?('spec/models/') ||
+    file.filename.include?('spec/features/') ||
+    file.filename.include?('spec/system/') ||
+    file.filename.include?('spec/requests/')
+  end
+
+  add_group 'Migration Target' do |file|
+    file.filename.include?('spec/controllers/') ||
+    file.filename.include?('spec/models/') ||
+    file.filename.include?('spec/features/')
+  end
 
   # Exclude files from coverage
   add_filter '/spec/'
   add_filter '/config/'
   add_filter '/vendor/'
   add_filter '/db/'
+  add_filter 'test_migration/'
 
   # Track files that have no coverage
   track_files '{app,lib}/**/*.rb'
