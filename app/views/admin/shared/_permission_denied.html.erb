@@ -1,0 +1,116 @@
+<div class="permission-denied-notice">
+  <div class="permission-notice error">
+    <div class="permission-icon">🔒</div>
+    <div class="permission-content">
+      <h4>权限不足</h4>
+      <p><%= message %></p>
+
+      <% if current_admin_user %>
+        <div class="current-user-info">
+          <strong>当前角色：</strong>
+          <span class="role-badge <%= current_admin_user.role %>">
+            <%= current_admin_user.role == 'super_admin' ? '超级管理员' :
+                   current_admin_user.role == 'admin' ? '管理员' : '未知角色' %>
+          </span>
+        </div>
+
+        <% if action == :assign || action == :batch_assign %>
+          <div class="permission-help">
+            <p><strong>需要帮助？</strong></p>
+            <ul>
+              <li>如需分配权限，请联系系统超级管理员</li>
+              <li>分配操作需要超级管理员权限</li>
+              <li>您当前只能查看和编辑已分配给您的报销单</li>
+            </ul>
+          </div>
+        <% end %>
+      <% else %>
+        <div class="login-prompt">
+          <p>请先登录系统。</p>
+          <%= link_to "返回登录", new_admin_user_session_path, class: "button" %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</div>
+
+<style>
+.permission-denied-notice {
+  margin: 20px 0;
+}
+
+.permission-denied-notice .permission-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 8px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.permission-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.permission-content h4 {
+  margin: 0 0 8px 0;
+  color: #dc2626;
+  font-size: 16px;
+}
+
+.permission-content p {
+  margin: 0 0 12px 0;
+  color: #7f1d1d;
+  line-height: 1.5;
+}
+
+.current-user-info {
+  margin: 12px 0;
+  padding: 8px 12px;
+  background-color: #ffffff;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+}
+
+.permission-help {
+  margin-top: 12px;
+  padding: 12px;
+  background-color: #f9fafb;
+  border-radius: 4px;
+  border-left: 4px solid #3b82f6;
+}
+
+.permission-help p {
+  margin: 0 0 8px 0;
+  color: #374151;
+}
+
+.permission-help ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #6b7280;
+}
+
+.permission-help li {
+  margin-bottom: 4px;
+}
+
+.login-prompt {
+  margin-top: 12px;
+}
+
+.login-prompt .button {
+  background-color: #3b82f6;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.login-prompt .button:hover {
+  background-color: #2563eb;
+}
+</style>

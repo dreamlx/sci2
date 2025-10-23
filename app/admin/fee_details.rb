@@ -1,15 +1,19 @@
 ActiveAdmin.register FeeDetail do
   actions :index, :show, :edit, :update, :create, :new
-  
+
+  menu priority: 3, label: "费用明细管理", if: proc {
+    FeeDetailPolicy.new(current_admin_user).can_index?
+  }
+
   # 允许附件参数
   permit_params :document_number, :fee_type, :amount, :fee_date,
                 :verification_status, :notes, :external_fee_id,
                 :month_belonging, :first_submission_date, :plan_or_pre_application,
                 :product, :flex_field_6, :flex_field_7, :expense_corresponding_plan,
                 :expense_associated_application, attachments: []
-  
-  # 启用批量操作功能
-  config.batch_actions = true
+
+  # 启用批量操作功能 - 基于权限控制
+  config.batch_actions = FeeDetailPolicy.new(AdminUser.new).can_batch_operations?
   
   # 控制器配置
   controller do

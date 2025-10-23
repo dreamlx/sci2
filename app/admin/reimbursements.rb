@@ -17,29 +17,48 @@ ActiveAdmin.register Reimbursement do
                 :erp_current_approval_node, :erp_current_approver, :erp_flexible_field_2,
                 :erp_node_entry_time, :erp_first_submitted_at, :erp_flexible_field_8
 
-  menu priority: 2, label: "报销单管理"
+  menu priority: 2, label: "报销单管理", if: proc {
+  # All authenticated users can see the reimbursements menu
+  current_admin_user.present?
+}
 
   # 重新添加scoped_collection方法来确保scope计数使用正确的基础集合
   controller do
+    include AuthorizationConcern
+
+    # Define permission protections for all controller actions
+    protect_action :index, with: 'ReimbursementPolicy', method: :can_index?
+    protect_action :show, with: 'ReimbursementPolicy', method: :can_show?
+    protect_action :create, with: 'ReimbursementPolicy', method: :can_create?
+    protect_action :update, with: 'ReimbursementPolicy', method: :can_update?
+    protect_action :destroy, with: 'ReimbursementPolicy', method: :can_destroy?
+
+    # Protect member actions
+    protect_action :member_action, action_name: :upload_attachment, with: 'ReimbursementPolicy', method: :can_upload_attachment?
+    protect_action :member_action, action_name: :assign, with: 'ReimbursementPolicy', method: :can_assign?
+    protect_action :member_action, action_name: :transfer_assignment, with: 'ReimbursementPolicy', method: :can_transfer_assignment?
+    protect_action :member_action, action_name: :unassign, with: 'ReimbursementPolicy', method: :can_unassign?
+    protect_action :member_action, action_name: :manual_set_pending, with: 'ReimbursementPolicy', method: :can_set_pending?
+    protect_action :member_action, action_name: :manual_set_processing, with: 'ReimbursementPolicy', method: :can_set_processing?
+    protect_action :member_action, action_name: :manual_set_closed, with: 'ReimbursementPolicy', method: :can_set_closed?
+    protect_action :member_action, action_name: :reset_manual_override, with: 'ReimbursementPolicy', method: :can_reset_override?
+
+    # Protect collection actions
+    protect_action :collection_action, action_name: :new_import, with: 'ReimbursementPolicy', method: :can_import?
+    protect_action :collection_action, action_name: :import, with: 'ReimbursementPolicy', method: :can_import?
+    protect_action :collection_action, action_name: :quick_assign, with: 'ReimbursementPolicy', method: :can_assign?
+
+    # Protect batch actions
+    protect_action :batch_action, action_name: :assign_to, with: 'ReimbursementPolicy', method: :can_batch_assign?
+
     # 当用户查看详情页面时，标记当前报销单为已查看
     def show
-      authorize! :read, resource
+      # Double permission check for sensitive operations
+      unless verify_sensitive_operation('ReimbursementPolicy', resource, 'view')
+        return
+      end
+
       resource.mark_as_viewed! if resource.has_unread_updates?
-      super
-    end
-    
-    def create
-      authorize! :create, Reimbursement
-      super
-    end
-    
-    def update
-      authorize! :update, resource
-      super
-    end
-    
-    def destroy
-      authorize! :destroy, resource
       super
     end
     
@@ -127,19 +146,12 @@ ActiveAdmin.register Reimbursement do
   end
 
   # 批量操作
-  
-  # 批量分配报销单 - 直接进行权限检查
+
+  # 批量分配报销单 - 基于Policy的权限控制
   batch_action :assign_to,
                title: "批量分配报销单",
                if: proc {
-                 true # 总是显示，但根据权限决定是否禁用
-               },
-               class: proc {
-                 if params[:scope] == 'unassigned'
-                   current_admin_user.super_admin? ? 'primary_action' : 'disabled_action'
-                 else
-                   current_admin_user.super_admin? ? nil : 'disabled_action'
-                 end
+                 ReimbursementPolicy.new(current_admin_user).can_batch_assign?
                },
                form: -> {
     {
@@ -147,24 +159,22 @@ ActiveAdmin.register Reimbursement do
       notes: :text
     }
   } do |ids, inputs|
-    policy = ReimbursementPolicy.new(current_admin_user)
-    unless policy.can_batch_assign?
-      redirect_to collection_path, alert: policy.authorization_error_message(action: :batch_assign)
-      return
-    end
-    
     service = ReimbursementAssignmentService.new(current_admin_user)
     results = service.batch_assign(ids, inputs[:assignee], inputs[:notes])
-    
+
     redirect_to collection_path, notice: "成功分配 #{results.size} 个报销单"
   end
 
-  # 操作按钮
-  action_item :import, only: :index do
+  # 操作按钮 - 基于Policy的权限控制
+  action_item :import, only: :index, if: proc {
+    ReimbursementPolicy.new(current_admin_user).can_import?
+  } do
     link_to "导入报销单", new_import_admin_reimbursements_path
   end
-  
-  action_item :import_operation_histories, only: :index do
+
+  action_item :import_operation_histories, only: :index, if: proc {
+    ReimbursementPolicy.new(current_admin_user).can_import?
+  } do
     link_to "导入操作历史", operation_histories_admin_imports_path
   end
   
@@ -172,37 +182,51 @@ ActiveAdmin.register Reimbursement do
   # 移除默认的编辑和删除按钮
   config.action_items.delete_if { |item| item.name == :edit || item.name == :destroy }
   
-  # 添加自定义按钮，按照指定顺序排列
-  action_item :new_audit_work_order, only: :show, priority: 0, if: proc { !resource.closed? } do
+  # 添加自定义按钮，按照指定顺序排列 - 基于Policy的权限控制
+  action_item :new_audit_work_order, only: :show, priority: 0, if: proc {
+    !resource.closed? && ReimbursementPolicy.new(current_admin_user).can_create?
+  } do
     link_to "新建审核工单", new_admin_audit_work_order_path(reimbursement_id: resource.id)
   end
-  
-  action_item :new_communication_work_order, only: :show, priority: 1, if: proc { !resource.closed? } do
+
+  action_item :new_communication_work_order, only: :show, priority: 1, if: proc {
+    !resource.closed? && ReimbursementPolicy.new(current_admin_user).can_create?
+  } do
     link_to "新建沟通工单", new_admin_communication_work_order_path(reimbursement_id: resource.id)
   end
-  
-  action_item :edit_reimbursement, only: :show, priority: 2, if: proc { !resource.closed? } do
+
+  action_item :edit_reimbursement, only: :show, priority: 2, if: proc {
+    !resource.closed? && ReimbursementPolicy.new(current_admin_user).can_update?
+  } do
     link_to "编辑报销单", edit_admin_reimbursement_path(resource)
   end
-  
-  action_item :delete_reimbursement, only: :show, priority: 3, if: proc { !resource.closed? } do
+
+  action_item :delete_reimbursement, only: :show, priority: 3, if: proc {
+    !resource.closed? && ReimbursementPolicy.new(current_admin_user).can_destroy?
+  } do
     link_to "删除报销单", admin_reimbursement_path(resource),
             method: :delete,
             data: { confirm: "确定要删除此报销单吗？此操作不可逆。" }
   end
 
   # ADDED: "处理完成" (Close) button, uses existing :close member_action
-  action_item :close_reimbursement, label: "处理完成", only: :show, priority: 4, if: proc { resource.processing? && !resource.closed? } do
+  action_item :close_reimbursement, label: "处理完成", only: :show, priority: 4, if: proc {
+    resource.processing? && !resource.closed? && ReimbursementPolicy.new(current_admin_user).can_update?
+  } do
     link_to "处理完成", close_admin_reimbursement_path(resource), method: :put, data: { confirm: "确定要完成处理此报销单吗 (状态将变为 Closed)?" }
   end
 
   # ADDED: "取消完成" (Reopen) button
-  action_item :reopen_reimbursement, label: "取消完成", only: :show, priority: 4, if: proc { resource.closed? } do
+  action_item :reopen_reimbursement, label: "取消完成", only: :show, priority: 4, if: proc {
+    resource.closed? && ReimbursementPolicy.new(current_admin_user).can_update?
+  } do
     link_to "取消完成", reopen_reimbursement_admin_reimbursement_path(resource), method: :put, data: { confirm: "确定要取消完成此报销单吗 (状态将变为 Processing)?" }
   end
 
   # Manual Override Controls - 手动状态覆盖控制按钮
-  action_item :manual_override_section, label: "手动状态控制", only: :show, priority: 10, if: proc { ReimbursementPolicy.new(current_admin_user).can_manual_override? } do
+  action_item :manual_override_section, label: "手动状态控制", only: :show, priority: 10, if: proc {
+    ReimbursementPolicy.new(current_admin_user).can_manual_override?
+  } do
     content_tag :div, class: "manual-override-controls", style: "margin: 10px 0; padding: 10px; border: 2px solid #ff6b35; border-radius: 5px; background-color: #fff3f0;" do
       content_tag(:h4, "⚠️ 手动状态覆盖控制", style: "margin: 0 0 10px 0; color: #ff6b35;") +
       content_tag(:p, "注意：手动状态更改将覆盖系统自动逻辑，请谨慎使用！", style: "margin: 0 0 10px 0; font-size: 12px; color: #666;") +
@@ -246,7 +270,6 @@ ActiveAdmin.register Reimbursement do
   end
 
   collection_action :import, method: :post do
-    authorize! :import, :all
     # 确保文件参数存在
     unless params[:file].present?
        redirect_to new_import_admin_reimbursements_path, alert: "请选择要导入的文件。"
@@ -726,48 +749,58 @@ ActiveAdmin.register Reimbursement do
     
   end
 
-  # 表单页
+  # 表单页 - 基于权限的表单字段控制
   form do |f|
+    policy = ReimbursementPolicy.new(current_admin_user)
+
     f.inputs "报销单信息" do
       f.input :invoice_number, input_html: { readonly: !f.object.new_record? }
-      f.input :document_name
-      f.input :applicant
-      f.input :applicant_id
-      f.input :company
-      f.input :department
-      f.input :amount, min: 0.01
-      f.input :status, label: "内部状态", as: :select, collection: Reimbursement.state_machines[:status].states.map(&:value), include_blank: false
+      f.input :document_name if policy.can_update?
+      f.input :applicant if policy.can_update?
+      f.input :applicant_id if policy.can_update?
+      f.input :company if policy.can_update?
+      f.input :department if policy.can_update?
+      f.input :amount, min: 0.01 if policy.can_update?
+      f.input :status, label: "内部状态", as: :select,
+              collection: Reimbursement.state_machines[:status].states.map(&:value),
+              include_blank: false if policy.can_update?
       f.input :external_status, label: "外部状态", as: :select,
-  collection: ["审批中", "已付款", "待付款", "待审核"],
-  include_blank: false
-      f.input :receipt_status, as: :select, collection: ["pending", "received"]
-      f.input :receipt_date, as: :datepicker
-      f.input :submission_date, as: :datepicker
-      f.input :is_electronic
-      f.input :approval_date, as: :datepicker
-      f.input :approver_name
-      f.input :related_application_number
-      f.input :accounting_date, as: :datepicker
-      f.input :document_tags
+              collection: ["审批中", "已付款", "待付款", "待审核"],
+              include_blank: false if policy.can_update?
+      f.input :receipt_status, as: :select, collection: ["pending", "received"] if policy.can_update?
+      f.input :receipt_date, as: :datepicker if policy.can_update?
+      f.input :submission_date, as: :datepicker if policy.can_update?
+      f.input :is_electronic if policy.can_update?
+      f.input :approval_date, as: :datepicker if policy.can_update?
+      f.input :approver_name if policy.can_update?
+      f.input :related_application_number if policy.can_update?
+      f.input :accounting_date, as: :datepicker if policy.can_update?
+      f.input :document_tags if policy.can_update?
     end
-    
-    f.inputs "手动覆盖状态信息", class: "manual-override-info" do
-      f.input :manual_override, label: "手动覆盖状态", input_html: { readonly: true }
-      f.input :manual_override_at, label: "手动覆盖时间", input_html: { readonly: true }
-      f.input :last_external_status, label: "最后外部状态", input_html: { readonly: true }
-      f.li "注意：手动覆盖字段为只读，请使用页面上的手动控制按钮进行修改", class: "manual-override-note"
+
+    # 手动覆盖信息 - 仅对有权限的用户显示
+    if policy.can_manual_override?
+      f.inputs "手动覆盖状态信息", class: "manual-override-info" do
+        f.input :manual_override, label: "手动覆盖状态", input_html: { readonly: true }
+        f.input :manual_override_at, label: "手动覆盖时间", input_html: { readonly: true }
+        f.input :last_external_status, label: "最后外部状态", input_html: { readonly: true }
+        f.li "注意：手动覆盖字段为只读，请使用页面上的手动控制按钮进行修改", class: "manual-override-note"
+      end
     end
-    
-    f.inputs "ERP 系统字段" do
-      f.input :erp_current_approval_node
-      f.input :erp_current_approver
-      f.input :erp_flexible_field_2
-      f.input :erp_node_entry_time, as: :datepicker
-      f.input :erp_first_submitted_at, as: :datepicker
-      f.input :erp_flexible_field_8
+
+    # ERP系统字段 - 仅对超级管理员显示
+    if current_admin_user.super_admin?
+      f.inputs "ERP 系统字段" do
+        f.input :erp_current_approval_node
+        f.input :erp_current_approver
+        f.input :erp_flexible_field_2
+        f.input :erp_node_entry_time, as: :datepicker
+        f.input :erp_first_submitted_at, as: :datepicker
+        f.input :erp_flexible_field_8
+      end
     end
-    
-    f.actions
+
+    f.actions if policy.can_create? || policy.can_update?
   end
 
   # Existing member_action :close (used by "处理完成" button)
@@ -858,13 +891,8 @@ ActiveAdmin.register Reimbursement do
     end
   end
   
-  # 报销单分配相关的成员操作 - 直接进行权限检查
+  # 报销单分配相关的成员操作 - 权限由AuthorizationConcern自动保护
   member_action :assign, method: :post do
-    unless current_admin_user.super_admin?
-      redirect_to admin_reimbursement_path(resource), alert: '您没有权限执行分配操作，请联系超级管理员'
-      return
-    end
-
     command = Commands::AssignReimbursementCommand.new(
       reimbursement_id: resource.id,
       assignee_id: params[:assignee_id],
@@ -883,15 +911,9 @@ ActiveAdmin.register Reimbursement do
   end
   
   member_action :transfer_assignment, method: :post do
-    policy = ReimbursementPolicy.new(current_admin_user)
-    unless policy.can_transfer_assignment?
-      redirect_to admin_reimbursement_path(resource), alert: policy.authorization_error_message(action: :transfer_assignment)
-      return
-    end
-    
     service = ReimbursementAssignmentService.new(current_admin_user)
     assignment = service.transfer(resource.id, params[:assignee_id], params[:notes])
-    
+
     if assignment
       redirect_to admin_reimbursement_path(resource), notice: "报销单已转移给 #{assignment.assignee.email}"
     else
@@ -900,12 +922,6 @@ ActiveAdmin.register Reimbursement do
   end
   
   member_action :unassign, method: :post do
-    policy = ReimbursementPolicy.new(current_admin_user)
-    unless policy.can_unassign?
-      redirect_to admin_reimbursement_path(resource), alert: policy.authorization_error_message(action: :unassign)
-      return
-    end
-    
     if resource.active_assignment.present?
       service = ReimbursementAssignmentService.new(current_admin_user)
       if service.unassign(resource.active_assignment.id)
@@ -919,13 +935,8 @@ ActiveAdmin.register Reimbursement do
   end
   
   
-  # 快速分配 - 直接进行权限检查
+  # 快速分配 - 权限由AuthorizationConcern自动保护
   collection_action :quick_assign, method: :post do
-    policy = ReimbursementPolicy.new(current_admin_user)
-    unless policy.can_assign?
-      redirect_to admin_dashboard_path, alert: policy.authorization_error_message(action: :assign)
-      return
-    end
     
     if params[:reimbursement_id].blank?
       redirect_to admin_dashboard_path, alert: "请选择要分配的报销单"

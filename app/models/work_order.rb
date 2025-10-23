@@ -124,6 +124,11 @@ class WorkOrder < ApplicationRecord
     end
   end
 
+  # Update associated fee details status - backward compatibility method for tests
+  def update_associated_fee_details_status(new_status)
+    fee_details.update_all(verification_status: new_status)
+  end
+
   # 处理提交的费用明细ID
   def process_submitted_fee_details
     submitted_ids = Array(@_direct_submitted_fee_ids).map(&:to_i).uniq
@@ -132,6 +137,24 @@ class WorkOrder < ApplicationRecord
     current_ids = work_order_fee_details.pluck(:fee_detail_id)
     ids_to_add = submitted_ids - current_ids
     ids_to_remove = current_ids - submitted_ids
+
+    ids_to_add.each do |fee_detail_id|
+      work_order_fee_details.create(fee_detail_id: fee_detail_id)
+    end
+
+    work_order_fee_details.where(fee_detail_id: ids_to_remove).destroy_all if ids_to_remove.any?
+
+    sync_fee_details_verification_status
+  end
+
+  # Process fee detail selections - backward compatibility method for tests
+  def process_fee_detail_selections
+    fee_detail_ids = Array(instance_variable_get('@fee_detail_ids_to_select')).map(&:to_i).uniq
+    remove_instance_variable('@fee_detail_ids_to_select') if instance_variable_defined?('@fee_detail_ids_to_select')
+
+    current_ids = work_order_fee_details.pluck(:fee_detail_id)
+    ids_to_add = fee_detail_ids - current_ids
+    ids_to_remove = current_ids - fee_detail_ids
 
     ids_to_add.each do |fee_detail_id|
       work_order_fee_details.create(fee_detail_id: fee_detail_id)

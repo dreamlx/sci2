@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_17_26_000024) do
+ActiveRecord::Schema[7.1].define(version: 2025_17_26_000025) do
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
@@ -323,6 +323,8 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000024) do
     t.string "communication_method"
     t.integer "fee_type_id"
     t.string "filling_id", limit: 10
+    t.integer "assignee_id"
+    t.index ["assignee_id"], name: "index_work_orders_on_assignee_id"
     t.index ["created_by"], name: "index_work_orders_on_created_by"
     t.index ["filling_id"], name: "index_work_orders_on_filling_id", unique: true, where: "type = 'ExpressReceiptWorkOrder' AND filling_id IS NOT NULL"
     t.index ["reimbursement_id", "tracking_number"], name: "index_work_orders_on_reimbursement_and_tracking", where: "type = 'ExpressReceiptWorkOrder' AND tracking_number IS NOT NULL"
@@ -346,6 +348,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000024) do
   add_foreign_key "work_order_problems", "problem_types"
   add_foreign_key "work_order_problems", "work_orders"
   add_foreign_key "work_order_status_changes", "admin_users", column: "changer_id"
+  add_foreign_key "work_orders", "admin_users", column: "assignee_id"
   add_foreign_key "work_orders", "admin_users", column: "created_by"
   add_foreign_key "work_orders", "reimbursements"
 end

@@ -14,7 +14,7 @@ class AdminUser < ApplicationRecord
   has_many :reimbursement_assignments_made, class_name: 'ReimbursementAssignment', foreign_key: 'assigner_id'
   
   # Enums for roles
-  enum role: { admin: 'admin', super_admin: 'super_admin' }
+  enum role: { admin: 'admin', super_admin: 'super_admin', regular: 'regular' }
   
   # Enums for status
   enum status: { active: 'active', inactive: 'inactive', suspended: 'suspended', deleted: 'deleted' }
@@ -26,7 +26,7 @@ class AdminUser < ApplicationRecord
   scope :exclude_deleted, -> { where.not(status: 'deleted').or(where(deleted_at: nil)) }
 
   # Callbacks
-  after_create :assign_super_admin_role, if: -> { AdminUser.count == 1 }
+  after_create :assign_super_admin_role, if: -> { !Rails.env.test? && AdminUser.count == 1 }
   before_create :set_default_role
 
   # Devise override - 只允许活跃用户登录

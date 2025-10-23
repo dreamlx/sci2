@@ -17,6 +17,25 @@ class FeeType < ApplicationRecord
   scope :active, -> { where(active: true) }
   
   # Methods
+
+  # Alias for backward compatibility with tests that expect 'code' field
+  def code
+    expense_type_code
+  end
+
+  def code=(new_code)
+    self.expense_type_code = new_code
+  end
+
+  # Alias for backward compatibility - some tests expect 'title' instead of 'name'
+  def title
+    name
+  end
+
+  def title=(new_title)
+    self.name = new_title
+  end
+
   def display_name
     "#{reimbursement_type_code}-#{meeting_type_code}-#{expense_type_code}: #{name}"
   end

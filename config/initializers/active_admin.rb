@@ -225,6 +225,7 @@ ActiveAdmin.setup do |config|
   config.register_stylesheet 'active_admin_dashboard.css'
   config.register_stylesheet 'active_admin_custom'
   config.register_stylesheet 'custom_tooltip.css'
+  config.register_stylesheet 'active_admin_permissions'
 
   # == CSV options
   #
@@ -266,6 +267,21 @@ ActiveAdmin.setup do |config|
   #       menu.add label: "My Great Website", url: "http://www.mygreatwebsite.com", html_options: { target: "_blank" }
   #     end
   #   end
+
+  # Configure namespace-based menu permissions
+  config.namespace :admin do |admin|
+    # Build the default menu with permission-based visibility
+    admin.build_menu :default do |menu|
+      # Menu items will be controlled at the resource level using `if` proc
+      # This ensures menu items are hidden based on user permissions
+    end
+
+    # Configure download links with permission control
+    admin.download_links = proc {
+      # Only super admins can download, others can view but not download
+      current_admin_user&.super_admin? || false
+    }
+  end
 
   # == Download Links
   #

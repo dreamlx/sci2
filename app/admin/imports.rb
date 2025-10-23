@@ -1,5 +1,32 @@
 ActiveAdmin.register_page "Imports" do
-  menu priority: 10, label: "数据导入", parent: "数据管理"
+  menu priority: 10, label: "数据导入", parent: "数据管理", if: proc {
+    # Only super admins can access import functionality
+    current_admin_user&.super_admin? || false
+  }
+
+  # Add controller methods for authorization
+  controller do
+    include AuthorizationConcern
+
+    # Protect all import-related actions - only super admins should access
+    before_action do
+      unless current_admin_user&.super_admin?
+        respond_to do |format|
+          format.html {
+            redirect_to admin_dashboard_path, alert: '您没有权限访问数据导入功能'
+          }
+          format.json {
+            render json: {
+              error: 'Authorization failed',
+              message: '您没有权限访问数据导入功能',
+              code: 403
+            }, status: :forbidden
+          }
+        end
+        return false
+      end
+    end
+  end
 
   # 操作历史导入
   page_action :operation_histories, method: :get do
@@ -7,7 +34,6 @@ ActiveAdmin.register_page "Imports" do
   end
 
   page_action :import_operation_histories, method: :post do
-    authorize! :import, OperationHistory
     unless params[:file].present?
       redirect_to operation_histories_admin_imports_path, alert: "请选择要导入的文件。"
       return
@@ -49,7 +75,6 @@ ActiveAdmin.register_page "Imports" do
   end
   
   page_action :import_problem_codes, method: :post do
-    authorize! :import, :all
     unless params[:file].present?
       redirect_to '/admin/imports/new?resource=problem_codes', alert: "请选择要导入的文件。"
       return

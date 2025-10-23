@@ -29,14 +29,14 @@ class ReimbursementPolicy
 
   # Create permissions
   def can_create?
-    # Only super admins can create new reimbursements
-    user&.super_admin? || false
+    # Both admin and super_admin can create reimbursements
+    admin_or_super_admin?
   end
 
   # Update permissions
   def can_update?
-    # Only super admins can update reimbursements
-    user&.super_admin? || false
+    # Both admin and super_admin can update reimbursements
+    admin_or_super_admin?
   end
 
   # Edit permissions (alias for can_update?)
@@ -192,10 +192,14 @@ class ReimbursementPolicy
       '您没有权限执行分配操作，请联系超级管理员'
     when :manual_override, :set_pending, :set_processing, :set_closed, :reset_override
       '您没有权限执行手动状态覆盖操作，请联系超级管理员'
-    when :create, :update, :destroy
-      '您没有权限执行此操作，请联系超级管理员'
+    when :destroy
+      '您没有权限删除报销单，请联系超级管理员'
     when :upload_attachment
       '您没有权限上传附件，请联系超级管理员'
+    when :import
+      '您没有权限导入数据，请联系超级管理员'
+    when :create, :update
+      '您没有权限执行此操作，请确保您已正确登录'
     else
       '您没有权限执行此操作，请联系超级管理员'
     end
@@ -234,5 +238,10 @@ class ReimbursementPolicy
   # Helper method to check super admin status
   def super_admin?
     user&.super_admin? || false
+  end
+
+  # Helper method to check admin or super admin status
+  def admin_or_super_admin?
+    user&.admin? || user&.super_admin? || false
   end
 end

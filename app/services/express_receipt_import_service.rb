@@ -73,7 +73,7 @@ class ExpressReceiptImportService
     
     document_number = row['单据编号']&.strip || row['单号']&.strip # 兼容新旧列名
     operation_notes = row['操作意见']&.strip
-    received_at_str = row['操作时间']
+    received_at_str = row['操作时间'] || row['操作日期'] # 兼容新旧列名
     filling_id = row['Filling ID']&.strip
     
     # 添加调试日志

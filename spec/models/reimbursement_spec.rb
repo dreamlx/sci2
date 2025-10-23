@@ -9,7 +9,8 @@ RSpec.describe Reimbursement, type: :model do
       expect(described_class::STATUS_PENDING).to eq('pending')
       expect(described_class::STATUS_PROCESSING).to eq('processing')
       expect(described_class::STATUS_CLOSED).to eq('closed')
-      expect(described_class::STATUSES).to contain_exactly('pending', 'processing', 'closed')
+      expect(described_class::STATUS_CLOSE_ALIAS).to eq('close')
+      expect(described_class::STATUSES).to contain_exactly('pending', 'processing', 'closed', 'close')
     end
   end
 
@@ -243,6 +244,7 @@ RSpec.describe Reimbursement, type: :model do
 
     describe '#close!' do
        it 'updates status to closed if it can be closed' do
+        reimbursement.update(status: "processing")
          allow(reimbursement).to receive(:can_be_closed?).and_return(true)
          reimbursement.close!
          expect(reimbursement.reload).to be_closed

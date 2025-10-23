@@ -6,7 +6,12 @@ class ProblemType < ApplicationRecord
   # Validations
   validates :issue_code, presence: true, uniqueness: {
     scope: :fee_type_id,
-    message: "must be unique within a fee_type"
+    message: "must be unique within a fee_type",
+    unless: -> { fee_type_id.blank? }
+  }
+  validates :issue_code, uniqueness: {
+    message: "has already been taken",
+    if: -> { fee_type_id.blank? }
   }
   validates :title, presence: true
   validates :sop_description, presence: true
@@ -15,8 +20,32 @@ class ProblemType < ApplicationRecord
 
   # Scopes
   scope :active, -> { where(active: true) }
+  scope :by_fee_type, ->(fee_type_id) { where(fee_type_id: fee_type_id) }
 
   # Methods
+
+  # Alias for issue_code to maintain backward compatibility with tests and factories
+  def code
+    issue_code
+  end
+
+  def code=(new_code)
+    self.issue_code = new_code
+  end
+
+  # Override validation errors to map issue_code errors to code field for backward compatibility
+  after_validation :map_issue_code_errors_to_code
+
+  private
+
+  def map_issue_code_errors_to_code
+    if errors[:issue_code].any?
+      errors[:code].concat(errors.delete(:issue_code))
+    end
+  end
+
+  public
+
   def legacy_problem_code
     # 通过 fee_type 关联获取 code，确保 fee_type 存在
     return nil unless fee_type

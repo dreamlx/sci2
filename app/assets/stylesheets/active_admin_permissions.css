@@ -1,0 +1,250 @@
+/* ActiveAdmin Permission Styles */
+
+/* Role Badge Styles */
+.role-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 8px;
+}
+
+.role-badge.super-admin {
+  background-color: #dc3545;
+  color: white;
+  border: 1px solid #c82333;
+}
+
+.role-badge.admin {
+  background-color: #007bff;
+  color: white;
+  border: 1px solid #0056b3;
+}
+
+.role-badge.unknown {
+  background-color: #6c757d;
+  color: white;
+  border: 1px solid #5a6268;
+}
+
+/* Permission Notice Panel */
+.role-notice-panel {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.role-info {
+  margin-bottom: 8px;
+}
+
+.role-info:last-child {
+  margin-bottom: 0;
+}
+
+/* Permission Notice Styles */
+.permission-notice {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.permission-notice.warning {
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  color: #856404;
+}
+
+.permission-notice.info {
+  background-color: #d1ecf1;
+  border: 1px solid #bee5eb;
+  color: #0c5460;
+}
+
+.permission-notice.error {
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+}
+
+.permission-text {
+  flex: 1;
+}
+
+.warning-text {
+  font-weight: 500;
+}
+
+/* Disabled Action Button */
+.button.disabled {
+  background-color: #e9ecef !important;
+  color: #6c757d !important;
+  border: 1px solid #ced4da !important;
+  cursor: not-allowed !important;
+  opacity: 0.6;
+  text-decoration: none;
+}
+
+.button.disabled:hover {
+  background-color: #e9ecef !important;
+  color: #6c757d !important;
+  border: 1px solid #ced4da !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Permission Restricted Indicator */
+.permission-restricted {
+  color: #dc3545;
+  font-size: 12px;
+  margin-left: 4px;
+  cursor: help;
+}
+
+/* Permission Tooltip */
+.permission-tooltip {
+  position: relative;
+  display: inline-block;
+  margin-left: 4px;
+  color: #6c757d;
+  cursor: help;
+}
+
+.permission-tooltip .tooltip-text {
+  visibility: hidden;
+  width: 200px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 6px 8px;
+  position: absolute;
+  z-index: 1;
+  bottom: 125%;
+  left: 50%;
+  margin-left: -100px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.permission-tooltip:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+.permission-tooltip .tooltip-text::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #333 transparent transparent transparent;
+}
+
+/* Action Items Permission Styling */
+.action_items.permission-restricted {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.member_link.permission-denied {
+  color: #6c757d;
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+
+/* Batch Action Permission Styling */
+.batch_actions_selector .disabled_action {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Form Field Permission Styling */
+.formtastic .permission-restricted {
+  opacity: 0.6;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 8px;
+}
+
+/* Menu Item Permission Styling */
+#header .tabs > li.permission-denied {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* Alert Styling for Permission Messages */
+.flash.permission-alert {
+  background-color: #fff3cd;
+  border-color: #ffeaa7;
+  color: #856404;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.flash.permission-alert:before {
+  content: "⚠️";
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .role-notice-panel {
+    padding: 8px 12px;
+    margin-bottom: 12px;
+  }
+
+  .permission-notice {
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+
+  .role-badge {
+    font-size: 11px;
+    padding: 3px 6px;
+  }
+}
+
+/* Dark mode support (if implemented) */
+@media (prefers-color-scheme: dark) {
+  .role-notice-panel {
+    background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+    border-color: #4a5568;
+  }
+
+  .permission-notice.warning {
+    background-color: #744210;
+    border-color: #975a16;
+    color: #fef3c7;
+  }
+
+  .permission-notice.info {
+    background-color: #1c3d52;
+    border-color: #2c5282;
+    color: #e6fffa;
+  }
+
+  .permission-notice.error {
+    background-color: #742a2a;
+    border-color: #9b2c2c;
+    color: #fed7d7;
+  }
+}

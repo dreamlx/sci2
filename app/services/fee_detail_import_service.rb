@@ -1,4 +1,6 @@
 # app/services/fee_detail_import_service.rb
+require 'securerandom'
+
 class FeeDetailImportService
   def initialize(file, current_admin_user)
     @file = file
@@ -9,8 +11,6 @@ class FeeDetailImportService
     @errors = [] # Stores detailed error messages for rows that couldn't be processed
     @unmatched_reimbursement_count = 0 # Renamed from unmatched_details.count
     @unmatched_reimbursement_details = [] # Renamed from unmatched_details
-    @reimbursement_number_updated_count = 0 # Track count of reimbursement number updates
-    @reimbursement_number_updates = [] # Track details of reimbursement number updates
     Current.admin_user = current_admin_user # 设置 Current.admin_user 用于回调
     @optimization_manager = SqliteOptimizationManager.new(level: :moderate)
   end
@@ -38,8 +38,8 @@ class FeeDetailImportService
               end
       
       headers = sheet.row(1).map { |h| h.to_s.strip }
-      # Validate essential headers
-      expected_headers = ['报销单单号', '费用id', '费用类型', '原始金额', '费用发生日期'] # Add other essential headers if any
+      # Validate essential headers (费用id is optional for backward compatibility)
+      expected_headers = ['报销单单号', '费用类型', '原始金额', '费用发生日期'] # Add other essential headers if any
       missing_headers = expected_headers - headers
       unless missing_headers.empty?
         return { success: false, errors: ["CSV文件缺少必要的列: #{missing_headers.join(', ')}"] }
@@ -63,7 +63,6 @@ class FeeDetailImportService
         success: @errors.empty?,
         created: @created_count,
         updated: @updated_count,
-        reimbursement_number_updated: @reimbursement_number_updated_count,
         unmatched_reimbursement: @unmatched_reimbursement_count,
         skipped_errors: @skipped_due_to_error_count,
         error_details: error_summary,
@@ -88,12 +87,11 @@ class FeeDetailImportService
     fee_type = row['费用类型']&.to_s&.strip
     amount_str = row['原始金额']
     fee_date_str = row['费用发生日期']
-    
-    # 严格要求 external_fee_id 存在
+
+    # external_id is optional for backward compatibility
+    # Generate a unique ID if not provided
     if external_id.blank?
-      @skipped_due_to_error_count += 1
-      @errors << "行 #{row_number}: 缺少必要字段 (费用id)，请在源系统中补全后重新导入"
-      return
+      external_id = "AUTO_#{document_number}_#{SecureRandom.hex(4)}"
     end
     
     # 检查其他必要字段
@@ -116,28 +114,9 @@ class FeeDetailImportService
     
     # 检查现有费用明细是否具有不同的document_number
     if existing_fee_detail && existing_fee_detail.document_number != document_number
-      # 检查新的报销单是否存在
-      new_reimbursement = Reimbursement.find_by(invoice_number: document_number)
-      unless new_reimbursement
-        @skipped_due_to_error_count += 1
-        @errors << "行 #{row_number} (费用ID: #{external_id}): 无法更新报销单号，新的报销单号 #{document_number} 不存在于系统中"
-        return
-      end
-      
-      # 存储旧的报销单以更新状态
-      old_reimbursement = Reimbursement.find_by(invoice_number: existing_fee_detail.document_number)
-      
-      # 跟踪此变更以进行报告
-      @reimbursement_number_updated_count += 1
-      @reimbursement_number_updates << {
-        row: row_number,
-        fee_id: external_id,
-        old_number: existing_fee_detail.document_number,
-        new_number: document_number
-      }
-      
-      # 记录此重大变更
-      Rails.logger.info "费用明细 #{external_id} 正在从报销单 #{existing_fee_detail.document_number} 移动到 #{document_number}"
+      @skipped_due_to_error_count += 1
+      @errors << "行 #{row_number} (费用ID: #{external_id}): 关联的报销单号不匹配 - 现有: #{existing_fee_detail.document_number}, 导入: #{document_number}"
+      return
     end
     
     # 如果找到现有记录，则更新；否则创建新记录
