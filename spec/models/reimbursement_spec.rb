@@ -27,9 +27,9 @@ RSpec.describe Reimbursement, type: :model do
     it { should have_one(:current_assignee).through(:active_assignment).source(:assignee) }
 
     it 'filters work orders by type correctly' do
-      audit_wo = create(:work_order, reimbursement: reimbursement, type: 'AuditWorkOrder')
-      comm_wo = create(:work_order, reimbursement: reimbursement, type: 'CommunicationWorkOrder')
-      express_wo = create(:work_order, reimbursement: reimbursement, type: 'ExpressReceiptWorkOrder')
+      audit_wo = create(:audit_work_order, reimbursement: reimbursement)
+      comm_wo = create(:communication_work_order, reimbursement: reimbursement)
+      express_wo = create(:express_receipt_work_order, reimbursement: reimbursement)
 
       expect(reimbursement.audit_work_orders).to contain_exactly(audit_wo)
       expect(reimbursement.communication_work_orders).to contain_exactly(comm_wo)
