@@ -3,6 +3,7 @@
 require 'rails_helper'
 
 RSpec.describe ReimbursementRepository, type: :repository do
+  let(:admin_user) { create(:admin_user) }
   let!(:reimbursement) { create(:reimbursement, status: 'pending', invoice_number: 'INV-001') }
   let!(:processing_reimbursement) { create(:reimbursement, status: 'processing', invoice_number: 'INV-002') }
   let!(:closed_reimbursement) { create(:reimbursement, status: 'closed', invoice_number: 'INV-003') }
@@ -127,6 +128,134 @@ RSpec.describe ReimbursementRepository, type: :repository do
       result = described_class.closed
       expect(result.count).to eq(1)
       expect(result.first.status).to eq('closed')
+    end
+  end
+
+  # Electronic/Non-electronic scopes
+  describe '.electronic' do
+    let!(:electronic_reimb) { create(:reimbursement, is_electronic: true) }
+    let!(:non_electronic_reimb) { create(:reimbursement, is_electronic: false) }
+
+    it 'returns only electronic reimbursements' do
+      result = described_class.electronic
+      expect(result).to include(electronic_reimb)
+      expect(result).not_to include(non_electronic_reimb)
+    end
+  end
+
+  describe '.non_electronic' do
+    let!(:electronic_reimb) { create(:reimbursement, is_electronic: true) }
+    let!(:non_electronic_reimb) { create(:reimbursement, is_electronic: false) }
+
+    it 'returns only non-electronic reimbursements' do
+      result = described_class.non_electronic
+      expect(result).to include(non_electronic_reimb)
+      expect(result).not_to include(electronic_reimb)
+    end
+  end
+
+  # Assignment scopes
+  describe '.unassigned' do
+    let!(:assigned_reimbursement) { create(:reimbursement) }
+    let!(:assignment) { create(:reimbursement_assignment, reimbursement: assigned_reimbursement, is_active: true) }
+
+    it 'returns reimbursements without active assignments' do
+      result = described_class.unassigned
+      expect(result).to include(reimbursement, processing_reimbursement, closed_reimbursement)
+      expect(result).not_to include(assigned_reimbursement)
+    end
+  end
+
+  describe '.assigned_to_user' do
+    let!(:assigned_reimbursement) { create(:reimbursement) }
+    let!(:assignment) { create(:reimbursement_assignment, reimbursement: assigned_reimbursement, assignee: admin_user, is_active: true) }
+
+    it 'returns reimbursements assigned to specific user' do
+      result = described_class.assigned_to_user(admin_user.id)
+      expect(result).to contain_exactly(assigned_reimbursement)
+    end
+  end
+
+  describe '.my_assignments' do
+    let!(:assigned_reimbursement) { create(:reimbursement) }
+    let!(:assignment) { create(:reimbursement_assignment, reimbursement: assigned_reimbursement, assignee: admin_user, is_active: true) }
+
+    it 'returns the same as assigned_to_user' do
+      result = described_class.my_assignments(admin_user.id)
+      expect(result).to eq(described_class.assigned_to_user(admin_user.id))
+    end
+  end
+
+  # Update and notification scopes
+  describe '.with_unread_updates' do
+    let!(:unread_reimbursement) { create(:reimbursement, has_updates: true, last_update_at: 1.day.ago) }
+    let!(:read_reimbursement) { create(:reimbursement, has_updates: true, last_update_at: 1.day.ago, last_viewed_at: 2.hours.ago) }
+
+    it 'returns reimbursements with unread updates' do
+      result = described_class.with_unread_updates
+      expect(result).to include(unread_reimbursement)
+      expect(result).not_to include(read_reimbursement)
+    end
+  end
+
+  describe '.with_unviewed_operation_histories' do
+    let!(:reimbursement_with_hist) { create(:reimbursement) }
+    let!(:recent_history) { create(:operation_history, document_number: reimbursement_with_hist.invoice_number, created_at: 1.hour.ago) }
+    let!(:viewed_reimbursement) { create(:reimbursement, last_viewed_operation_histories_at: 2.hours.ago) }
+    let!(:old_history) { create(:operation_history, document_number: viewed_reimbursement.invoice_number, created_at: 3.hours.ago) }
+
+    it 'returns reimbursements with unviewed operation histories' do
+      result = described_class.with_unviewed_operation_histories
+      expect(result).to include(reimbursement_with_hist)
+      expect(result).not_to include(viewed_reimbursement)
+    end
+  end
+
+  describe '.with_unviewed_express_receipts' do
+    let!(:reimbursement_with_express) { create(:reimbursement) }
+    let!(:recent_express) { create(:express_receipt_work_order, reimbursement: reimbursement_with_express, created_at: 1.hour.ago) }
+    let!(:viewed_reimbursement) { create(:reimbursement, last_viewed_express_receipts_at: 2.hours.ago) }
+    let!(:old_express) { create(:express_receipt_work_order, reimbursement: viewed_reimbursement, created_at: 3.hours.ago) }
+
+    it 'returns reimbursements with unviewed express receipts' do
+      result = described_class.with_unviewed_express_receipts
+      expect(result).to include(reimbursement_with_express)
+      expect(result).not_to include(viewed_reimbursement)
+    end
+  end
+
+  describe '.with_unviewed_records' do
+    let!(:reimbursement_with_hist) { create(:reimbursement) }
+    let!(:recent_history) { create(:operation_history, document_number: reimbursement_with_hist.invoice_number, created_at: 1.hour.ago) }
+    let!(:reimbursement_with_express) { create(:reimbursement) }
+    let!(:recent_express) { create(:express_receipt_work_order, reimbursement: reimbursement_with_express, created_at: 1.hour.ago) }
+
+    it 'returns union of unviewed operation histories and express receipts' do
+      result = described_class.with_unviewed_records
+      expect(result).to include(reimbursement_with_hist, reimbursement_with_express)
+    end
+  end
+
+  describe '.assigned_with_unread_updates' do
+    let!(:assigned_unread) { create(:reimbursement, has_updates: true, last_update_at: Time.current) }
+    let!(:assignment) { create(:reimbursement_assignment, reimbursement: assigned_unread, assignee: admin_user, is_active: true) }
+
+    it 'returns assigned reimbursements with unread updates' do
+      result = described_class.assigned_with_unread_updates(admin_user.id)
+      expect(result).to contain_exactly(assigned_unread)
+    end
+  end
+
+  describe '.ordered_by_notification_status' do
+    let!(:old_no_updates) { create(:reimbursement, has_updates: false, last_update_at: 2.days.ago) }
+    let!(:recent_updates) { create(:reimbursement, has_updates: true, last_update_at: 1.hour.ago) }
+    let!(:older_updates) { create(:reimbursement, has_updates: true, last_update_at: 1.day.ago) }
+
+    it 'orders by notification status correctly' do
+      result = described_class.ordered_by_notification_status
+      expect(result.first).to eq(recent_updates)
+      expect(result.second).to eq(older_updates)
+      expect(result.third).to eq(old_no_updates)
     end
   end
 

@@ -134,6 +134,46 @@ class ReimbursementRepository
     by_status('closed')
   end
 
+  # Electronic/non-electronic queries
+  def self.electronic
+    where(is_electronic: true)
+  end
+
+  def self.non_electronic
+    where(is_electronic: false)
+  end
+
+  # Assignment queries
+  def self.my_assignments(user_id)
+    assigned_to_user(user_id)
+  end
+
+  # Update and notification queries
+  def self.with_unread_updates
+    where(has_updates: true)
+      .where('last_viewed_at IS NULL OR last_update_at > last_viewed_at')
+  end
+
+  def self.with_unviewed_operation_histories
+    where('last_viewed_operation_histories_at IS NULL OR EXISTS (SELECT 1 FROM operation_histories WHERE operation_histories.document_number = reimbursements.invoice_number AND operation_histories.created_at > reimbursements.last_viewed_operation_histories_at)')
+  end
+
+  def self.with_unviewed_express_receipts
+    where('last_viewed_express_receipts_at IS NULL OR EXISTS (SELECT 1 FROM work_orders WHERE work_orders.reimbursement_id = reimbursements.id AND work_orders.type = \'ExpressReceiptWorkOrder\' AND work_orders.created_at > COALESCE(reimbursements.last_viewed_express_receipts_at, reimbursements.created_at))')
+  end
+
+  def self.with_unviewed_records
+    with_unviewed_operation_histories.or(with_unviewed_express_receipts)
+  end
+
+  def self.assigned_with_unread_updates(user_id)
+    assigned_to_user(user_id).with_unread_updates
+  end
+
+  def self.ordered_by_notification_status
+    order(has_updates: :desc, last_update_at: :desc)
+  end
+
   # Complex queries
   def self.with_active_assignment
     joins(:active_assignment)
