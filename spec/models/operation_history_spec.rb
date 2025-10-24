@@ -55,55 +55,9 @@ RSpec.describe OperationHistory, type: :model do
     end
   end
 
-  describe 'scopes' do
-    let!(:operation_history1) do
-      OperationHistory.create!(
-        document_number: 'ER123456',
-        operation_type: '审批',
-        operation_time: Time.current,
-        operator: '张三',
-        applicant: '李四',
-        employee_company: 'SPC',
-        currency: 'CNY'
-      )
-    end
-
-    let!(:operation_history2) do
-      OperationHistory.create!(
-        document_number: 'ER789012',
-        operation_type: '回复',
-        operation_time: Time.current,
-        operator: '王五',
-        applicant: '赵六',
-        employee_company: 'ABC',
-        currency: 'USD'
-      )
-    end
-
-    it 'filters by document_number' do
-      result = OperationHistory.by_document_number('ER123456')
-      expect(result).to include(operation_history1)
-      expect(result).not_to include(operation_history2)
-    end
-
-    it 'filters by applicant' do
-      result = OperationHistory.by_applicant('李四')
-      expect(result).to include(operation_history1)
-      expect(result).not_to include(operation_history2)
-    end
-
-    it 'filters by employee_company' do
-      result = OperationHistory.by_employee_company('SPC')
-      expect(result).to include(operation_history1)
-      expect(result).not_to include(operation_history2)
-    end
-
-    it 'filters by currency' do
-      result = OperationHistory.by_currency('CNY')
-      expect(result).to include(operation_history1)
-      expect(result).not_to include(operation_history2)
-    end
-  end
+  # Scopes have been migrated to OperationHistoryRepository (spec/repositories/operation_history_repository_spec.rb)
+  # This model test now focuses on data integrity: validations, associations, and basic model behavior
+  # Following the new architecture pattern of separating concerns across layers
 
   describe 'formatting methods' do
     let(:operation_history) do

@@ -23,25 +23,9 @@ RSpec.describe ProblemType, type: :model do
     it { should validate_inclusion_of(:active).in_array([true, false]) }
   end
   
-  describe "作用域" do
-    it "active返回活跃的问题类型" do
-      active = create(:problem_type, active: true)
-      inactive = create(:problem_type, active: false)
-      
-      expect(ProblemType.active).to include(active)
-      expect(ProblemType.active).not_to include(inactive)
-    end
-    
-    it "by_fee_type返回指定费用类型的问题类型" do
-      fee_type1 = create(:fee_type)
-      fee_type2 = create(:fee_type)
-      problem1 = create(:problem_type, fee_type: fee_type1)
-      problem2 = create(:problem_type, fee_type: fee_type2)
-      
-      expect(ProblemType.by_fee_type(fee_type1.id)).to include(problem1)
-      expect(ProblemType.by_fee_type(fee_type1.id)).not_to include(problem2)
-    end
-  end
+  # Scopes have been migrated to ProblemTypeRepository (spec/repositories/problem_type_repository_spec.rb)
+  # This model test now focuses on data integrity: validations, associations, and basic model behavior
+  # Following the new architecture pattern of separating concerns across layers
   
   describe "#display_name" do
     it "包含费用类型代码前缀" do
