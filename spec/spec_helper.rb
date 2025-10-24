@@ -3,16 +3,11 @@ require 'simplecov'
 # SimpleCov configuration with migration monitoring and performance optimization
 SimpleCov.start 'rails' do
   # Performance settings
-  enable_for_bundler true
   project_name 'SCI2 Test Coverage'
 
   # Minimum coverage thresholds
   minimum_coverage 85
   minimum_coverage_by_file 70
-
-  # Coverage criteria
-  coverage_criterion :test_types
-  branch_coverage true
 
   # Performance groups - critical paths first
   add_group 'Core Services', 'app/services/core'

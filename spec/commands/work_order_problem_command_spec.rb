@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe WorkOrderProblemCommand do
   let(:admin_user) { create(:admin_user) }
-  let(:work_order) { create(:work_order) }
+  let(:work_order) { create(:express_receipt_work_order) }
   let(:problem_type) { create(:problem_type) }
   let(:valid_attributes) do
     {

@@ -37,5 +37,11 @@ FactoryBot.define do
       approval_date { Time.current - 2.days }
       approver_name { '测试审批人' }
     end
+
+    trait :with_assignment do
+      after(:create) do |reimbursement|
+        create(:reimbursement_assignment, reimbursement: reimbursement)
+      end
+    end
   end
 end

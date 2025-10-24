@@ -1,6 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe Reimbursement, type: :model do
+  # Use shared test data setup for better maintainability
   let(:admin_user) { create(:admin_user) }
   let(:reimbursement) { create(:reimbursement) }
 
@@ -15,6 +16,7 @@ RSpec.describe Reimbursement, type: :model do
   end
 
   describe 'Associations' do
+    # Basic association validations
     it {
       should have_many(:fee_details).with_foreign_key('document_number').with_primary_key('invoice_number').dependent(:destroy)
     }
@@ -30,14 +32,17 @@ RSpec.describe Reimbursement, type: :model do
     it { should have_one(:active_assignment).class_name('ReimbursementAssignment') }
     it { should have_one(:current_assignee).through(:active_assignment).source(:assignee) }
 
-    it 'filters work orders by type correctly' do
-      audit_wo = create(:audit_work_order, reimbursement: reimbursement)
-      comm_wo = create(:communication_work_order, reimbursement: reimbursement)
-      express_wo = create(:express_receipt_work_order, reimbursement: reimbursement)
+    # Work order type filtering behavior
+    context 'when filtering work orders by type' do
+      let!(:audit_wo) { create(:audit_work_order, reimbursement: reimbursement) }
+      let!(:comm_wo) { create(:communication_work_order, reimbursement: reimbursement) }
+      let!(:express_wo) { create(:express_receipt_work_order, reimbursement: reimbursement) }
 
-      expect(reimbursement.audit_work_orders).to contain_exactly(audit_wo)
-      expect(reimbursement.communication_work_orders).to contain_exactly(comm_wo)
-      expect(reimbursement.express_receipt_work_orders).to contain_exactly(express_wo)
+      it 'filters work orders correctly by their types' do
+        expect(reimbursement.audit_work_orders).to contain_exactly(audit_wo)
+        expect(reimbursement.communication_work_orders).to contain_exactly(comm_wo)
+        expect(reimbursement.express_receipt_work_orders).to contain_exactly(express_wo)
+      end
     end
   end
 
@@ -47,9 +52,12 @@ RSpec.describe Reimbursement, type: :model do
     it { should validate_presence_of(:invoice_number) }
     it { should validate_uniqueness_of(:invoice_number) }
     it { should validate_inclusion_of(:status).in_array(described_class::STATUSES) }
-    it { should allow_value(true).for(:is_electronic) }
-    it { should allow_value(false).for(:is_electronic) }
-    it { should_not allow_value(nil).for(:is_electronic) }
+
+    context 'electronic flag validation' do
+      it { should allow_value(true).for(:is_electronic) }
+      it { should allow_value(false).for(:is_electronic) }
+      it { should_not allow_value(nil).for(:is_electronic) }
+    end
   end
 
   describe 'State Machine' do
@@ -57,23 +65,25 @@ RSpec.describe Reimbursement, type: :model do
       expect(reimbursement).to be_pending
     end
 
-    context 'with event :start_processing' do
+    describe 'start_processing event' do
       it 'transitions from pending to processing' do
         reimbursement.start_processing
         expect(reimbursement).to be_processing
       end
     end
 
-    context 'with event :close_processing' do
+    describe 'close_processing event' do
       let(:processing_reimbursement) { create(:reimbursement, status: 'processing') }
+
       it 'transitions from processing to closed' do
         processing_reimbursement.close_processing
         expect(processing_reimbursement).to be_closed
       end
     end
 
-    context 'with event :reopen_to_processing' do
+    describe 'reopen_to_processing event' do
       let(:closed_reimbursement) { create(:reimbursement, status: 'closed') }
+
       it 'transitions from closed to processing' do
         closed_reimbursement.reopen_to_processing
         expect(closed_reimbursement).to be_processing
@@ -245,17 +255,17 @@ RSpec.describe Reimbursement, type: :model do
 
     describe '#has_active_work_orders?' do
       it 'returns true if audit work orders exist' do
-        create(:work_order, reimbursement: reimbursement, type: 'AuditWorkOrder')
+        create(:audit_work_order, reimbursement: reimbursement)
         expect(reimbursement.has_active_work_orders?).to be true
       end
 
       it 'returns true if communication work orders exist' do
-        create(:work_order, reimbursement: reimbursement, type: 'CommunicationWorkOrder')
+        create(:communication_work_order, reimbursement: reimbursement)
         expect(reimbursement.has_active_work_orders?).to be true
       end
 
       it 'returns false if only express receipt work orders exist' do
-        create(:work_order, reimbursement: reimbursement, type: 'ExpressReceiptWorkOrder')
+        create(:express_receipt_work_order, reimbursement: reimbursement)
         expect(reimbursement.has_active_work_orders?).to be false
       end
     end
@@ -271,7 +281,7 @@ RSpec.describe Reimbursement, type: :model do
       end
 
       it 'returns processing if active work orders exist' do
-        create(:work_order, reimbursement: reimbursement, type: 'AuditWorkOrder')
+        create(:audit_work_order, reimbursement: reimbursement)
         expect(reimbursement.determine_internal_status_from_external('审批中')).to eq('processing')
       end
 
@@ -325,7 +335,7 @@ RSpec.describe Reimbursement, type: :model do
 
     before do
       create(:operation_history, document_number: r_with_history.invoice_number, created_at: 1.day.ago)
-      create(:work_order, reimbursement: r_with_receipts, type: 'ExpressReceiptWorkOrder', created_at: 1.day.ago)
+      create(:express_receipt_work_order, reimbursement: r_with_receipts, created_at: 1.day.ago)
     end
 
     describe '#has_unviewed_operation_histories?' do
@@ -378,7 +388,7 @@ RSpec.describe Reimbursement, type: :model do
       before do
         # Ensure records exist for calculations
         create(:operation_history, document_number: reimbursement.invoice_number, created_at: 1.day.ago)
-        create(:work_order, reimbursement: reimbursement, type: 'ExpressReceiptWorkOrder', created_at: 2.days.ago)
+        create(:express_receipt_work_order, reimbursement: reimbursement, created_at: 2.days.ago)
         reimbursement.reload
       end
 
@@ -419,8 +429,8 @@ RSpec.describe Reimbursement, type: :model do
   end
 
   describe 'Callbacks' do
-    it 'calls update_notification_status! after updating last_viewed timestamps' do
-      expect(reimbursement).to receive(:update_notification_status!)
+    it 'calls update_notification_status_if_needed after updating last_viewed timestamps' do
+      expect(reimbursement).to receive(:update_notification_status_if_needed)
       reimbursement.update(last_viewed_at: Time.current)
     end
   end
