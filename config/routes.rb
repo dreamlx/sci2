@@ -5,19 +5,19 @@ Rails.application.routes.draw do
   # 自定义API路由
   namespace :api, constraints: { format: :json } do
     namespace :v1 do
-      resources :reimbursements, only: [:index, :show] do
+      resources :reimbursements, only: %i[index show] do
         collection do
           post :import
         end
       end
 
-      resources :fee_details, only: [:index, :show] do
+      resources :fee_details, only: %i[index show] do
         collection do
           post :import
         end
       end
 
-      resources :work_orders, only: [:index, :show]
+      resources :work_orders, only: %i[index show]
     end
   end
 
@@ -46,7 +46,8 @@ Rails.application.routes.draw do
     resources :dashboards, only: [:index]
 
     # Explicit route for start_processing member action
-    put 'reimbursements/:id/start_processing', to: 'reimbursements#start_processing', as: :start_processing_admin_reimbursement
+    put 'reimbursements/:id/start_processing', to: 'reimbursements#start_processing',
+                                               as: :start_processing_admin_reimbursement
 
     # Audit work orders routes
 
@@ -59,7 +60,7 @@ Rails.application.routes.draw do
   end
 
   # 设置根路由重定向到管理界面
-  root to: "application#redirect_to_admin"
+  root to: 'application#redirect_to_admin'
 
   # ActiveAdmin routes
   ActiveAdmin.routes(self)

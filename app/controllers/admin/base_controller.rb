@@ -12,4 +12,4 @@ module Admin
       current_user
     end
   end
-end 
+end

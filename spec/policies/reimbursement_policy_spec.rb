@@ -130,7 +130,6 @@ RSpec.describe ReimbursementPolicy, type: :policy do
     end
   end
 
-  
   context 'when user is nil' do
     let(:user) { nil }
 

@@ -4,11 +4,22 @@ require 'rails_helper'
 
 RSpec.describe FeeDetailRepository, type: :repository do
   let!(:reimbursement) { create(:reimbursement, invoice_number: 'INV-001') }
-  let!(:fee_detail) { create(:fee_detail, document_number: 'INV-001', external_fee_id: 'EXT-001', verification_status: 'pending', amount: 100.0) }
-  let!(:processing_fee_detail) { create(:fee_detail, document_number: 'INV-001', external_fee_id: 'EXT-002', verification_status: 'problematic', amount: 200.0) }
-  let!(:verified_fee_detail) { create(:fee_detail, document_number: 'INV-001', external_fee_id: 'EXT-003', verification_status: 'verified', amount: 150.0) }
+  let!(:fee_detail) do
+    create(:fee_detail, document_number: 'INV-001', external_fee_id: 'EXT-001', verification_status: 'pending',
+                        amount: 100.0)
+  end
+  let!(:processing_fee_detail) do
+    create(:fee_detail, document_number: 'INV-001', external_fee_id: 'EXT-002', verification_status: 'problematic',
+                        amount: 200.0)
+  end
+  let!(:verified_fee_detail) do
+    create(:fee_detail, document_number: 'INV-001', external_fee_id: 'EXT-003', verification_status: 'verified',
+                        amount: 150.0)
+  end
   let!(:other_reimbursement) { create(:reimbursement, invoice_number: 'INV-002') }
-  let!(:other_fee_detail) { create(:fee_detail, document_number: 'INV-002', verification_status: 'pending', amount: 75.0) }
+  let!(:other_fee_detail) do
+    create(:fee_detail, document_number: 'INV-002', verification_status: 'pending', amount: 75.0)
+  end
 
   describe '.find' do
     it 'returns fee detail when found' do
@@ -17,7 +28,7 @@ RSpec.describe FeeDetailRepository, type: :repository do
     end
 
     it 'returns nil when not found' do
-      result = described_class.find(99999)
+      result = described_class.find(99_999)
       expect(result).to be_nil
     end
   end
@@ -29,7 +40,7 @@ RSpec.describe FeeDetailRepository, type: :repository do
     end
 
     it 'returns nil when not found' do
-      result = described_class.find_by_id(99999)
+      result = described_class.find_by_id(99_999)
       expect(result).to be_nil
     end
   end
@@ -57,11 +68,10 @@ RSpec.describe FeeDetailRepository, type: :repository do
 
     it 'creates new fee detail when not found' do
       result = described_class.find_or_create_by_external_fee_id('NEW-001',
-        document_number: 'INV-NEW',
-        verification_status: 'pending',
-        amount: 50.0,
-        fee_type: '测试费用'
-      )
+                                                                 document_number: 'INV-NEW',
+                                                                 verification_status: 'pending',
+                                                                 amount: 50.0,
+                                                                 fee_type: '测试费用')
       expect(result.persisted?).to be true
       expect(result.external_fee_id).to eq('NEW-001')
       expect(result.document_number).to eq('INV-NEW')
@@ -222,7 +232,7 @@ RSpec.describe FeeDetailRepository, type: :repository do
   describe '.page' do
     before do
       # Create additional fee details for pagination testing with proper reimbursement
-      page_reimbursement = create(:reimbursement, invoice_number: 'INV-PAGE')
+      create(:reimbursement, invoice_number: 'INV-PAGE')
       create_list(:fee_detail, 5, document_number: 'INV-PAGE')
     end
 
@@ -248,7 +258,7 @@ RSpec.describe FeeDetailRepository, type: :repository do
   # Batch operations
   describe '.find_by_external_fee_ids' do
     it 'returns fee details for multiple external IDs' do
-      result = described_class.find_by_external_fee_ids(['EXT-001', 'EXT-002'])
+      result = described_class.find_by_external_fee_ids(%w[EXT-001 EXT-002])
       expect(result.count).to eq(2)
       expect(result.pluck(:external_fee_id)).to contain_exactly('EXT-001', 'EXT-002')
     end
@@ -257,7 +267,7 @@ RSpec.describe FeeDetailRepository, type: :repository do
   # Error handling
   describe '.safe_find' do
     it 'returns nil for non-existent ID without raising error' do
-      result = described_class.safe_find(99999)
+      result = described_class.safe_find(99_999)
       expect(result).to be_nil
     end
 

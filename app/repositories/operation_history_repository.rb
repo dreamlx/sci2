@@ -244,7 +244,7 @@ class OperationHistoryRepository
   end
 
   # Performance-optimized queries
-  def self.select_fields(fields = [:id, :document_number, :operation_type, :operation_time, :operator])
+  def self.select_fields(fields = %i[id document_number operation_type operation_time operator])
     OperationHistory.select(fields)
   end
 
@@ -257,14 +257,14 @@ class OperationHistoryRepository
     find(id)
   rescue ActiveRecord::RecordNotFound
     nil
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Error finding operation history #{id}: #{e.message}"
     nil
   end
 
   def self.safe_find_by_document_number(document_number)
     by_document_number(document_number).first
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Error finding operation history by document number #{document_number}: #{e.message}"
     nil
   end

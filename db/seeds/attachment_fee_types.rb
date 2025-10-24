@@ -1,5 +1,5 @@
 # 附件相关费用类型种子数据
-puts "创建附件相关费用类型..."
+puts '创建附件相关费用类型...'
 
 # 附件凭证费用类型 - 用于纯凭证附件（金额为0）
 attachment_evidence = FeeType.find_or_create_by(code: 'ATTACHMENT_EVIDENCE') do |ft|
@@ -41,4 +41,4 @@ end
 
 puts "创建费用类型: #{document_evidence.title} (#{document_evidence.code})"
 
-puts "附件相关费用类型创建完成！"
+puts '附件相关费用类型创建完成！'

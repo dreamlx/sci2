@@ -11,6 +11,7 @@ module Commands
     include ActiveModel::Attributes
 
     attr_accessor :reimbursement_id, :current_user
+
     validates :reimbursement_id, :current_user, presence: true
 
     def initialize(reimbursement_id: nil, current_user: nil)
@@ -23,7 +24,7 @@ module Commands
 
       # Get the reimbursement
       reimbursement = find_reimbursement
-      return failure_result(["Reimbursement not found"]) unless reimbursement
+      return failure_result(['Reimbursement not found']) unless reimbursement
 
       # Perform the override reset
       result = perform_override_reset(reimbursement)
@@ -33,7 +34,7 @@ module Commands
       else
         failure_result([result.message])
       end
-    rescue => e
+    rescue StandardError => e
       failure_result(["Unexpected error: #{e.message}"])
     end
 
@@ -51,14 +52,14 @@ module Commands
     def success_result(data)
       Shared::CommandResult.success(
         data: data,
-        message: "Successfully reset manual override for reimbursement"
+        message: 'Successfully reset manual override for reimbursement'
       )
     end
 
     def failure_result(errors)
       Shared::CommandResult.failure(
         errors: errors,
-        message: errors.join(", ")
+        message: errors.join(', ')
       )
     end
   end

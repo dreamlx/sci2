@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe "Work Order Creation UI", type: :system do
+RSpec.describe 'Work Order Creation UI', type: :system do
   let(:admin_user) { create(:admin_user) }
   let!(:reimbursement) { create(:reimbursement, invoice_number: 'R202501001') }
   let!(:fee_detail1) { create(:fee_detail, document_number: 'R202501001', fee_type: '交通费', amount: 100.00) }
@@ -14,8 +14,8 @@ RSpec.describe "Work Order Creation UI", type: :system do
     visit admin_reimbursement_path(reimbursement)
   end
 
-  describe "Creating an Audit Work Order" do
-    it "successfully creates an audit work order with selected fee details" do
+  describe 'Creating an Audit Work Order' do
+    it 'successfully creates an audit work order with selected fee details' do
       # Click the link to create a new Audit Work Order - use match: :first to handle ambiguous links
       click_link '新建审核工单', match: :first
 
@@ -55,7 +55,7 @@ RSpec.describe "Work Order Creation UI", type: :system do
       # Since we're not checking fee detail associations anymore, we'll skip this part
     end
 
-    it "shows validation errors when creating an audit work order without selecting fee details" do
+    it 'shows validation errors when creating an audit work order without selecting fee details' do
       # Click the link to create a new Audit Work Order - use match: :first to handle ambiguous links
       click_link '新建审核工单', match: :first
 
@@ -79,8 +79,8 @@ RSpec.describe "Work Order Creation UI", type: :system do
     # Add more tests for other validation scenarios if applicable
   end
 
-  describe "Creating a Communication Work Order" do
-    it "successfully creates a communication work order with selected fee details" do
+  describe 'Creating a Communication Work Order' do
+    it 'successfully creates a communication work order with selected fee details' do
       # Click the link to create a new Communication Work Order - use match: :first to handle ambiguous links
       click_link '新建沟通工单', match: :first
 
@@ -115,14 +115,13 @@ RSpec.describe "Work Order Creation UI", type: :system do
       expect(communication_work_order.communication_method).to eq('电话')
       expect(communication_work_order.remark).to eq('Initial communication remark')
 
-
       # Since we're having issues with fee detail association, let's just check that the work order was created
       expect(communication_work_order).to be_persisted
 
       # Since we're not checking fee detail associations anymore, we'll skip this part
     end
 
-    it "shows validation errors when creating a communication work order without selecting fee details" do
+    it 'shows validation errors when creating a communication work order without selecting fee details' do
       # Click the link to create a new Communication Work Order - use match: :first to handle ambiguous links
       click_link '新建沟通工单', match: :first
 
@@ -147,35 +146,35 @@ RSpec.describe "Work Order Creation UI", type: :system do
     # Add more tests for other validation scenarios if applicable
   end
 
-  describe "Work Order Creation Entry Points" do
-    it "allows creating work orders from the reimbursement show page" do
+  describe 'Work Order Creation Entry Points' do
+    it 'allows creating work orders from the reimbursement show page' do
       # Test REL-006: 工单创建入口限制
       # Verify that the reimbursement show page has links to create work orders
       visit admin_reimbursement_path(reimbursement)
-      
+
       # Expect to see links to create work orders
       expect(page).to have_link('新建审核工单')
       expect(page).to have_link('新建沟通工单')
     end
-    
-    it "allows creating work orders directly but requires selecting a reimbursement" do
+
+    it 'allows creating work orders directly but requires selecting a reimbursement' do
       # Try to access the new audit work order page directly
       visit new_admin_audit_work_order_path
-      
+
       # Expect to see the form with a reimbursement selection field
       expect(page).to have_content('新建 审核工单')
       expect(page).to have_select('audit_work_order_reimbursement_id')
-      
+
       # Expect to see a message about selecting a reimbursement first
       expect(page).to have_content('请先选择报销单，然后才能选择费用明细')
-      
+
       # Try to access the new communication work order page directly
       visit new_admin_communication_work_order_path
-      
+
       # Expect to see the form with a reimbursement selection field
       expect(page).to have_content('新建 沟通工单')
       expect(page).to have_select('communication_work_order_reimbursement_id')
-      
+
       # Expect to see a message about selecting a reimbursement first
       expect(page).to have_content('请先选择报销单，然后才能选择费用明细')
     end

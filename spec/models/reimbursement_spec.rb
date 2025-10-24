@@ -15,12 +15,16 @@ RSpec.describe Reimbursement, type: :model do
   end
 
   describe 'Associations' do
-    it { should have_many(:fee_details).with_foreign_key('document_number').with_primary_key('invoice_number').dependent(:destroy) }
+    it {
+      should have_many(:fee_details).with_foreign_key('document_number').with_primary_key('invoice_number').dependent(:destroy)
+    }
     it { should have_many(:work_orders).dependent(:destroy) }
     it { should have_many(:audit_work_orders).class_name('AuditWorkOrder') }
     it { should have_many(:communication_work_orders).class_name('CommunicationWorkOrder') }
     it { should have_many(:express_receipt_work_orders).class_name('ExpressReceiptWorkOrder') }
-    it { should have_many(:operation_histories).with_foreign_key('document_number').with_primary_key('invoice_number').dependent(:destroy) }
+    it {
+      should have_many(:operation_histories).with_foreign_key('document_number').with_primary_key('invoice_number').dependent(:destroy)
+    }
     it { should have_many(:assignments).class_name('ReimbursementAssignment').dependent(:destroy) }
     it { should have_many(:assignees).through(:assignments).source(:assignee) }
     it { should have_one(:active_assignment).class_name('ReimbursementAssignment') }
@@ -109,7 +113,8 @@ RSpec.describe Reimbursement, type: :model do
       let!(:reimbursement_with_fees) { create(:reimbursement) }
 
       it '#all_fee_details_verified? returns true when all are verified' do
-        create_list(:fee_detail, 2, document_number: reimbursement_with_fees.invoice_number, verification_status: 'verified')
+        create_list(:fee_detail, 2, document_number: reimbursement_with_fees.invoice_number,
+                                    verification_status: 'verified')
         expect(reimbursement_with_fees.all_fee_details_verified?).to be true
       end
 
@@ -155,36 +160,36 @@ RSpec.describe Reimbursement, type: :model do
     end
 
     describe '#close!' do
-       it 'updates status to closed if it can be closed' do
-        reimbursement.update(status: "processing")
-         allow(reimbursement).to receive(:can_be_closed?).and_return(true)
-         reimbursement.close!
-         expect(reimbursement.reload).to be_closed
-       end
+      it 'updates status to closed if it can be closed' do
+        reimbursement.update(status: 'processing')
+        allow(reimbursement).to receive(:can_be_closed?).and_return(true)
+        reimbursement.close!
+        expect(reimbursement.reload).to be_closed
+      end
 
-       it 'does not update status if it cannot be closed' do
-         allow(reimbursement).to receive(:can_be_closed?).and_return(false)
-         reimbursement.update(status: 'processing')
-         reimbursement.close!
-         expect(reimbursement.reload).to be_processing
-       end
+      it 'does not update status if it cannot be closed' do
+        allow(reimbursement).to receive(:can_be_closed?).and_return(false)
+        reimbursement.update(status: 'processing')
+        reimbursement.close!
+        expect(reimbursement.reload).to be_processing
+      end
     end
 
     describe '#update_status_based_on_fee_details!' do
-        let(:processing_reimbursement) { create(:reimbursement, status: 'processing') }
-        let(:closed_reimbursement) { create(:reimbursement, status: 'closed') }
+      let(:processing_reimbursement) { create(:reimbursement, status: 'processing') }
+      let(:closed_reimbursement) { create(:reimbursement, status: 'closed') }
 
-        it 'closes a processing reimbursement if all fee details are verified' do
-            allow(processing_reimbursement).to receive(:all_fee_details_verified?).and_return(true)
-            processing_reimbursement.update_status_based_on_fee_details!
-            expect(processing_reimbursement.reload).to be_closed
-        end
+      it 'closes a processing reimbursement if all fee details are verified' do
+        allow(processing_reimbursement).to receive(:all_fee_details_verified?).and_return(true)
+        processing_reimbursement.update_status_based_on_fee_details!
+        expect(processing_reimbursement.reload).to be_closed
+      end
 
-        it 'reopens a closed reimbursement if any fee details are problematic' do
-            allow(closed_reimbursement).to receive(:any_fee_details_problematic?).and_return(true)
-            closed_reimbursement.update_status_based_on_fee_details!
-            expect(closed_reimbursement.reload).to be_processing
-        end
+      it 'reopens a closed reimbursement if any fee details are problematic' do
+        allow(closed_reimbursement).to receive(:any_fee_details_problematic?).and_return(true)
+        closed_reimbursement.update_status_based_on_fee_details!
+        expect(closed_reimbursement.reload).to be_processing
+      end
     end
 
     describe '#reopen_to_processing!' do
@@ -256,35 +261,35 @@ RSpec.describe Reimbursement, type: :model do
     end
 
     describe '#determine_internal_status_from_external' do
-        it 'returns current status if manual override is active' do
-          reimbursement.update(status: 'pending', manual_override: true)
-          expect(reimbursement.determine_internal_status_from_external('已付款')).to eq('pending')
-        end
+      it 'returns current status if manual override is active' do
+        reimbursement.update(status: 'pending', manual_override: true)
+        expect(reimbursement.determine_internal_status_from_external('已付款')).to eq('pending')
+      end
 
-        it 'returns closed for "已付款"' do
-          expect(reimbursement.determine_internal_status_from_external('已付款')).to eq('closed')
-        end
+      it 'returns closed for "已付款"' do
+        expect(reimbursement.determine_internal_status_from_external('已付款')).to eq('closed')
+      end
 
-        it 'returns processing if active work orders exist' do
-          create(:work_order, reimbursement: reimbursement, type: 'AuditWorkOrder')
-          expect(reimbursement.determine_internal_status_from_external('审批中')).to eq('processing')
-        end
+      it 'returns processing if active work orders exist' do
+        create(:work_order, reimbursement: reimbursement, type: 'AuditWorkOrder')
+        expect(reimbursement.determine_internal_status_from_external('审批中')).to eq('processing')
+      end
 
-        it 'returns pending as a default' do
-          expect(reimbursement.determine_internal_status_from_external('审批中')).to eq('pending')
-        end
+      it 'returns pending as a default' do
+        expect(reimbursement.determine_internal_status_from_external('审批中')).to eq('pending')
+      end
     end
 
     describe '#can_create_work_orders?' do
-        it 'returns true if not closed' do
-          reimbursement.update(status: 'processing')
-          expect(reimbursement.can_create_work_orders?).to be true
-        end
+      it 'returns true if not closed' do
+        reimbursement.update(status: 'processing')
+        expect(reimbursement.can_create_work_orders?).to be true
+      end
 
-        it 'returns false if closed' do
-          reimbursement.update(status: 'closed')
-          expect(reimbursement.can_create_work_orders?).to be false
-        end
+      it 'returns false if closed' do
+        reimbursement.update(status: 'closed')
+        expect(reimbursement.can_create_work_orders?).to be false
+      end
     end
 
     describe '#mark_as_received' do
@@ -298,21 +303,20 @@ RSpec.describe Reimbursement, type: :model do
 
     describe '#meeting_type_context' do
       it 'returns "个人" for personal-sounding names' do
-        reimbursement.document_name = "个人交通费"
-        expect(reimbursement.meeting_type_context).to eq("个人")
+        reimbursement.document_name = '个人交通费'
+        expect(reimbursement.meeting_type_context).to eq('个人')
       end
 
       it 'returns "学术论坛" for academic-sounding names' do
-        reimbursement.document_name = "参加学术会议"
-        expect(reimbursement.meeting_type_context).to eq("学术论坛")
+        reimbursement.document_name = '参加学术会议'
+        expect(reimbursement.meeting_type_context).to eq('学术论坛')
       end
 
       it 'defaults to "个人"' do
-        reimbursement.document_name = "其他费用"
-        expect(reimbursement.meeting_type_context).to eq("个人")
+        reimbursement.document_name = '其他费用'
+        expect(reimbursement.meeting_type_context).to eq('个人')
       end
     end
-
   end
 
   describe 'Notification-related methods' do
@@ -320,32 +324,32 @@ RSpec.describe Reimbursement, type: :model do
     let(:r_with_receipts) { create(:reimbursement) }
 
     before do
-        create(:operation_history, document_number: r_with_history.invoice_number, created_at: 1.day.ago)
-        create(:work_order, reimbursement: r_with_receipts, type: 'ExpressReceiptWorkOrder', created_at: 1.day.ago)
+      create(:operation_history, document_number: r_with_history.invoice_number, created_at: 1.day.ago)
+      create(:work_order, reimbursement: r_with_receipts, type: 'ExpressReceiptWorkOrder', created_at: 1.day.ago)
     end
 
     describe '#has_unviewed_operation_histories?' do
-        it 'is true if never viewed' do
-            r_with_history.update!(last_viewed_operation_histories_at: nil)
-            expect(r_with_history.has_unviewed_operation_histories?).to be true
-        end
+      it 'is true if never viewed' do
+        r_with_history.update!(last_viewed_operation_histories_at: nil)
+        expect(r_with_history.has_unviewed_operation_histories?).to be true
+      end
 
-        it 'is true if new histories exist since last view' do
-            r_with_history.update!(last_viewed_operation_histories_at: 2.days.ago)
-            expect(r_with_history.has_unviewed_operation_histories?).to be true
-        end
+      it 'is true if new histories exist since last view' do
+        r_with_history.update!(last_viewed_operation_histories_at: 2.days.ago)
+        expect(r_with_history.has_unviewed_operation_histories?).to be true
+      end
 
-        it 'is false if no new histories exist' do
-            r_with_history.update!(last_viewed_operation_histories_at: Time.current)
-            expect(r_with_history.has_unviewed_operation_histories?).to be false
-        end
+      it 'is false if no new histories exist' do
+        r_with_history.update!(last_viewed_operation_histories_at: Time.current)
+        expect(r_with_history.has_unviewed_operation_histories?).to be false
+      end
     end
 
     describe '#has_unviewed_express_receipts?' do
-        it 'is true if never viewed' do
-            r_with_receipts.update!(last_viewed_express_receipts_at: nil)
-            expect(r_with_receipts.has_unviewed_express_receipts?).to be true
-        end
+      it 'is true if never viewed' do
+        r_with_receipts.update!(last_viewed_express_receipts_at: nil)
+        expect(r_with_receipts.has_unviewed_express_receipts?).to be true
+      end
     end
 
     describe '#mark_operation_histories_as_viewed!' do
@@ -371,46 +375,46 @@ RSpec.describe Reimbursement, type: :model do
     end
 
     describe 'Unified Notification Methods' do
-        before do
-            # Ensure records exist for calculations
-            create(:operation_history, document_number: reimbursement.invoice_number, created_at: 1.day.ago)
-            create(:work_order, reimbursement: reimbursement, type: 'ExpressReceiptWorkOrder', created_at: 2.days.ago)
-            reimbursement.reload
-        end
+      before do
+        # Ensure records exist for calculations
+        create(:operation_history, document_number: reimbursement.invoice_number, created_at: 1.day.ago)
+        create(:work_order, reimbursement: reimbursement, type: 'ExpressReceiptWorkOrder', created_at: 2.days.ago)
+        reimbursement.reload
+      end
 
-        it '#has_updates? is true if operation histories exist' do
-            expect(reimbursement.has_updates?).to be true
-        end
+      it '#has_updates? is true if operation histories exist' do
+        expect(reimbursement.has_updates?).to be true
+      end
 
-        it '#has_unread_updates? is true if never viewed' do
-            reimbursement.update(last_viewed_at: nil)
-            expect(reimbursement.has_unread_updates?).to be true
-        end
+      it '#has_unread_updates? is true if never viewed' do
+        reimbursement.update(last_viewed_at: nil)
+        expect(reimbursement.has_unread_updates?).to be true
+      end
 
-        it '#calculate_last_update_time returns the latest timestamp' do
-            latest_time = reimbursement.operation_histories.maximum(:created_at)
-            expect(reimbursement.calculate_last_update_time).to be_within(1.second).of(latest_time)
-        end
+      it '#calculate_last_update_time returns the latest timestamp' do
+        latest_time = reimbursement.operation_histories.maximum(:created_at)
+        expect(reimbursement.calculate_last_update_time).to be_within(1.second).of(latest_time)
+      end
 
-        it '#update_notification_status! updates columns correctly' do
-            last_update = 1.day.ago
-            allow(reimbursement).to receive(:calculate_last_update_time).and_return(last_update)
-            reimbursement.update(last_viewed_at: 2.days.ago)
-            reimbursement.update_notification_status!
+      it '#update_notification_status! updates columns correctly' do
+        last_update = 1.day.ago
+        allow(reimbursement).to receive(:calculate_last_update_time).and_return(last_update)
+        reimbursement.update(last_viewed_at: 2.days.ago)
+        reimbursement.update_notification_status!
 
-            reimbursement.reload
-            expect(reimbursement.last_update_at).to be_within(1.second).of(last_update)
-            expect(reimbursement.has_updates).to be true
-        end
+        reimbursement.reload
+        expect(reimbursement.last_update_at).to be_within(1.second).of(last_update)
+        expect(reimbursement.has_updates).to be true
+      end
 
-        it '#mark_as_viewed! updates unified and legacy timestamps' do
-            reimbursement.mark_as_viewed!
-            reimbursement.reload
-            expect(reimbursement.last_viewed_at).to be_present
-            expect(reimbursement.has_updates).to be false
-            expect(reimbursement.last_viewed_operation_histories_at).to be_present
-            expect(reimbursement.last_viewed_express_receipts_at).to be_present
-        end
+      it '#mark_as_viewed! updates unified and legacy timestamps' do
+        reimbursement.mark_as_viewed!
+        reimbursement.reload
+        expect(reimbursement.last_viewed_at).to be_present
+        expect(reimbursement.has_updates).to be false
+        expect(reimbursement.last_viewed_operation_histories_at).to be_present
+        expect(reimbursement.last_viewed_express_receipts_at).to be_present
+      end
     end
   end
 

@@ -18,7 +18,7 @@ class ProblemFinderService
       meeting_type_code: mt_code,
       name: fee_detail.fee_type
     )
-    
+
     precise_et_code = matched_fee_type&.expense_type_code
 
     # Step 3: Build the scopes.
@@ -36,7 +36,7 @@ class ProblemFinderService
         meeting_type_code: mt_code,
         expense_type_code: precise_et_code
       )
-      
+
       # Combine both scopes with a UNION.
       ProblemType.from(
         "(#{precise_scope.to_sql} UNION #{general_scope.to_sql}) AS problem_types"
@@ -47,16 +47,12 @@ class ProblemFinderService
     end
   end
 
-  private
-
   def self.determine_reimbursement_type(reimbursement)
     case reimbursement.document_name
     when /^个人日常/
       'EN'
     when /^学术会议/
       'MN'
-    else
-      nil
     end
   end
 end

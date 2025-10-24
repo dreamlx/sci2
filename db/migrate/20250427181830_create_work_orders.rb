@@ -33,7 +33,7 @@ class CreateWorkOrders < ActiveRecord::Migration[7.1]
     end
 
     # 添加复合索引用于快递收单工单重复检查
-    add_index :work_orders, [:reimbursement_id, :tracking_number], 
+    add_index :work_orders, %i[reimbursement_id tracking_number],
               name: 'index_work_orders_on_reimbursement_and_tracking',
               where: "type = 'ExpressReceiptWorkOrder' AND tracking_number IS NOT NULL"
   end

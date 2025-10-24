@@ -58,55 +58,55 @@ namespace :server do
       execute "cat #{shared_path}/config/puma.rb || echo 'Puma config not found'"
       execute "ls -la #{shared_path}/tmp/pids/ || echo 'PID directory not found'"
     end
-  
+
     desc 'Emergency port cleanup - force kill everything on port 3000'
     task :emergency_cleanup do
       on roles(:app) do
-        info "=== EMERGENCY PORT 3000 CLEANUP ==="
-        
+        info '=== EMERGENCY PORT 3000 CLEANUP ==='
+
         # Show what's using the port before cleanup
-        info "Current port 3000 usage:"
+        info 'Current port 3000 usage:'
         execute "lsof -i:3000 || echo 'No processes using port 3000'"
-        
+
         # Kill everything using port 3000
-        info "Force killing all processes on port 3000..."
-        execute "lsof -ti:3000 | xargs -r kill -9 || true"
-        
+        info 'Force killing all processes on port 3000...'
+        execute 'lsof -ti:3000 | xargs -r kill -9 || true'
+
         # Wait and verify
         sleep 3
-        info "Verifying port is free:"
+        info 'Verifying port is free:'
         execute "lsof -i:3000 || echo '✓ Port 3000 is now free'"
-        
+
         # Clean up PID files
-        info "Cleaning up PID files..."
+        info 'Cleaning up PID files...'
         execute "rm -f #{shared_path}/tmp/pids/puma.pid"
-        
-        info "Emergency cleanup completed"
+
+        info 'Emergency cleanup completed'
       end
     end
-  
+
     desc 'Check what is using port 3000'
     task :check_port do
       on roles(:app) do
-        info "=== PORT 3000 DIAGNOSTIC ==="
-        
+        info '=== PORT 3000 DIAGNOSTIC ==='
+
         # Check if port is listening
-        info "Port 3000 listening status:"
+        info 'Port 3000 listening status:'
         execute "netstat -tuln | grep ':3000' || echo 'Port 3000 is not listening'"
-        
+
         # Check what processes are using the port
-        info "Processes using port 3000:"
+        info 'Processes using port 3000:'
         execute "lsof -i:3000 || echo 'No processes using port 3000'"
-        
+
         # Check for any puma processes
-        info "All puma processes:"
+        info 'All puma processes:'
         execute "ps aux | grep puma | grep -v grep || echo 'No puma processes found'"
-        
+
         # Check PID file status
         if test("[ -f #{shared_path}/tmp/pids/puma.pid ]")
           pid = capture("cat #{shared_path}/tmp/pids/puma.pid")
           info "PID file exists with PID: #{pid}"
-          
+
           if test("kill -0 #{pid} 2>/dev/null")
             info "✓ Process #{pid} is running"
             execute "ps -p #{pid} -o pid,ppid,cmd,etime || true"
@@ -114,46 +114,46 @@ namespace :server do
             warn "✗ Process #{pid} is not running (stale PID file)"
           end
         else
-          info "No PID file found"
+          info 'No PID file found'
         end
       end
     end
-  
+
     desc 'Full system diagnostic for deployment issues'
     task :full_diagnostic do
       on roles(:app) do
-        info "=== FULL DEPLOYMENT DIAGNOSTIC ==="
-        
+        info '=== FULL DEPLOYMENT DIAGNOSTIC ==='
+
         # System status
-        info "=== System Status ==="
-        execute "uptime"
-        execute "free -h"
-        execute "df -h /"
-        
+        info '=== System Status ==='
+        execute 'uptime'
+        execute 'free -h'
+        execute 'df -h /'
+
         # Ruby/RVM status
-        info "=== Ruby Environment ==="
+        info '=== Ruby Environment ==='
         execute "/usr/local/rvm/bin/rvm current || echo 'RVM not available'"
         execute "which ruby || echo 'Ruby not found'"
         execute "ruby --version || echo 'Ruby version check failed'"
-        
+
         # Application status
-        info "=== Application Status ==="
+        info '=== Application Status ==='
         execute "ls -la #{current_path} | head -5 || echo 'Current path not accessible'"
         execute "ls -la #{shared_path} | head -5 || echo 'Shared path not accessible'"
-        
+
         # Network status
-        info "=== Network Status ==="
-        execute "netstat -tuln | grep LISTEN | head -10"
-        
+        info '=== Network Status ==='
+        execute 'netstat -tuln | grep LISTEN | head -10'
+
         # Process status
-        info "=== Process Status ==="
+        info '=== Process Status ==='
         execute "ps aux | grep -E '(ruby|puma|rails)' | grep -v grep || echo 'No Ruby processes'"
-        
+
         # Port 3000 specific
         invoke 'server:check_port'
-        
+
         # Recent logs
-        info "=== Recent Logs ==="
+        info '=== Recent Logs ==='
         execute "tail -10 #{shared_path}/log/puma.stdout.log || echo 'No stdout log'"
         execute "tail -10 #{shared_path}/log/puma.stderr.log || echo 'No stderr log'"
       end

@@ -11,17 +11,17 @@ class ReimbursementAuthorizationService
   end
 
   # 检查是否可以查看报销单
-  def can_view?(reimbursement = nil)
+  def can_view?(_reimbursement = nil)
     true # 所有管理员都可以查看所有报销单
   end
 
   # 检查是否可以编辑报销单
-  def can_edit?(reimbursement = nil)
+  def can_edit?(_reimbursement = nil)
     true # 所有管理员都可以编辑所有报销单
   end
 
   # 检查是否可以删除报销单
-  def can_delete?(reimbursement = nil)
+  def can_delete?(_reimbursement = nil)
     true # 所有管理员都可以删除所有报销单
   end
 
@@ -58,7 +58,7 @@ class ReimbursementAuthorizationService
   end
 
   # 获取scope过滤后的集合
-  def apply_scope_filter(collection, scope_param, params = {})
+  def apply_scope_filter(collection, scope_param, _params = {})
     case scope_param
     when 'pending', 'processing', 'closed'
       # 状态scope：所有用户都可以看到对应状态的所有报销单
@@ -82,15 +82,15 @@ class ReimbursementAuthorizationService
   end
 
   # 检查是否应该使用全局视图（保留兼容性，但现在所有用户都有全局视图）
-  def should_use_global_view?(params)
+  def should_use_global_view?(_params)
     true # 所有用户都有全局视图权限
   end
-  
+
   # 检查普通管理员是否可以使用全局视图
   def can_use_global_view?
     true # 所有用户都可以使用全局视图
   end
-  
+
   # 获取全局视图的提示信息
   def global_view_notice
     nil # 不再需要全局视图提示，因为这是默认行为

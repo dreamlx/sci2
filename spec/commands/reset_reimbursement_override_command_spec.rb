@@ -36,7 +36,7 @@ RSpec.describe Commands::ResetReimbursementOverrideCommand, type: :command do
 
       before do
         # Set up manual override first
-        reimbursement.manual_status_change!("processing", admin_user)
+        reimbursement.manual_status_change!('processing', admin_user)
       end
 
       it 'successfully resets manual override' do
@@ -65,7 +65,7 @@ RSpec.describe Commands::ResetReimbursementOverrideCommand, type: :command do
         result = command.call
 
         expect(result.failure?).to be true
-        expect(result.errors).to include("Reimbursement不能为空")
+        expect(result.errors).to include('Reimbursement不能为空')
       end
 
       it 'fails when current_user is nil' do
@@ -77,19 +77,19 @@ RSpec.describe Commands::ResetReimbursementOverrideCommand, type: :command do
         result = command.call
 
         expect(result.failure?).to be true
-        expect(result.errors).to include("Current user不能为空")
+        expect(result.errors).to include('Current user不能为空')
       end
 
       it 'fails when reimbursement does not exist' do
         command = described_class.new(
-          reimbursement_id: 99999,
+          reimbursement_id: 99_999,
           current_user: admin_user
         )
 
         result = command.call
 
         expect(result.failure?).to be true
-        expect(result.errors).to include("Reimbursement not found")
+        expect(result.errors).to include('Reimbursement not found')
       end
     end
 
@@ -98,7 +98,7 @@ RSpec.describe Commands::ResetReimbursementOverrideCommand, type: :command do
         allow_any_instance_of(ReimbursementStatusOverrideService).to receive(:reset_override).and_return(
           ReimbursementStatusOverrideService::Result.new(
             success: false,
-            message: "Override reset failed"
+            message: 'Override reset failed'
           )
         )
       end
@@ -112,13 +112,13 @@ RSpec.describe Commands::ResetReimbursementOverrideCommand, type: :command do
         result = command.call
 
         expect(result.failure?).to be true
-        expect(result.errors).to include("Override reset failed")
+        expect(result.errors).to include('Override reset failed')
       end
     end
 
     context 'when unexpected error occurs' do
       before do
-        allow_any_instance_of(ReimbursementStatusOverrideService).to receive(:reset_override).and_raise(StandardError.new("Database error"))
+        allow_any_instance_of(ReimbursementStatusOverrideService).to receive(:reset_override).and_raise(StandardError.new('Database error'))
       end
 
       it 'returns failure result with error message' do
@@ -130,7 +130,7 @@ RSpec.describe Commands::ResetReimbursementOverrideCommand, type: :command do
         result = command.call
 
         expect(result.failure?).to be true
-        expect(result.errors).to include("Unexpected error: Database error")
+        expect(result.errors).to include('Unexpected error: Database error')
       end
     end
   end
@@ -141,13 +141,13 @@ RSpec.describe Commands::ResetReimbursementOverrideCommand, type: :command do
     it 'validates presence of reimbursement_id' do
       command.reimbursement_id = nil
       expect(command.valid?).to be false
-      expect(command.errors[:reimbursement_id]).to include("不能为空")
+      expect(command.errors[:reimbursement_id]).to include('不能为空')
     end
 
     it 'validates presence of current_user' do
       command.current_user = nil
       expect(command.valid?).to be false
-      expect(command.errors[:current_user]).to include("不能为空")
+      expect(command.errors[:current_user]).to include('不能为空')
     end
   end
 end

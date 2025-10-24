@@ -7,6 +7,7 @@ class CreateWorkOrderProblems < ActiveRecord::Migration[6.1]
     end
 
     # 添加唯一索引确保不重复添加同一问题
-    add_index :work_order_problems, [:work_order_id, :problem_type_id], unique: true, name: 'idx_work_order_problems_unique'
+    add_index :work_order_problems, %i[work_order_id problem_type_id], unique: true,
+                                                                       name: 'idx_work_order_problems_unique'
   end
 end

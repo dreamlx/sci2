@@ -25,7 +25,7 @@ module TestMigration
     end
 
     def analyze_all_tests
-      puts "🔍 Analyzing test files..."
+      puts '🔍 Analyzing test files...'
 
       find_legacy_tests
       find_new_architecture_tests
@@ -43,7 +43,7 @@ module TestMigration
       return { error: "File not found: #{file_path}" } unless File.exist?(file_path)
 
       content = File.read(file_path)
-      analysis = {
+      {
         file_path: file_path,
         size: content.size,
         lines: content.lines.count,
@@ -52,8 +52,6 @@ module TestMigration
         complexity: assess_complexity(content),
         migration_candidates: suggest_migration_targets_for_file(content, file_path)
       }
-
-      analysis
     end
 
     def suggest_migration(file_path)
@@ -91,14 +89,12 @@ module TestMigration
       original_analysis = analyze_file(original_file)
       migrated_analysis = analyze_file(migrated_file)
 
-      validation = {
+      {
         completeness_score: calculate_completeness_score(original_analysis, migrated_analysis),
         quality_score: calculate_quality_score(migrated_analysis),
         missing_tests: identify_missing_tests(original_analysis, migrated_analysis),
         recommendations: generate_validation_recommendations(original_analysis, migrated_analysis)
       }
-
-      validation
     end
 
     private
@@ -110,14 +106,14 @@ module TestMigration
         path = Pathname.new(file)
 
         LEGACY_PATTERNS.each do |type, pattern|
-          if file.match?(pattern)
-            @legacy_tests << {
-              path: file,
-              type: type,
-              relative_path: path.relative_path_from(Pathname.new('spec')).to_s
-            }
-            break
-          end
+          next unless file.match?(pattern)
+
+          @legacy_tests << {
+            path: file,
+            type: type,
+            relative_path: path.relative_path_from(Pathname.new('spec')).to_s
+          }
+          break
         end
       end
 
@@ -127,14 +123,14 @@ module TestMigration
     def find_new_architecture_tests
       Dir.glob('spec/**/*_spec.rb').each do |file|
         NEW_ARCHITECTURE_PATTERNS.each do |type, pattern|
-          if file.match?(pattern)
-            @new_architecture_tests << {
-              path: file,
-              type: type,
-              relative_path: Pathname.new(file).relative_path_from(Pathname.new('spec')).to_s
-            }
-            break
-          end
+          next unless file.match?(pattern)
+
+          @new_architecture_tests << {
+            path: file,
+            type: type,
+            relative_path: Pathname.new(file).relative_path_from(Pathname.new('spec')).to_s
+          }
+          break
         end
       end
 
@@ -142,7 +138,7 @@ module TestMigration
     end
 
     def generate_migration_suggestions
-      puts "💡 Generating migration suggestions..."
+      puts '💡 Generating migration suggestions...'
 
       @legacy_tests.each do |test|
         suggestions = []
@@ -169,15 +165,18 @@ module TestMigration
       suggestions = []
 
       if content.include?('create') || content.include?('update') || content.include?('destroy')
-        suggestions << { target: :command, priority: 'high', reason: 'Controller actions with state changes should become Commands' }
+        suggestions << { target: :command, priority: 'high',
+                         reason: 'Controller actions with state changes should become Commands' }
       end
 
       if content.include?('authorize') || content.include?('can?')
-        suggestions << { target: :policy, priority: 'high', reason: 'Authorization logic should be extracted to Policies' }
+        suggestions << { target: :policy, priority: 'high',
+                         reason: 'Authorization logic should be extracted to Policies' }
       end
 
       if content.include?('Service') || content.include?('complex business logic')
-        suggestions << { target: :service, priority: 'medium', reason: 'Complex business logic should be extracted to Services' }
+        suggestions << { target: :service, priority: 'medium',
+                         reason: 'Complex business logic should be extracted to Services' }
       end
 
       suggestions
@@ -188,7 +187,8 @@ module TestMigration
       suggestions = []
 
       if content.include?('scope') || content.include?('where') || content.include?('find_by')
-        suggestions << { target: :repository, priority: 'medium', reason: 'Complex queries should be moved to Repositories' }
+        suggestions << { target: :repository, priority: 'medium',
+                         reason: 'Complex queries should be moved to Repositories' }
       end
 
       if content.include?('def calculate') || content.include?('business logic')
@@ -203,7 +203,8 @@ module TestMigration
       suggestions = []
 
       if content.include?('POST') || content.include?('PUT') || content.include?('DELETE')
-        suggestions << { target: :command, priority: 'high', reason: 'State-changing requests should test Commands directly' }
+        suggestions << { target: :command, priority: 'high',
+                         reason: 'State-changing requests should test Commands directly' }
       end
 
       suggestions
@@ -214,7 +215,8 @@ module TestMigration
       suggestions = []
 
       if content.include?('fill_in') || content.include?('click_on')
-        suggestions << { target: :service, priority: 'medium', reason: 'Complex workflows can be tested at Service level' }
+        suggestions << { target: :service, priority: 'medium',
+                         reason: 'Complex workflows can be tested at Service level' }
       end
 
       suggestions
@@ -227,18 +229,16 @@ module TestMigration
     end
 
     def extract_patterns(content)
-      patterns = {
+      {
         has_describe_blocks: content.scan(/describe\s+['"]/).any?,
         has_context_blocks: content.scan(/context\s+['"]/).any?,
         has_it_blocks: content.scan(/it\s+['"]/).any?,
-        has_let_definitions: content.scan(/let\s+[:]/).any?,
-        has_expectations: content.scan(/expect\(/).any?,
-        has_factories: content.scan(/create\(/).any?,
-        has_mocks: content.scan(/allow\(/).any?,
+        has_let_definitions: content.scan(/let\s+:/).any?,
+        has_expectations: content.scan('expect(').any?,
+        has_factories: content.scan('create(').any?,
+        has_mocks: content.scan('allow(').any?,
         has_database_transactions: content.include?('transactional fixtures')
       }
-
-      patterns
     end
 
     def assess_complexity(content)
@@ -248,15 +248,15 @@ module TestMigration
       score += content.scan(/describe\s+['"]/).length * 1
       score += content.scan(/context\s+['"]/).length * 2
       score += content.scan(/it\s+['"]/).length * 1
-      score += content.scan(/let\s+[:]/).length * 0.5
-      score += content.scan(/allow\(/).length * 2
-      score += content.scan(/expect\(/).length * 0.5
+      score += content.scan(/let\s+:/).length * 0.5
+      score += content.scan('allow(').length * 2
+      score += content.scan('expect(').length * 0.5
 
       # Normalize to 1-10 scale
       [1, [10, (score / 10).ceil].min].max
     end
 
-    def suggest_migration_targets_for_file(content, file_path)
+    def suggest_migration_targets_for_file(content, _file_path)
       candidates = []
 
       # Analyze content to suggest migration targets
@@ -284,10 +284,10 @@ module TestMigration
       migration_candidates = analysis[:migration_candidates].length
 
       base_effort = case complexity
-                   when 1..3 then 'low'
-                   when 4..7 then 'medium'
-                   else 'high'
-                   end
+                    when 1..3 then 'low'
+                    when 4..7 then 'medium'
+                    else 'high'
+                    end
 
       "#{base_effort} (#{migration_candidates} potential targets)"
     end
@@ -299,15 +299,15 @@ module TestMigration
 
     def generate_migration_notes(analysis, target_pattern)
       [
-        "# Migration Notes:",
+        '# Migration Notes:',
         "# Original file: #{analysis[:file_path]}",
         "# Original type: #{analysis[:type]}",
         "# Target pattern: #{target_pattern}",
         "# Complexity: #{analysis[:complexity]}/10",
-        "#",
-        "# TODO: Customize test data and assertions",
-        "# TODO: Replace **YOUR_MODEL** placeholders",
-        "# TODO: Add specific assertions for your business logic"
+        '#',
+        '# TODO: Customize test data and assertions',
+        '# TODO: Replace **YOUR_MODEL** placeholders',
+        '# TODO: Add specific assertions for your business logic'
       ]
     end
 
@@ -356,18 +356,12 @@ module TestMigration
       recommendations = []
 
       completeness = calculate_completeness_score(original, migrated)
-      if completeness < 80
-        recommendations << 'Add more test cases to achieve better coverage'
-      end
+      recommendations << 'Add more test cases to achieve better coverage' if completeness < 80
 
       quality = calculate_quality_score(migrated)
-      if quality < 70
-        recommendations << 'Improve test structure with proper describe/context blocks'
-      end
+      recommendations << 'Improve test structure with proper describe/context blocks' if quality < 70
 
-      if migrated[:complexity] > 7
-        recommendations << 'Consider breaking down complex tests into smaller units'
-      end
+      recommendations << 'Consider breaking down complex tests into smaller units' if migrated[:complexity] > 7
 
       recommendations
     end

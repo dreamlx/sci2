@@ -1,7 +1,7 @@
 ActiveAdmin.register ProblemType do
   permit_params :issue_code, :title, :sop_description, :standard_handling, :fee_type_id, :active
 
-  menu priority: 7, label: "问题类型", parent: "系统设置"
+  menu priority: 7, label: '问题类型', parent: '系统设置'
 
   # 过滤器
   filter :issue_code
@@ -14,14 +14,14 @@ ActiveAdmin.register ProblemType do
     batch_action_collection.find(ids).each do |problem_type|
       problem_type.update(active: true)
     end
-    redirect_to collection_path, notice: "已激活选中的问题类型"
+    redirect_to collection_path, notice: '已激活选中的问题类型'
   end
 
   batch_action :deactivate do |ids|
     batch_action_collection.find(ids).each do |problem_type|
       problem_type.update(active: false)
     end
-    redirect_to collection_path, notice: "已停用选中的问题类型"
+    redirect_to collection_path, notice: '已停用选中的问题类型'
   end
 
   # 范围过滤器
@@ -79,13 +79,13 @@ ActiveAdmin.register ProblemType do
 
   controller do
     before_action :authenticate_admin_user!, except: [:index]
-    
+
     def index
       respond_to do |format|
         format.html { super }
         # 添加CSV格式支持
         format.csv { super }
-        format.json {
+        format.json do
           if params[:fee_type_id].present?
             @problem_types = ProblemType.active.by_fee_type(params[:fee_type_id])
           elsif params[:fee_type_ids].present?
@@ -94,17 +94,17 @@ ActiveAdmin.register ProblemType do
           else
             @problem_types = ProblemType.active
           end
-        
+
           render json: @problem_types.to_json(
-            only: [:id, :issue_code, :title, :fee_type_id, :sop_description, :standard_handling],
-            methods: [:display_name, :legacy_problem_code],
+            only: %i[id issue_code title fee_type_id sop_description standard_handling],
+            methods: %i[display_name legacy_problem_code],
             include: {
               fee_type: {
-                only: [:id, :name, :reimbursement_type_code, :meeting_type_code, :expense_type_code]
+                only: %i[id name reimbursement_type_code meeting_type_code expense_type_code]
               }
             }
           )
-        }
+        end
       end
     end
   end

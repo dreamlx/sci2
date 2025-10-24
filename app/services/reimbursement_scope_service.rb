@@ -14,9 +14,7 @@ class ReimbursementScopeService
 
     # If viewing a single reimbursement (show action), don't apply any scope
     # This ensures that even unassigned reimbursements can be viewed by ID
-    if params[:id].present?
-      return chain
-    end
+    return chain if params[:id].present?
 
     # Get the current selected scope
     current_scope = params[:scope]
@@ -48,6 +46,4 @@ class ReimbursementScopeService
   def scoped_collection(end_of_association_chain)
     filtered_collection(end_of_association_chain)
   end
-
-  private
 end

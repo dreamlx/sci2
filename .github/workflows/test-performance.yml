@@ -1,0 +1,214 @@
+name: Test Performance and Coverage Monitoring
+
+on:
+  push:
+    branches: [ main, feature/* ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  test-performance:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sci2_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      RAILS_ENV: test
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/sci2_test
+      COVERAGE: true
+      PROFILE_TESTS: true
+      PARALLEL_WORKERS: 2
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.0'
+        bundler-cache: true
+
+    - name: Install PostgreSQL client
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client
+
+    - name: Setup database
+      run: |
+        bundle exec rails db:create
+        bundle exec rails db:schema:load
+
+    - name: Run tests with performance monitoring
+      run: |
+        bundle exec rake test:performance
+
+    - name: Generate coverage report
+      run: |
+        bundle exec rake test:coverage
+
+    - name: Check coverage thresholds
+      run: |
+        bundle exec rake test:check_coverage
+
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: coverage-report
+        path: coverage/
+
+    - name: Upload performance reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: performance-report
+        path: tmp/test_performance_report_*.html
+
+    - name: Comment coverage on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+
+          if (fs.existsSync('coverage/coverage.json')) {
+            const coverageData = JSON.parse(fs.readFileSync('coverage/coverage.json', 'utf8'));
+            const overallCoverage = coverageData.percent || 0;
+
+            const comment = `
+            ## 📊 Coverage Report
+            - **Overall Coverage**: ${overallCoverage.toFixed(2)}%
+            - **Status**: ${overallCoverage >= 85 ? '✅ PASS' : '❌ FAIL'}
+
+            ${coverageData.groups ? Object.entries(coverageData.groups).map(([group, data]) =>
+              `- **${group}**: ${data.percent}%`
+            ).join('\n') : ''}
+
+            ${overallCoverage < 85 ? '⚠️ Coverage is below the 85% threshold. Please add more tests.' : ''}
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          }
+
+  performance-benchmarks:
+    runs-on: ubuntu-latest
+    needs: test-performance
+    if: github.event_name == 'schedule' || contains(github.event.head_commit.message, '[performance-check]')
+
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sci2_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      RAILS_ENV: test
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/sci2_test
+      RUN_PERFORMANCE_TESTS: true
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.0'
+        bundler-cache: true
+
+    - name: Install PostgreSQL client
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client
+
+    - name: Setup database
+      run: |
+        bundle exec rails db:create
+        bundle exec rails db:schema:load
+
+    - name: Run performance benchmarks
+      run: |
+        bundle exec rake test:benchmark
+
+    - name: Analyze performance trends
+      run: |
+        bundle exec rake test:analyze_performance
+
+    - name: Generate detailed performance report
+      run: |
+        bundle exec rake test:performance_report
+
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v3
+      with:
+        name: benchmark-results
+        path: tmp/test_performance_report_*.html
+
+  security-and-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '3.0'
+        bundler-cache: true
+
+    - name: Run security audits
+      run: |
+        bundle exec brakeman -z --format json --output brakeman-report.json
+        bundle exec bundler-audit --format json
+
+    - name: Run code quality checks
+      run: |
+        bundle exec rubocop --format json --output rubocop-report.json
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          brakeman-report.json
+          bundler-audit-report.json
+
+    - name: Upload quality reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: quality-reports
+        path: rubocop-report.json
+
+    - name: Check for security issues
+      run: |
+        if [ -s "brakeman-report.json" ]; then
+          echo "Security vulnerabilities detected. Check the reports."
+          exit 1
+        fi

@@ -1,14 +1,14 @@
 require 'rails_helper'
 
 RSpec.describe ProblemType, type: :model do
-  describe "关联" do
+  describe '关联' do
     it { should belong_to(:fee_type) }
     it { should have_many(:work_orders) }
   end
-  
-  describe "验证" do
-    context "当fee_type存在时" do
-      it "可以使用code别名设置和获取issue_code" do
+
+  describe '验证' do
+    context '当fee_type存在时' do
+      it '可以使用code别名设置和获取issue_code' do
         fee_type = create(:fee_type)
         problem_type = build(:problem_type, code: 'PT001', fee_type: fee_type)
 
@@ -16,19 +16,19 @@ RSpec.describe ProblemType, type: :model do
         expect(problem_type.issue_code).to eq('PT001')
       end
     end
-    
+
     it { should validate_presence_of(:title) }
     it { should validate_presence_of(:sop_description) }
     it { should validate_presence_of(:standard_handling) }
     it { should validate_inclusion_of(:active).in_array([true, false]) }
   end
-  
+
   # Scopes have been migrated to ProblemTypeRepository (spec/repositories/problem_type_repository_spec.rb)
   # This model test now focuses on data integrity: validations, associations, and basic model behavior
   # Following the new architecture pattern of separating concerns across layers
-  
-  describe "#display_name" do
-    it "包含费用类型代码前缀" do
+
+  describe '#display_name' do
+    it '包含费用类型代码前缀' do
       fee_type = create(:fee_type)
       problem_type = create(:problem_type, code: 'PT001', title: '发票不合规', fee_type: fee_type)
 
@@ -37,25 +37,25 @@ RSpec.describe ProblemType, type: :model do
       expect(problem_type.display_name).to match(expected_pattern)
     end
   end
-  
-  describe "#full_description" do
-    it "包含费用类型信息" do
+
+  describe '#full_description' do
+    it '包含费用类型信息' do
       fee_type = create(:fee_type)
       problem_type = create(:problem_type,
-                          code: 'PT001',
-                          title: '发票不合规',
-                          sop_description: '发票信息不完整',
-                          standard_handling: '请提供完整发票',
-                          fee_type: fee_type)
+                            code: 'PT001',
+                            title: '发票不合规',
+                            sop_description: '发票信息不完整',
+                            standard_handling: '请提供完整发票',
+                            fee_type: fee_type)
 
       # The actual format includes display_name followed by SOP and Handling sections
       expected_pattern = /\A[A-Z]{2}\d{2}\d{2}PT001 - 发票不合规\nSOP: 发票信息不完整\nHandling: 请提供完整发票\z/
       expect(problem_type.full_description).to match(expected_pattern)
     end
   end
-  
-  describe "与FeeType的关系" do
-    it "通过费用类型名称查找" do
+
+  describe '与FeeType的关系' do
+    it '通过费用类型名称查找' do
       fee_type = create(:fee_type, name: '会议讲课费')
       problem_type = create(:problem_type, fee_type: fee_type)
 

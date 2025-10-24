@@ -13,7 +13,7 @@ class CreateOperationHistories < ActiveRecord::Migration[7.1]
     end
 
     # 添加复合索引用于操作历史重复检查
-    add_index :operation_histories, [:document_number, :operation_type, :operation_time, :operator], 
+    add_index :operation_histories, %i[document_number operation_type operation_time operator],
               name: 'index_operation_histories_on_document_and_operation',
               unique: true
   end

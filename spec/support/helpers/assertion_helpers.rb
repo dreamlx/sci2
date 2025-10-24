@@ -12,17 +12,11 @@ module AssertionHelpers
       expect(result.success?).to be true
       expect(result.failure?).to be false
 
-      if expected_data_type && result.respond_to?(:data)
-        expect(result.data).to be_a(expected_data_type)
-      end
+      expect(result.data).to be_a(expected_data_type) if expected_data_type && result.respond_to?(:data)
 
-      if expected_message && result.respond_to?(:message)
-        expect(result.message).to eq(expected_message)
-      end
+      expect(result.message).to eq(expected_message) if expected_message && result.respond_to?(:message)
 
-      if result.respond_to?(:errors)
-        expect(result.errors).to be_empty
-      end
+      expect(result.errors).to be_empty if result.respond_to?(:errors)
     end
   end
 
@@ -39,16 +33,14 @@ module AssertionHelpers
         end
       end
 
-      if expected_message && result.respond_to?(:message)
-        expect(result.message).to include(expected_message)
-      end
+      expect(result.message).to include(expected_message) if expected_message && result.respond_to?(:message)
     end
   end
 
   # 数据库变化断言
   def expect_no_change(model_class = nil, &block)
     target_class = model_class || infer_model_class
-    expect { block.call }.not_to change { target_class.count }
+    expect { block.call }.not_to(change { target_class.count })
   end
 
   def expect_change_by(count, model_class = nil, &block)
@@ -57,7 +49,7 @@ module AssertionHelpers
   end
 
   def expect_change_from_to(from_val, to_val, &block)
-    expect { block.call }.to change { yield }.from(from_val).to(to_val)
+    expect { block.call }.to change(&block).from(from_val).to(to_val)
   end
 
   # 属性断言
@@ -124,19 +116,20 @@ module AssertionHelpers
 
   # 验证断言
   def expect_valid(object)
-    expect(object).to be_valid, "Expected #{object.class.name} to be valid, but errors: #{object.errors.full_messages.join(', ')}"
+    expect(object).to be_valid,
+                      "Expected #{object.class.name} to be valid, but errors: #{object.errors.full_messages.join(', ')}"
   end
 
   def expect_invalid(object, expected_errors = {})
     expect(object).not_to be_valid
 
-    if expected_errors.any?
-      aggregate_failures do
-        expected_errors.each do |field, messages|
-          messages = Array(messages)
-          messages.each do |message|
-            expect(object.errors[field]).to include(message), "Expected #{field} errors to include '#{message}'"
-          end
+    return unless expected_errors.any?
+
+    aggregate_failures do
+      expected_errors.each do |field, messages|
+        messages = Array(messages)
+        messages.each do |message|
+          expect(object.errors[field]).to include(message), "Expected #{field} errors to include '#{message}'"
         end
       end
     end
@@ -149,14 +142,14 @@ module AssertionHelpers
     if expected_type
       if association.respond_to?(:first)
         expect(association.first).to be_a(expected_type) if association.any?
-      else
-        expect(association).to be_a(expected_type) if association
+      elsif association
+        expect(association).to be_a(expected_type)
       end
     end
 
-    if expected_count
-      expect(association.count).to eq(expected_count)
-    end
+    return unless expected_count
+
+    expect(association.count).to eq(expected_count)
   end
 
   def expect_belongs_to(object, association_name, expected_object = nil)
@@ -252,9 +245,7 @@ module AssertionHelpers
   # 错误处理断言
   def expect_error_raised(error_class = StandardError, expected_message = nil, &block)
     expect { block.call }.to raise_error(error_class) do |error|
-      if expected_message
-        expect(error.message).to include(expected_message)
-      end
+      expect(error.message).to include(expected_message) if expected_message
     end
   end
 

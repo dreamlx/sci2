@@ -101,14 +101,12 @@ module AuthorizationConcern
     end
   end
 
-  private
-
   # Ensure user is authenticated
   def check_current_user
-    unless current_admin_user.present?
-      handle_authentication_error
-      return false
-    end
+    return if current_admin_user.present?
+
+    handle_authentication_error
+    false
   end
 
   # Core authorization check method
@@ -123,7 +121,7 @@ module AuthorizationConcern
     # Check if policy method exists
     unless policy.respond_to?(permission_method)
       log_authorization_failure("Permission method #{permission_method} not found", options)
-      handle_authorization_error("权限检查配置错误", :internal_error)
+      handle_authorization_error('权限检查配置错误', :internal_error)
       return false
     end
 
@@ -131,9 +129,11 @@ module AuthorizationConcern
     authorized = policy.send(permission_method)
 
     unless authorized
-      error_message = policy.respond_to?(:authorization_error_message) ?
-                     policy.authorization_error_message(action: extract_action_from_options(options)) :
-                     '您没有权限执行此操作'
+      error_message = if policy.respond_to?(:authorization_error_message)
+                        policy.authorization_error_message(action: extract_action_from_options(options))
+                      else
+                        '您没有权限执行此操作'
+                      end
 
       log_authorization_failure(error_message, options)
       handle_authorization_error(error_message, options)
@@ -148,36 +148,36 @@ module AuthorizationConcern
   # Handle authentication errors
   def handle_authentication_error
     respond_to do |format|
-      format.html {
+      format.html do
         flash[:alert] = '请先登录'
         redirect_to new_admin_user_session_path
-      }
-      format.json {
+      end
+      format.json do
         render json: {
           error: 'Authentication required',
           message: '请先登录',
           code: 401
         }, status: :unauthorized
-      }
+      end
     end
   end
 
   # Handle authorization errors
   def handle_authorization_error(message, options = {})
     respond_to do |format|
-      format.html {
+      format.html do
         redirect_path = options[:redirect_to] ||
-                       (respond_to?(:collection_path) ? collection_path : admin_dashboard_path)
+                        (respond_to?(:collection_path) ? collection_path : admin_dashboard_path)
         redirect_to redirect_path, alert: message
-      }
-      format.json {
+      end
+      format.json do
         render json: {
           error: 'Authorization failed',
           message: message,
           code: 403,
           action: extract_action_from_options(options)
         }, status: :forbidden
-      }
+      end
     end
   end
 
@@ -187,27 +187,27 @@ module AuthorizationConcern
     Rails.logger.error exception.backtrace.join("\n") if Rails.env.development?
 
     respond_to do |format|
-      format.html {
+      format.html do
         flash[:alert] = '系统发生错误，请稍后重试'
         redirect_to admin_dashboard_path
-      }
-      format.json {
+      end
+      format.json do
         render json: {
           error: 'Internal server error',
           message: '系统发生错误，请稍后重试',
           code: 500
         }, status: :internal_server_error
-      }
+      end
     end
   end
 
   # Extract action name for logging and error messages
   def extract_action_from_options(options)
     options[:member_action] ||
-    options[:batch_action] ||
-    options[:collection_action] ||
-    options[:standard_action] ||
-    action_name
+      options[:batch_action] ||
+      options[:collection_action] ||
+      options[:standard_action] ||
+      action_name
   end
 
   # Log successful authorization
@@ -269,10 +269,8 @@ module AuthorizationConcern
       if sensitive_keys.include?(key.to_s)
         safe_params[key] = '[FILTERED]'
       elsif value.is_a?(Hash)
-        value.each do |sub_key, sub_value|
-          if sensitive_keys.include?(sub_key.to_s)
-            safe_params[key][sub_key] = '[FILTERED]'
-          end
+        value.each do |sub_key, _sub_value|
+          safe_params[key][sub_key] = '[FILTERED]' if sensitive_keys.include?(sub_key.to_s)
         end
       end
     end
@@ -312,9 +310,7 @@ module AuthorizationConcern
 
     # Secondary verification for most sensitive operations
     sensitive_operations = %w[destroy delete batch_delete restore change_role]
-    if sensitive_operations.include?(operation.to_s)
-      log_sensitive_operation_attempt(operation, resource)
-    end
+    log_sensitive_operation_attempt(operation, resource) if sensitive_operations.include?(operation.to_s)
 
     true
   end

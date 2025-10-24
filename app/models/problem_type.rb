@@ -6,11 +6,11 @@ class ProblemType < ApplicationRecord
   # Validations
   validates :issue_code, presence: true, uniqueness: {
     scope: :fee_type_id,
-    message: "must be unique within a fee_type",
+    message: 'must be unique within a fee_type',
     unless: -> { fee_type_id.blank? }
   }
   validates :issue_code, uniqueness: {
-    message: "has already been taken",
+    message: 'has already been taken',
     if: -> { fee_type_id.blank? }
   }
   validates :title, presence: true
@@ -39,9 +39,9 @@ class ProblemType < ApplicationRecord
   private
 
   def map_issue_code_errors_to_code
-    if errors[:issue_code].any?
-      errors[:code].concat(errors.delete(:issue_code))
-    end
+    return unless errors[:issue_code].any?
+
+    errors[:code].concat(errors.delete(:issue_code))
   end
 
   public
@@ -54,10 +54,8 @@ class ProblemType < ApplicationRecord
     meeting = fee_type.meeting_type_code.to_s.rjust(2, '0')
     expense = fee_type.expense_type_code.to_s.rjust(2, '0')
     issue = issue_code.to_s
-    
-    result = "#{reimbursement}#{meeting}#{expense}#{issue}"
-    
-    result
+
+    "#{reimbursement}#{meeting}#{expense}#{issue}"
   end
 
   def display_name
@@ -69,12 +67,13 @@ class ProblemType < ApplicationRecord
   end
 
   # ActiveAdmin configuration
-  def self.ransackable_attributes(auth_object = nil)
+  def self.ransackable_attributes(_auth_object = nil)
     # ** 更新以包含新字段并移除旧字段 **
-    %w[id issue_code title sop_description standard_handling active created_at updated_at fee_type_id legacy_problem_code]
+    %w[id issue_code title sop_description standard_handling active created_at updated_at fee_type_id
+       legacy_problem_code]
   end
 
-  def self.ransackable_associations(auth_object = nil)
+  def self.ransackable_associations(_auth_object = nil)
     # ** 添加 fee_type 关联 **
     %w[work_orders fee_type]
   end

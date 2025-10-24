@@ -3,7 +3,7 @@ namespace :admin do
   task add_default_user: :environment do
     email = 'admin@example.com'
     password = 'password'
-    
+
     if AdminUser.exists?(email: email)
       puts "Admin user with email #{email} already exists. Skipping creation."
     else
@@ -15,7 +15,7 @@ namespace :admin do
         )
         puts "Successfully created admin user: #{admin_user.email}"
         puts "Role: #{admin_user.role}"
-      rescue => e
+      rescue StandardError => e
         puts "Error creating admin user: #{e.message}"
       end
     end

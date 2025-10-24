@@ -7,9 +7,9 @@ class CreateReimbursementAssignments < ActiveRecord::Migration[7.1]
       t.boolean :is_active, default: true
       t.text :notes
       t.timestamps
-      
-      t.index [:reimbursement_id, :is_active]
-      t.index [:assignee_id, :is_active]
+
+      t.index %i[reimbursement_id is_active]
+      t.index %i[assignee_id is_active]
     end
   end
 end

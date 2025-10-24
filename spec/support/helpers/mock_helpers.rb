@@ -84,12 +84,11 @@ module MockHelpers
 
   def mock_file_upload(file_path: 'test.pdf', content_type: 'application/pdf')
     double('uploaded_file',
-      path: file_path,
-      original_filename: File.basename(file_path),
-      content_type: content_type,
-      size: 1024,
-      read: 'file content'
-    )
+           path: file_path,
+           original_filename: File.basename(file_path),
+           content_type: content_type,
+           size: 1024,
+           read: 'file content')
   end
 
   # 外部API Mock
@@ -129,7 +128,7 @@ module MockHelpers
   end
 
   # 日志Mock
-  def mock_logger(level = :info)
+  def mock_logger(_level = :info)
     logger_double = double('logger')
     %i[debug info warn error fatal].each do |log_level|
       allow(logger_double).to receive(log_level)
@@ -157,7 +156,7 @@ module MockHelpers
   end
 
   # 邮件Mock
-  def mock_mailer_delivery(mailer_class, method, *args)
+  def mock_mailer_delivery(mailer_class, method, *_args)
     mail_double = double('mail', deliver_now: true, deliver_later: true)
     allow(mailer_class).to receive(message_method: method).and_return(mail_double)
     mail_double
@@ -209,7 +208,7 @@ module MockHelpers
     end
   end
 
-  def setup_repository_layer_mocks(repository_class, find_method, find_result, additional_mocks = {})
+  def setup_repository_layer_mocks(repository_class, _find_method, find_result, additional_mocks = {})
     mock_repository_find(repository_class, find_result.id, find_result)
 
     additional_mocks.each do |method, result|
@@ -224,9 +223,9 @@ module MockHelpers
 
   # 条件Mock设置
   def mock_conditionally(condition, &block)
-    if condition
-      block.call
-    end
+    return unless condition
+
+    block.call
   end
 
   def mock_based_on_environment(environment, &block)
@@ -265,13 +264,13 @@ module MockHelpers
 
   # Mock超时场景
   def setup_timeout_scenario(service_class, method)
-    timeout_error = Net::TimeoutError.new('Operation timed out')
+    Net::TimeoutError.new('Operation timed out')
     setup_exception_scenario(service_class, method, Net::TimeoutError, 'Operation timed out')
   end
 
   # Mock网络错误场景
   def setup_network_error_scenario(service_class, method)
-    network_error = Net::NetworkError.new('Network unreachable')
+    Net::NetworkError.new('Network unreachable')
     setup_exception_scenario(service_class, method, Net::NetworkError, 'Network unreachable')
   end
 end

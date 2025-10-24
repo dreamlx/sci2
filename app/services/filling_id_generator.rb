@@ -6,15 +6,13 @@ class FillingIdGenerator
     sequence = next_sequence(year_month)
     "#{year_month}#{sequence.to_s.rjust(4, '0')}"
   end
-  
-  private
-  
+
   def self.next_sequence(year_month)
     # 查询当月最大流水号并+1
     # 使用Arel来处理SQL注入问题
     max_sequence = ExpressReceiptWorkOrder
-      .where("filling_id LIKE ?", "#{year_month}%")
-      .maximum(Arel.sql("CAST(SUBSTRING(filling_id, 7, 4) AS INTEGER)")) || 0
+                   .where('filling_id LIKE ?', "#{year_month}%")
+                   .maximum(Arel.sql('CAST(SUBSTRING(filling_id, 7, 4) AS INTEGER)')) || 0
     max_sequence + 1
   end
 end

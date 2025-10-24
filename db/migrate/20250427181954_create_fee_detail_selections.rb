@@ -12,7 +12,7 @@ class CreateFeeDetailSelections < ActiveRecord::Migration[7.1]
     end
 
     # 添加唯一索引确保一个费用明细在一个工单中只被选择一次
-    add_index :fee_detail_selections, [:fee_detail_id, :work_order_id, :work_order_type], 
+    add_index :fee_detail_selections, %i[fee_detail_id work_order_id work_order_type],
               name: 'index_fee_detail_selections_on_fee_detail_and_work_order',
               unique: true
   end

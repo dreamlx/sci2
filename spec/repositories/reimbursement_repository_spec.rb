@@ -15,7 +15,7 @@ RSpec.describe ReimbursementRepository, type: :repository do
     end
 
     it 'returns nil when not found' do
-      result = described_class.find(99999)
+      result = described_class.find(99_999)
       expect(result).to be_nil
     end
   end
@@ -27,7 +27,7 @@ RSpec.describe ReimbursementRepository, type: :repository do
     end
 
     it 'returns nil when not found' do
-      result = described_class.find_by_id(99999)
+      result = described_class.find_by_id(99_999)
       expect(result).to be_nil
     end
   end
@@ -67,14 +67,14 @@ RSpec.describe ReimbursementRepository, type: :repository do
     end
 
     it 'returns empty relation when no ids match' do
-      result = described_class.find_by_ids([99999, 99998])
+      result = described_class.find_by_ids([99_999, 99_998])
       expect(result.count).to eq(0)
     end
   end
 
   describe '.find_by_invoice_numbers' do
     it 'returns reimbursements for given invoice numbers' do
-      invoice_numbers = ['INV-001', 'INV-002']
+      invoice_numbers = %w[INV-001 INV-002]
       result = described_class.find_by_invoice_numbers(invoice_numbers)
       expect(result.count).to eq(2)
       expect(result.pluck(:invoice_number)).to contain_exactly('INV-001', 'INV-002')
@@ -83,7 +83,7 @@ RSpec.describe ReimbursementRepository, type: :repository do
 
   describe '.index_by_invoice_numbers' do
     it 'returns indexed hash by invoice numbers' do
-      invoice_numbers = ['INV-001', 'INV-002']
+      invoice_numbers = %w[INV-001 INV-002]
       result = described_class.index_by_invoice_numbers(invoice_numbers)
       expect(result['INV-001']).to eq(reimbursement)
       expect(result['INV-002']).to eq(processing_reimbursement)
@@ -100,7 +100,7 @@ RSpec.describe ReimbursementRepository, type: :repository do
 
   describe '.by_statuses' do
     it 'returns reimbursements with specified statuses' do
-      statuses = ['pending', 'processing']
+      statuses = %w[pending processing]
       result = described_class.by_statuses(statuses)
       expect(result.count).to eq(2)
       expect(result.pluck(:status)).to contain_exactly('pending', 'processing')
@@ -168,7 +168,9 @@ RSpec.describe ReimbursementRepository, type: :repository do
 
   describe '.assigned_to_user' do
     let!(:assigned_reimbursement) { create(:reimbursement) }
-    let!(:assignment) { create(:reimbursement_assignment, reimbursement: assigned_reimbursement, assignee: admin_user, is_active: true) }
+    let!(:assignment) do
+      create(:reimbursement_assignment, reimbursement: assigned_reimbursement, assignee: admin_user, is_active: true)
+    end
 
     it 'returns reimbursements assigned to specific user' do
       result = described_class.assigned_to_user(admin_user.id)
@@ -178,7 +180,9 @@ RSpec.describe ReimbursementRepository, type: :repository do
 
   describe '.my_assignments' do
     let!(:assigned_reimbursement) { create(:reimbursement) }
-    let!(:assignment) { create(:reimbursement_assignment, reimbursement: assigned_reimbursement, assignee: admin_user, is_active: true) }
+    let!(:assignment) do
+      create(:reimbursement_assignment, reimbursement: assigned_reimbursement, assignee: admin_user, is_active: true)
+    end
 
     it 'returns the same as assigned_to_user' do
       result = described_class.my_assignments(admin_user.id)
@@ -189,7 +193,9 @@ RSpec.describe ReimbursementRepository, type: :repository do
   # Update and notification scopes
   describe '.with_unread_updates' do
     let!(:unread_reimbursement) { create(:reimbursement, has_updates: true, last_update_at: 1.day.ago) }
-    let!(:read_reimbursement) { create(:reimbursement, has_updates: true, last_update_at: 1.day.ago, last_viewed_at: 2.hours.ago) }
+    let!(:read_reimbursement) do
+      create(:reimbursement, has_updates: true, last_update_at: 1.day.ago, last_viewed_at: 2.hours.ago)
+    end
 
     it 'returns reimbursements with unread updates' do
       result = described_class.with_unread_updates
@@ -200,9 +206,13 @@ RSpec.describe ReimbursementRepository, type: :repository do
 
   describe '.with_unviewed_operation_histories' do
     let!(:reimbursement_with_hist) { create(:reimbursement) }
-    let!(:recent_history) { create(:operation_history, document_number: reimbursement_with_hist.invoice_number, created_at: 1.hour.ago) }
+    let!(:recent_history) do
+      create(:operation_history, document_number: reimbursement_with_hist.invoice_number, created_at: 1.hour.ago)
+    end
     let!(:viewed_reimbursement) { create(:reimbursement, last_viewed_operation_histories_at: 2.hours.ago) }
-    let!(:old_history) { create(:operation_history, document_number: viewed_reimbursement.invoice_number, created_at: 3.hours.ago) }
+    let!(:old_history) do
+      create(:operation_history, document_number: viewed_reimbursement.invoice_number, created_at: 3.hours.ago)
+    end
 
     it 'returns reimbursements with unviewed operation histories' do
       result = described_class.with_unviewed_operation_histories
@@ -213,9 +223,13 @@ RSpec.describe ReimbursementRepository, type: :repository do
 
   describe '.with_unviewed_express_receipts' do
     let!(:reimbursement_with_express) { create(:reimbursement) }
-    let!(:recent_express) { create(:express_receipt_work_order, reimbursement: reimbursement_with_express, created_at: 1.hour.ago) }
+    let!(:recent_express) do
+      create(:express_receipt_work_order, reimbursement: reimbursement_with_express, created_at: 1.hour.ago)
+    end
     let!(:viewed_reimbursement) { create(:reimbursement, last_viewed_express_receipts_at: 2.hours.ago) }
-    let!(:old_express) { create(:express_receipt_work_order, reimbursement: viewed_reimbursement, created_at: 3.hours.ago) }
+    let!(:old_express) do
+      create(:express_receipt_work_order, reimbursement: viewed_reimbursement, created_at: 3.hours.ago)
+    end
 
     it 'returns reimbursements with unviewed express receipts' do
       result = described_class.with_unviewed_express_receipts
@@ -226,9 +240,13 @@ RSpec.describe ReimbursementRepository, type: :repository do
 
   describe '.with_unviewed_records' do
     let!(:reimbursement_with_hist) { create(:reimbursement) }
-    let!(:recent_history) { create(:operation_history, document_number: reimbursement_with_hist.invoice_number, created_at: 1.hour.ago) }
+    let!(:recent_history) do
+      create(:operation_history, document_number: reimbursement_with_hist.invoice_number, created_at: 1.hour.ago)
+    end
     let!(:reimbursement_with_express) { create(:reimbursement) }
-    let!(:recent_express) { create(:express_receipt_work_order, reimbursement: reimbursement_with_express, created_at: 1.hour.ago) }
+    let!(:recent_express) do
+      create(:express_receipt_work_order, reimbursement: reimbursement_with_express, created_at: 1.hour.ago)
+    end
 
     it 'returns union of unviewed operation histories and express receipts' do
       result = described_class.with_unviewed_records
@@ -238,7 +256,9 @@ RSpec.describe ReimbursementRepository, type: :repository do
 
   describe '.assigned_with_unread_updates' do
     let!(:assigned_unread) { create(:reimbursement, has_updates: true, last_update_at: Time.current) }
-    let!(:assignment) { create(:reimbursement_assignment, reimbursement: assigned_unread, assignee: admin_user, is_active: true) }
+    let!(:assignment) do
+      create(:reimbursement_assignment, reimbursement: assigned_unread, assignee: admin_user, is_active: true)
+    end
 
     it 'returns assigned reimbursements with unread updates' do
       result = described_class.assigned_with_unread_updates(admin_user.id)
@@ -316,7 +336,7 @@ RSpec.describe ReimbursementRepository, type: :repository do
     end
 
     it 'returns false when reimbursement does not exist' do
-      result = described_class.exists?(id: 99999)
+      result = described_class.exists?(id: 99_999)
       expect(result).to be false
     end
   end
@@ -335,7 +355,7 @@ RSpec.describe ReimbursementRepository, type: :repository do
 
   describe '.select_fields' do
     it 'returns only selected fields' do
-      result = described_class.select_fields([:id, :invoice_number])
+      result = described_class.select_fields(%i[id invoice_number])
       expect(result.first).to have_attributes(id: reimbursement.id, invoice_number: 'INV-001')
       expect { result.first.status }.to raise_error(ActiveModel::MissingAttributeError)
     end
@@ -349,13 +369,13 @@ RSpec.describe ReimbursementRepository, type: :repository do
 
     it 'returns nil when not found without logging error' do
       expect(Rails.logger).not_to receive(:error)
-      result = described_class.safe_find(99999)
+      result = described_class.safe_find(99_999)
       expect(result).to be_nil
     end
 
     it 'returns nil when exception occurs' do
       allow(Reimbursement).to receive(:find).and_raise(StandardError, 'Database connection failed')
-      result = described_class.safe_find(99999)
+      result = described_class.safe_find(99_999)
       expect(result).to be_nil
     end
   end
@@ -382,10 +402,10 @@ RSpec.describe ReimbursementRepository, type: :repository do
   describe 'method chaining' do
     it 'allows method chaining for complex queries' do
       result = described_class
-        .by_status('pending')
-        .where('created_at >= ?', 1.day.ago)
-        .order(:created_at)
-        .limit(1)
+               .by_status('pending')
+               .where('created_at >= ?', 1.day.ago)
+               .order(:created_at)
+               .limit(1)
 
       expect(result.count).to eq(1)
       expect(result.first).to eq(reimbursement)

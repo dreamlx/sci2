@@ -15,7 +15,7 @@ class CreateFeeDetails < ActiveRecord::Migration[7.1]
     end
 
     # 添加复合索引用于费用明细重复检查
-    add_index :fee_details, [:document_number, :fee_type, :amount, :fee_date], 
+    add_index :fee_details, %i[document_number fee_type amount fee_date],
               name: 'index_fee_details_on_document_and_details',
               unique: true
   end

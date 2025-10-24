@@ -73,7 +73,7 @@ RSpec.describe Commands::AssignReimbursementCommand, type: :command do
         result = command.call
 
         expect(result.failure?).to be true
-        expect(result.errors).to include("Reimbursement不能为空")
+        expect(result.errors).to include('Reimbursement不能为空')
       end
 
       it 'fails when assignee_id is nil' do
@@ -86,7 +86,7 @@ RSpec.describe Commands::AssignReimbursementCommand, type: :command do
         result = command.call
 
         expect(result.failure?).to be true
-        expect(result.errors).to include("Assignee不能为空")
+        expect(result.errors).to include('Assignee不能为空')
       end
 
       it 'fails when current_user is nil' do
@@ -99,12 +99,12 @@ RSpec.describe Commands::AssignReimbursementCommand, type: :command do
         result = command.call
 
         expect(result.failure?).to be true
-        expect(result.errors).to include("Current user不能为空")
+        expect(result.errors).to include('Current user不能为空')
       end
 
       it 'fails when reimbursement does not exist' do
         command = described_class.new(
-          reimbursement_id: 99999,
+          reimbursement_id: 99_999,
           assignee_id: assignee.id,
           current_user: admin_user
         )
@@ -112,20 +112,20 @@ RSpec.describe Commands::AssignReimbursementCommand, type: :command do
         result = command.call
 
         expect(result.failure?).to be true
-        expect(result.errors).to include("Reimbursement not found")
+        expect(result.errors).to include('Reimbursement not found')
       end
 
       it 'fails when assignee does not exist' do
         command = described_class.new(
           reimbursement_id: reimbursement.id,
-          assignee_id: 99999,
+          assignee_id: 99_999,
           current_user: admin_user
         )
 
         result = command.call
 
         expect(result.failure?).to be true
-        expect(result.errors).to include("Assignee not found")
+        expect(result.errors).to include('Assignee not found')
       end
     end
 
@@ -144,13 +144,13 @@ RSpec.describe Commands::AssignReimbursementCommand, type: :command do
         result = command.call
 
         expect(result.failure?).to be true
-        expect(result.errors).to include("Assignment failed")
+        expect(result.errors).to include('Assignment failed')
       end
     end
 
     context 'when unexpected error occurs' do
       before do
-        allow_any_instance_of(ReimbursementAssignmentService).to receive(:assign).and_raise(StandardError.new("Database error"))
+        allow_any_instance_of(ReimbursementAssignmentService).to receive(:assign).and_raise(StandardError.new('Database error'))
       end
 
       it 'returns failure result with error message' do
@@ -163,7 +163,7 @@ RSpec.describe Commands::AssignReimbursementCommand, type: :command do
         result = command.call
 
         expect(result.failure?).to be true
-        expect(result.errors).to include("Unexpected error: Database error")
+        expect(result.errors).to include('Unexpected error: Database error')
       end
     end
   end
@@ -174,19 +174,19 @@ RSpec.describe Commands::AssignReimbursementCommand, type: :command do
     it 'validates presence of reimbursement_id' do
       command.reimbursement_id = nil
       expect(command.valid?).to be false
-      expect(command.errors[:reimbursement_id]).to include("不能为空")
+      expect(command.errors[:reimbursement_id]).to include('不能为空')
     end
 
     it 'validates presence of assignee_id' do
       command.assignee_id = nil
       expect(command.valid?).to be false
-      expect(command.errors[:assignee_id]).to include("不能为空")
+      expect(command.errors[:assignee_id]).to include('不能为空')
     end
 
     it 'validates presence of current_user' do
       command.current_user = nil
       expect(command.valid?).to be false
-      expect(command.errors[:current_user]).to include("不能为空")
+      expect(command.errors[:current_user]).to include('不能为空')
     end
   end
 end

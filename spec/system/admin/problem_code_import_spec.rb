@@ -15,7 +15,7 @@ RSpec.describe 'Problem Code Import', type: :system do
     click_button '导入'
 
     expect(page).to have_content('导入成功')
-    
+
     # Verify FeeTypes were created
     expect(FeeType.count).to eq(3)
     expect(FeeType.pluck(:title)).to include('月度交通费（销售/SMO/CO）', '电话费', '交通费-市内')

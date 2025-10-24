@@ -1,6 +1,6 @@
-require_relative "boot"
+require_relative 'boot'
 
-require "rails/all"
+require 'rails/all'
 require 'inherited_resources'
 puts "InheritedResources loaded: #{defined?(InheritedResources::Base)}"
 
@@ -19,7 +19,7 @@ module Sci2
     # Please, add to the `ignore` list any other `lib` subdirectories that do
     # not contain `.rb` files, or that should not be reloaded or eager loaded.
     # Common ones are `templates`, `generators`, or `middleware`, for example.
-    config.autoload_lib(ignore: %w(assets tasks))
+    config.autoload_lib(ignore: %w[assets tasks])
 
     # Configuration for the application, engines, and railties goes here.
     #
@@ -31,15 +31,15 @@ module Sci2
 
     # Add app/commands, app/policies, and app/repositories to autoload paths
     config.autoload_paths += [
-      Rails.root.join("app", "commands"),
-      Rails.root.join("app", "policies"),
-      Rails.root.join("app", "repositories")
+      Rails.root.join('app', 'commands'),
+      Rails.root.join('app', 'policies'),
+      Rails.root.join('app', 'repositories')
     ]
 
     # Set the default locale to Chinese
     config.i18n.default_locale = :'zh-CN'
 
     # Whitelist available locales for the application
-    config.i18n.available_locales = [:'zh-CN', :en]
+    config.i18n.available_locales = %i[zh-CN en]
   end
 end

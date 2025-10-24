@@ -10,9 +10,10 @@ class CreateWorkOrderFeeDetails < ActiveRecord::Migration[7.1]
       t.timestamps # 可选，但推荐
 
       # 复合唯一索引，防止重复关联
-      t.index [:fee_detail_id, :work_order_id, :work_order_type], unique: true, name: 'index_work_order_fee_details_uniqueness'
+      t.index %i[fee_detail_id work_order_id work_order_type], unique: true,
+                                                               name: 'index_work_order_fee_details_uniqueness'
       # 为多态关联添加索引 (polymorphic: true 选项会自动创建这个)
-      t.index [:work_order_id, :work_order_type], name: 'index_work_order_fee_details_on_work_order'
+      t.index %i[work_order_id work_order_type], name: 'index_work_order_fee_details_on_work_order'
     end
   end
 end

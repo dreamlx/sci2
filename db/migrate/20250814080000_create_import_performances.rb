@@ -9,7 +9,7 @@ class CreateImportPerformances < ActiveRecord::Migration[7.0]
       t.text :notes
       t.timestamps
     end
-    
+
     add_index :import_performances, :operation_type
     add_index :import_performances, :created_at
     add_index :import_performances, :optimization_level

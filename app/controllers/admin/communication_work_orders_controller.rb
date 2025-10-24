@@ -3,25 +3,24 @@
 
 module Admin
   class CommunicationWorkOrdersController < ActiveAdmin::ResourceController
-    before_action :set_communication_work_order, only: [:show, :edit, :update, :destroy]
+    before_action :set_communication_work_order, only: %i[show edit update destroy]
 
     def index
       @communication_work_orders = CommunicationWorkOrder.includes(:reimbursement, :creator)
-                                                        .order(created_at: :desc)
-                                                        .ransack(params[:q])
-                                                        .result(distinct: true)
-                                                        .page(params[:page])
-                                                        .per(20)
+                                                         .order(created_at: :desc)
+                                                         .ransack(params[:q])
+                                                         .result(distinct: true)
+                                                         .page(params[:page])
+                                                         .per(20)
     end
 
-    def show
-    end
+    def show; end
 
     def new
       @communication_work_order = CommunicationWorkOrder.new
-      if params[:reimbursement_id]
-        @communication_work_order.reimbursement_id = params[:reimbursement_id]
-      end
+      return unless params[:reimbursement_id]
+
+      @communication_work_order.reimbursement_id = params[:reimbursement_id]
     end
 
     def create
@@ -37,8 +36,7 @@ module Admin
       end
     end
 
-    def edit
-    end
+    def edit; end
 
     def update
       if @communication_work_order.update(communication_work_order_params)
@@ -70,4 +68,4 @@ module Admin
       )
     end
   end
-end 
+end

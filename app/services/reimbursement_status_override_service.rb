@@ -127,14 +127,14 @@ class ReimbursementStatusOverrideService
     unless reimbursement.is_a?(Reimbursement)
       return Result.new(
         success: false,
-        message: "Invalid reimbursement object provided."
+        message: 'Invalid reimbursement object provided.'
       )
     end
 
     unless status.is_a?(String) && status.present?
       return Result.new(
         success: false,
-        message: "Invalid status provided. Status must be a non-empty string."
+        message: 'Invalid status provided. Status must be a non-empty string.'
       )
     end
 
@@ -145,7 +145,7 @@ class ReimbursementStatusOverrideService
       )
     end
 
-    Result.new(success: true, message: "Inputs validated successfully.")
+    Result.new(success: true, message: 'Inputs validated successfully.')
   end
 
   # Validate inputs for reset_override operation
@@ -153,21 +153,20 @@ class ReimbursementStatusOverrideService
     unless reimbursement.is_a?(Reimbursement)
       return Result.new(
         success: false,
-        message: "Invalid reimbursement object provided."
+        message: 'Invalid reimbursement object provided.'
       )
     end
 
-    Result.new(success: true, message: "Inputs validated successfully.")
+    Result.new(success: true, message: 'Inputs validated successfully.')
   end
 
   # Log override reset operation
   def log_override_reset(reimbursement)
-    user_info = @current_user ? "by #{@current_user.email}" : "by system"
+    user_info = @current_user ? "by #{@current_user.email}" : 'by system'
     Rails.logger.info(
       "Manual override reset #{user_info}: " \
       "Reimbursement #{reimbursement.invoice_number} " \
       "at #{Time.current}"
     )
   end
-
-  end
+end

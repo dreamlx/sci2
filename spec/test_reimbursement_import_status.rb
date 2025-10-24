@@ -1,6 +1,6 @@
 require 'rails_helper'
 
-describe "Reimbursement Import Status Test" do
+describe 'Reimbursement Import Status Test' do
   let(:admin_user) { create(:admin_user) }
   let(:csv_content) do
     <<~CSV
@@ -9,7 +9,7 @@ describe "Reimbursement Import Status Test" do
     CSV
   end
 
-  it "sets imported reimbursements to pending status regardless of external status" do
+  it 'sets imported reimbursements to pending status regardless of external status' do
     # Create a test file
     file = Tempfile.new(['test_reimbursements', '.csv'])
     file.write(csv_content)
@@ -22,15 +22,15 @@ describe "Reimbursement Import Status Test" do
     # Verify the result
     expect(result[:success]).to be true
     expect(result[:created]).to eq(1)
-    
+
     # Find the imported reimbursement
     reimbursement = Reimbursement.find_by(invoice_number: 'R202501001')
-    
+
     # Verify the status
     expect(reimbursement).not_to be_nil
     expect(reimbursement.external_status).to eq('已付款')
     expect(reimbursement.status).to eq('pending')
-    
+
     # Clean up
     file.unlink
   end

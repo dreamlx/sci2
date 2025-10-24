@@ -2,7 +2,7 @@ ActiveAdmin.register CommunicationWorkOrder do
   # 简化参数 - 只允许沟通相关字段
   permit_params :reimbursement_id, :audit_comment, :communication_method
 
-  menu priority: 5, label: "沟通工单", parent: "工单管理"
+  menu priority: 5, label: '沟通工单', parent: '工单管理'
   config.sort_order = 'created_at_desc'
   config.remove_action_item :new # 从报销单页面创建
   config.batch_actions = false # 禁用批量操作
@@ -27,18 +27,18 @@ ActiveAdmin.register CommunicationWorkOrder do
       resource.created_by = current_admin_user.id if current_admin_user
       resource
     end
-    
+
     def create
       # 简化参数处理
       communication_work_order_params = params.require(:communication_work_order).permit(
         :reimbursement_id, :audit_comment, :communication_method
       )
-      
+
       @communication_work_order = CommunicationWorkOrder.new(communication_work_order_params)
       @communication_work_order.created_by = current_admin_user.id if current_admin_user
-      
+
       if @communication_work_order.save
-        redirect_to admin_communication_work_order_path(@communication_work_order), 
+        redirect_to admin_communication_work_order_path(@communication_work_order),
                     notice: '沟通工单创建成功，已自动完成。'
       else
         render :new
@@ -47,7 +47,7 @@ ActiveAdmin.register CommunicationWorkOrder do
 
     def update
       # 沟通工单创建后不允许编辑
-      redirect_to admin_communication_work_order_path(resource), 
+      redirect_to admin_communication_work_order_path(resource),
                   alert: '沟通工单创建后不允许修改。如需记录新的沟通，请创建新工单。'
     end
   end
@@ -55,31 +55,31 @@ ActiveAdmin.register CommunicationWorkOrder do
   # 简化列表页面
   index do
     id_column
-    column "报销单号", :reimbursement do |wo| 
+    column '报销单号', :reimbursement do |wo|
       link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) if wo.reimbursement
     end
-    column "沟通方式", :communication_method do |wo|
+    column '沟通方式', :communication_method do |wo|
       status_tag wo.communication_method, class: 'blue' if wo.communication_method
     end
-    column "沟通内容", :audit_comment do |wo|
+    column '沟通内容', :audit_comment do |wo|
       truncate(wo.audit_comment, length: 50) if wo.audit_comment
     end
-    column "创建人", :creator do |wo|
+    column '创建人', :creator do |wo|
       wo.creator&.name || wo.creator&.email
     end
-    column "创建时间", :created_at
-    column "状态", :status do |wo|
+    column '创建时间', :created_at
+    column '状态', :status do |wo|
       status_tag wo.status, class: wo.status == 'completed' ? 'green' : 'orange'
     end
-    column "操作" do |work_order|
-      link_to("查看", admin_communication_work_order_path(work_order), class: "member_link view_link")
+    column '操作' do |work_order|
+      link_to('查看', admin_communication_work_order_path(work_order), class: 'member_link view_link')
     end
-    
-    div class: "action_items" do
-      span class: "action_item" do
+
+    div class: 'action_items' do
+      span class: 'action_item' do
         # 安全地处理 params[:q]，避免传递 nil 或空值
         query_params = params[:q].present? ? { q: params[:q] } : {}
-        link_to "导出CSV", export_csv_admin_communication_work_orders_path(query_params), class: "button"
+        link_to '导出CSV', export_csv_admin_communication_work_orders_path(query_params), class: 'button'
       end
     end
   end
@@ -88,7 +88,7 @@ ActiveAdmin.register CommunicationWorkOrder do
   form do |f|
     if f.object.reimbursement || params[:reimbursement_id]
       reimbursement = f.object.reimbursement || Reimbursement.find_by(id: params[:reimbursement_id])
-      
+
       if reimbursement
         f.inputs '基本信息' do
           f.input :reimbursement_id, as: :hidden, input_html: { value: reimbursement.id }
@@ -99,33 +99,33 @@ ActiveAdmin.register CommunicationWorkOrder do
             rf.input :amount, label: '金额', input_html: { readonly: true, disabled: true }
           end
         end
-        
+
         f.inputs '沟通记录' do
-          f.input :communication_method, label: "沟通方式",
-                  as: :select,
-                  collection: [['电话', '电话'], ['微信', '微信'], ['邮件', '邮件']],
-                  prompt: '请选择沟通方式',
-                  input_html: { required: true }
-          
-          f.input :audit_comment, label: "沟通内容",
-                  as: :text,
-                  input_html: {
-                    rows: 6,
-                    placeholder: "请详细记录本次沟通的具体内容...",
-                    required: true,
-                    minlength: 10
-                  }
+          f.input :communication_method, label: '沟通方式',
+                                         as: :select,
+                                         collection: [%w[电话 电话], %w[微信 微信], %w[邮件 邮件]],
+                                         prompt: '请选择沟通方式',
+                                         input_html: { required: true }
+
+          f.input :audit_comment, label: '沟通内容',
+                                  as: :text,
+                                  input_html: {
+                                    rows: 6,
+                                    placeholder: '请详细记录本次沟通的具体内容...',
+                                    required: true,
+                                    minlength: 10
+                                  }
         end
-        
+
         f.actions
       else
         f.inputs do
-          f.li "错误：无法找到关联的报销单"
+          f.li '错误：无法找到关联的报销单'
         end
       end
     else
       f.inputs do
-        f.li "错误：沟通工单必须关联到特定的报销单"
+        f.li '错误：沟通工单必须关联到特定的报销单'
       end
     end
   end
@@ -134,10 +134,10 @@ ActiveAdmin.register CommunicationWorkOrder do
   collection_action :export_csv, method: :get do
     work_orders = CommunicationWorkOrder.includes(:reimbursement, :creator)
     work_orders = work_orders.ransack(params[:q]).result if params[:q]
-    
+
     csv_data = CSV.generate(headers: true, force_quotes: true) do |csv|
-      csv << ['工单ID', '报销单号', '沟通方式', '沟通内容', '创建人', '创建时间', '状态']
-      
+      csv << %w[工单ID 报销单号 沟通方式 沟通内容 创建人 创建时间 状态]
+
       work_orders.find_each do |wo|
         csv << [
           wo.id,
@@ -150,48 +150,46 @@ ActiveAdmin.register CommunicationWorkOrder do
         ]
       end
     end
-    
+
     send_data csv_data, filename: "沟通工单_#{Date.current.strftime('%Y%m%d')}.csv"
   end
 
   # 简化显示页面
-  show title: proc{|wo| "沟通工单 ##{wo.id}" } do
-    div class: "notice" do
-      "沟通工单专用于记录电话沟通过程，不会影响费用明细和报销单的验证状态。"
+  show title: proc { |wo| "沟通工单 ##{wo.id}" } do
+    div class: 'notice' do
+      '沟通工单专用于记录电话沟通过程，不会影响费用明细和报销单的验证状态。'
     end
-    
+
     attributes_table do
       row :id
-      row "报销单" do |wo|
-        if wo.reimbursement
-          link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement)
-        end
+      row '报销单' do |wo|
+        link_to wo.reimbursement.invoice_number, admin_reimbursement_path(wo.reimbursement) if wo.reimbursement
       end
-      row "沟通方式", :communication_method
-      row "沟通内容", :audit_comment do |wo|
+      row '沟通方式', :communication_method
+      row '沟通内容', :audit_comment do |wo|
         simple_format(wo.audit_comment) if wo.audit_comment
       end
-      row "创建人", :creator do |wo|
+      row '创建人', :creator do |wo|
         wo.creator&.name || wo.creator&.email
       end
-      row "创建时间", :created_at
-      row "状态", :status do |wo|
+      row '创建时间', :created_at
+      row '状态', :status do |wo|
         status_tag wo.status, class: wo.status == 'completed' ? 'green' : 'orange'
       end
     end
 
     # 显示关联的报销单信息
     if communication_work_order.reimbursement
-      panel "关联报销单信息" do
+      panel '关联报销单信息' do
         reimbursement = communication_work_order.reimbursement
         attributes_table_for reimbursement do
-          row "报销单号", :invoice_number
-          row "申请人", :applicant_name
-          row "部门", :department
-          row "总金额" do |r|
-            number_to_currency(r.amount, unit: "¥")
+          row '报销单号', :invoice_number
+          row '申请人', :applicant_name
+          row '部门', :department
+          row '总金额' do |r|
+            number_to_currency(r.amount, unit: '¥')
           end
-          row "状态", :status do |r|
+          row '状态', :status do |r|
             status_tag r.status
           end
         end
@@ -202,7 +200,7 @@ ActiveAdmin.register CommunicationWorkOrder do
   # 暂时完全禁用过滤器 - 任何过滤器都会导致 ArgumentError
   # 这是一个深层的 ActiveAdmin + CanCan + STI 兼容性问题
   config.filters = false
-  
+
   # 所有过滤器都暂时禁用，直到找到根本解决方案
   # filter :id
   # filter :communication_method, as: :select, collection: ['电话', '微信', '邮件', '现场沟通']

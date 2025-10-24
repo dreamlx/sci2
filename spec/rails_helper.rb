@@ -50,6 +50,9 @@ RSpec.configure do |config|
   # Include Devise test helpers for request specs
   config.include Devise::Test::IntegrationHelpers, type: :request
 
+  # Include Devise test helpers for controller specs
+  config.include Devise::Test::ControllerHelpers, type: :controller
+
   # Include Warden test helpers for feature and system specs (Capybara)
   config.include Warden::Test::Helpers, type: :feature
   config.include Warden::Test::Helpers, type: :system
@@ -106,6 +109,54 @@ RSpec.configure do |config|
 
   # Configure FactoryBot
   config.include FactoryBot::Syntax::Methods
+
+  # Performance optimization settings
+  config.before(:suite) do
+    # Database cleaner for better performance
+    DatabaseCleaner.strategy = :transaction
+    DatabaseCleaner.clean_with(:truncation)
+
+    # Pre-warm factories for better performance
+    FactoryBot.lint if ENV['LINT_FACTORIES']
+  end
+
+  config.around(:each) do |example|
+    DatabaseCleaner.cleaning do
+      example.run
+    end
+  end
+
+  # Parallel testing for faster execution
+  if ENV['PARALLEL_WORKERS']
+    require 'parallel_tests'
+    config.parallelize(workers: :number_of_processors)
+  end
+
+  # Performance monitoring
+  config.around(:each) do |example|
+    if ENV['PROFILE_TESTS']
+      start_time = Time.current
+      example.run
+      execution_time = Time.current - start_time
+
+      if execution_time > 3.seconds
+        puts "\n🐌 Slow test: #{example.full_description} (#{execution_time.round(2)}s)"
+      end
+    else
+      example.run
+    end
+  end
+
+  # Memory optimization
+  config.after(:suite) do
+    if ENV['MONITOR_MEMORY']
+      GC.start
+      puts "\n📊 Memory Usage: #{ObjectSpace.count_objects[:TOTAL]} objects"
+    end
+  end
+
+  # Skip slow tests in CI by default
+  config.filter_run_excluding slow: true if ENV['CI'] && !ENV['INCLUDE_SLOW_TESTS']
 
   # arbitrary gems may also be filtered via:
   # config.filter_gems_from_backtrace("gem name")

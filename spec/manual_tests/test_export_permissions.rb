@@ -3,7 +3,7 @@
 # 测试导出权限的诊断脚本
 require_relative 'config/environment'
 
-puts "=== ActiveAdmin 导出权限诊断 ==="
+puts '=== ActiveAdmin 导出权限诊断 ==='
 puts
 
 # 获取当前用户
@@ -12,7 +12,7 @@ puts "当前用户: #{admin_user.email} (角色: #{admin_user.role})"
 
 # 测试 Ability
 ability = Ability.new(admin_user)
-puts "Ability 初始化完成"
+puts 'Ability 初始化完成'
 
 # 测试各种权限
 puts "\n=== 权限测试结果 ==="
@@ -39,21 +39,21 @@ puts "下载链接配置: #{ActiveAdmin.application.namespaces[:admin].download_
 puts "\n=== 路由测试 ==="
 begin
   # 模拟一个导出请求
-  puts "尝试访问 /admin/reimbursements.xlsx 的路由..."
-  
+  puts '尝试访问 /admin/reimbursements.xlsx 的路由...'
+
   # 检查是否有对应的路由
   route = Rails.application.routes.routes.find do |route|
     route.path.spec.to_s.include?('admin/reimbursements') && route.defaults[:format] == :xlsx
   end
-  
+
   if route
     puts "找到路由: #{route.path.spec}"
     puts "控制器: #{route.defaults[:controller]}"
     puts "动作: #{route.defaults[:action]}"
   else
-    puts "未找到 .xlsx 格式的路由"
+    puts '未找到 .xlsx 格式的路由'
   end
-rescue => e
+rescue StandardError => e
   puts "路由测试出错: #{e.message}"
 end
 

@@ -3,20 +3,20 @@
 
 class AuditWorkOrderService < WorkOrderService
   def initialize(audit_work_order, current_admin_user)
-    super(audit_work_order, current_admin_user)
+    super
     @audit_work_order = audit_work_order
   end
 
   # The generic WorkOrderService#approve and WorkOrderService#reject methods
   # will now be used, which call the state machine events.
-  # Specific logic for AuditWorkOrder, if any beyond attribute assignment 
+  # Specific logic for AuditWorkOrder, if any beyond attribute assignment
   # (handled by assign_shared_attributes in parent), can be added here or by overriding.
 
   # The update method from WorkOrderService is now more generic.
   # If AuditWorkOrder needs specific update logic beyond what WorkOrderService#update provides
   # (which is assign_shared_attributes + save), it can be overridden here.
   # For now, let's assume the parent's update is sufficient after removing opinion-based status changes.
-  
+
   # We remove the specific `update` method from AuditWorkOrderService if its primary role
   # was to set resolution/status based on processing_opinion, as this is now handled by explicit event calls
   # in the parent service for approve/reject, and the parent update is now generic.

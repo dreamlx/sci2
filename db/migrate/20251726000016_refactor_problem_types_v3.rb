@@ -16,7 +16,7 @@ class RefactorProblemTypesV3 < ActiveRecord::Migration[7.1]
     # Step 3: Add a new unique index to ensure data integrity based on the new context
     # The original `code` column will now store the `issue_code`.
     add_index :problem_types,
-              [:reimbursement_type_code, :meeting_type_code, :expense_type_code, :code],
+              %i[reimbursement_type_code meeting_type_code expense_type_code code],
               unique: true,
               name: 'index_problem_types_on_context_and_code'
   end

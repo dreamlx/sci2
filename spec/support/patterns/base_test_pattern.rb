@@ -59,13 +59,9 @@ module TestPatterns
         expect(result.success?).to be true
         expect(result.failure?).to be false
 
-        if expected_data_type
-          expect(result.data).to be_a(expected_data_type) if result.respond_to?(:data)
-        end
+        expect(result.data).to be_a(expected_data_type) if expected_data_type && result.respond_to?(:data)
 
-        if result.respond_to?(:message) && result.message
-          expect(result.message).to be_a(String)
-        end
+        expect(result.message).to be_a(String) if result.respond_to?(:message) && result.message
       end
     end
 
@@ -85,7 +81,7 @@ module TestPatterns
     end
 
     def expect_no_database_change(&block)
-      expect { block.call }.not_to change { described_class.count if described_class.respond_to?(:count) }
+      expect { block.call }.not_to(change { described_class.count if described_class.respond_to?(:count) })
     end
 
     def expect_database_change_by(count = 1, model_class = nil, &block)

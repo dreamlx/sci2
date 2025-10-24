@@ -1,35 +1,35 @@
 # lib/tasks/create_academic_general_fee_types.rake
 namespace :fee_types do
-  desc "为学术会议创建通用费用类型和对应的问题类型"
+  desc '为学术会议创建通用费用类型和对应的问题类型'
   task create_academic_general_types: :environment do
-    puts "开始为学术会议创建通用费用类型和问题类型..."
-    
+    puts '开始为学术会议创建通用费用类型和问题类型...'
+
     # 只为学术论坛创建通用费用类型
     academic_meeting_type = '学术论坛'
-    
+
     # 创建学术会议的通用费用类型
     general_fee_type = FeeType.find_or_create_by(
-      code: "GENERAL_ACADEMIC",
+      code: 'GENERAL_ACADEMIC',
       meeting_type: academic_meeting_type
     ) do |ft|
-      ft.title = "通用问题-学术论坛"
-      ft.name = "通用问题-学术论坛"
+      ft.title = '通用问题-学术论坛'
+      ft.name = '通用问题-学术论坛'
       ft.active = true
     end
-    
+
     puts "创建通用费用类型: #{general_fee_type.display_name}"
-    
+
     # 创建学术会议的通用问题类型
     create_academic_general_problem_types(general_fee_type)
-    
-    puts "学术会议通用费用类型和问题类型创建完成！"
+
+    puts '学术会议通用费用类型和问题类型创建完成！'
   end
-  
+
   private
-  
+
   def create_academic_general_problem_types(fee_type)
     puts "为 #{fee_type.title} 创建通用问题类型..."
-    
+
     general_problems = [
       {
         code: 'ACADEMIC_GENERAL_001',
@@ -39,7 +39,7 @@ namespace :fee_types do
       },
       {
         code: 'ACADEMIC_GENERAL_002',
-        title: '审批流程不规范', 
+        title: '审批流程不规范',
         sop_description: '检查学术会议费用审批流程是否符合公司规定',
         standard_handling: '按照学术会议费用审批的正确流程重新审批'
       },
@@ -62,7 +62,7 @@ namespace :fee_types do
         standard_handling: '要求提供时间说明或重新整理符合会议时间的费用单据'
       }
     ]
-    
+
     general_problems.each do |problem_data|
       problem_type = ProblemType.find_or_create_by(
         code: problem_data[:code],
@@ -73,7 +73,7 @@ namespace :fee_types do
         pt.standard_handling = problem_data[:standard_handling]
         pt.active = true
       end
-      
+
       puts "  创建问题类型: #{problem_type.code} - #{problem_type.title}"
     end
   end

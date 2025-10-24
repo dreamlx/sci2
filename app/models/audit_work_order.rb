@@ -37,7 +37,7 @@ class AuditWorkOrder < WorkOrder
       self.audit_result = 'rejected'
       self.audit_date = Time.current
     end
-    
+
     # 避免触发无限循环
     self.class.skip_callback(:save, :after, :sync_audit_result_with_status)
     save

@@ -5,19 +5,19 @@ RSpec.describe OperationHistory, type: :model do
     it 'requires document_number' do
       operation_history = OperationHistory.new
       expect(operation_history).not_to be_valid
-      expect(operation_history.errors[:document_number]).to include("不能为空")
+      expect(operation_history.errors[:document_number]).to include('不能为空')
     end
 
     it 'requires operation_type' do
       operation_history = OperationHistory.new(document_number: 'ER123456')
       expect(operation_history).not_to be_valid
-      expect(operation_history.errors[:operation_type]).to include("不能为空")
+      expect(operation_history.errors[:operation_type]).to include('不能为空')
     end
 
     it 'requires operation_time' do
       operation_history = OperationHistory.new(document_number: 'ER123456', operation_type: '审批')
       expect(operation_history).not_to be_valid
-      expect(operation_history.errors[:operation_time]).to include("不能为空")
+      expect(operation_history.errors[:operation_time]).to include('不能为空')
     end
 
     it 'requires operator' do
@@ -27,7 +27,7 @@ RSpec.describe OperationHistory, type: :model do
         operation_time: Time.current
       )
       expect(operation_history).not_to be_valid
-      expect(operation_history.errors[:operator]).to include("不能为空")
+      expect(operation_history.errors[:operator]).to include('不能为空')
     end
 
     it 'validates currency inclusion' do
@@ -91,12 +91,12 @@ RSpec.describe OperationHistory, type: :model do
   describe 'ransackable attributes' do
     it 'includes all expected attributes' do
       expected_attributes = %w[
-        id document_number operation_type operation_time operator notes form_type operation_node 
+        id document_number operation_type operation_time operator notes form_type operation_node
         applicant employee_id employee_company employee_department employee_department_path
         document_company document_department document_department_path submitter document_name
         currency amount created_date created_at updated_at
       ]
-      
+
       expect(OperationHistory.ransackable_attributes).to match_array(expected_attributes)
     end
   end
@@ -109,7 +109,7 @@ RSpec.describe OperationHistory, type: :model do
         operation_time: Time.current,
         operator: '张三'
       )
-      
+
       expect(operation_history).to be_valid
     end
   end

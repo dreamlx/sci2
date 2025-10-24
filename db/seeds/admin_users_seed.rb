@@ -1,7 +1,7 @@
 # Admin Users Migration from Old System
 # Run with: rails runner "load 'db/seeds/admin_users_seed.rb'"
 
-puts "Creating admin users from old system..."
+puts 'Creating admin users from old system...'
 
 admin_users_data = [
   {

@@ -10,18 +10,16 @@ class AttachmentUploadService
   end
 
   def upload
-    begin
-      fee_detail = build_fee_detail
-      fee_detail.attachments.attach(params[:attachments]) if params[:attachments].present?
+    fee_detail = build_fee_detail
+    fee_detail.attachments.attach(params[:attachments]) if params[:attachments].present?
 
-      if fee_detail.save
-        { success: true, fee_detail: fee_detail }
-      else
-        { success: false, error: fee_detail.errors.full_messages.join(', ') }
-      end
-    rescue => e
-      { success: false, error: e.message }
+    if fee_detail.save
+      { success: true, fee_detail: fee_detail }
+    else
+      { success: false, error: fee_detail.errors.full_messages.join(', ') }
     end
+  rescue StandardError => e
+    { success: false, error: e.message }
   end
 
   private

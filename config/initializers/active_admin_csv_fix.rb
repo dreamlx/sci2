@@ -9,7 +9,7 @@ Rails.application.config.after_initialize do
     def csv_filename
       "#{resource_collection_name}_#{Time.current.strftime('%Y%m%d%H%M%S')}.csv"
     end
-    
+
     # Add UTF-8 BOM for Excel compatibility
     alias_method :original_index, :index
     def index(&block)

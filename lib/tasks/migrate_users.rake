@@ -1,26 +1,26 @@
 namespace :data do
-  desc "Migrate users from old system to admin_users"
+  desc 'Migrate users from old system to admin_users'
   task migrate_users: :environment do
-    puts "Starting user migration from old system..."
-    
+    puts 'Starting user migration from old system...'
+
     # First run the migration to add fields if not already done
     begin
       ActiveRecord::Migration.check_pending!
     rescue ActiveRecord::PendingMigrationError
-      puts "Running pending migrations first..."
-      Rake::Task["db:migrate"].invoke
+      puts 'Running pending migrations first...'
+      Rake::Task['db:migrate'].invoke
     end
-    
+
     # Load and run the seed file
     load Rails.root.join('db', 'seeds', 'admin_users_seed.rb')
-    
+
     puts "\nUser migration completed successfully!"
   end
-  
-  desc "Verify migrated users"
+
+  desc 'Verify migrated users'
   task verify_users: :environment do
-    puts "Verifying migrated admin users..."
-    
+    puts 'Verifying migrated admin users...'
+
     expected_emails = [
       'alex.lu@think-bridge.com',
       'jojo.sun@think-bridge.com',
@@ -37,21 +37,21 @@ namespace :data do
       'bob.wang@think-bridge.com',
       'amos.lin@think-bridge.com'
     ]
-    
+
     puts "Expected users: #{expected_emails.count}"
     puts "Total admin users: #{AdminUser.count}"
-    
+
     missing_users = expected_emails - AdminUser.pluck(:email)
     if missing_users.empty?
-      puts "✅ All expected users are present"
+      puts '✅ All expected users are present'
     else
       puts "❌ Missing users: #{missing_users.join(', ')}"
     end
-    
+
     # Check roles
     admin_count = AdminUser.where(role: 'admin').count
     puts "Users with admin role: #{admin_count}"
-    
+
     # Show sample user
     sample_user = AdminUser.first
     if sample_user

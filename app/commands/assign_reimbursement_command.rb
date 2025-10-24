@@ -11,6 +11,7 @@ module Commands
     include ActiveModel::Attributes
 
     attr_accessor :reimbursement_id, :assignee_id, :notes, :current_user
+
     validates :reimbursement_id, :assignee_id, :current_user, presence: true
 
     def initialize(reimbursement_id: nil, assignee_id: nil, notes: nil, current_user: nil)
@@ -25,11 +26,11 @@ module Commands
 
       # Get the reimbursement
       reimbursement = find_reimbursement
-      return failure_result(["Reimbursement not found"]) unless reimbursement
+      return failure_result(['Reimbursement not found']) unless reimbursement
 
       # Get the assignee
       assignee = find_assignee
-      return failure_result(["Assignee not found"]) unless assignee
+      return failure_result(['Assignee not found']) unless assignee
 
       # Perform the assignment
       assignment = perform_assignment(reimbursement, assignee)
@@ -37,9 +38,9 @@ module Commands
       if assignment
         success_result(assignment)
       else
-        failure_result(["Assignment failed"])
+        failure_result(['Assignment failed'])
       end
-    rescue => e
+    rescue StandardError => e
       failure_result(["Unexpected error: #{e.message}"])
     end
 
@@ -61,11 +62,11 @@ module Commands
     end
 
     def success_result(data)
-      Shared::CommandResult.success(data: data, message: "Successfully assigned reimbursement")
+      Shared::CommandResult.success(data: data, message: 'Successfully assigned reimbursement')
     end
 
     def failure_result(errors)
-      Shared::CommandResult.failure(errors: errors, message: errors.join(", "))
+      Shared::CommandResult.failure(errors: errors, message: errors.join(', '))
     end
   end
 end

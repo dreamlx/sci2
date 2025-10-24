@@ -16,7 +16,7 @@ RSpec.describe ProblemTypeRepository, type: :repository do
     end
 
     it 'returns nil when not found' do
-      result = described_class.find(99999)
+      result = described_class.find(99_999)
       expect(result).to be_nil
     end
   end
@@ -28,7 +28,7 @@ RSpec.describe ProblemTypeRepository, type: :repository do
     end
 
     it 'returns nil when not found' do
-      result = described_class.find_by_id(99999)
+      result = described_class.find_by_id(99_999)
       expect(result).to be_nil
     end
   end
@@ -42,7 +42,7 @@ RSpec.describe ProblemTypeRepository, type: :repository do
     end
 
     it 'returns empty relation when no ids match' do
-      result = described_class.find_by_ids([99999, 99998])
+      result = described_class.find_by_ids([99_999, 99_998])
       expect(result.count).to eq(0)
     end
   end
@@ -74,7 +74,7 @@ RSpec.describe ProblemTypeRepository, type: :repository do
     end
 
     it 'returns empty when no problem types for fee type' do
-      result = described_class.by_fee_type(99999)
+      result = described_class.by_fee_type(99_999)
       expect(result).to be_empty
     end
   end
@@ -162,7 +162,7 @@ RSpec.describe ProblemTypeRepository, type: :repository do
     end
 
     it 'returns false when problem type does not exist' do
-      result = described_class.exists?(id: 99999)
+      result = described_class.exists?(id: 99_999)
       expect(result).to be false
     end
   end
@@ -182,7 +182,7 @@ RSpec.describe ProblemTypeRepository, type: :repository do
   # Performance optimizations
   describe '.select_fields' do
     it 'returns only selected fields' do
-      result = described_class.select_fields([:id, :issue_code])
+      result = described_class.select_fields(%i[id issue_code])
       expect(result.first).to have_attributes(id: active_problem.id, issue_code: active_problem.issue_code)
       expect { result.first.title }.to raise_error(ActiveModel::MissingAttributeError)
     end
@@ -205,13 +205,13 @@ RSpec.describe ProblemTypeRepository, type: :repository do
 
     it 'returns nil when not found without logging error' do
       expect(Rails.logger).not_to receive(:error)
-      result = described_class.safe_find(99999)
+      result = described_class.safe_find(99_999)
       expect(result).to be_nil
     end
 
     it 'returns nil when exception occurs' do
       allow(ProblemType).to receive(:find).and_raise(StandardError, 'Database connection failed')
-      result = described_class.safe_find(99999)
+      result = described_class.safe_find(99_999)
       expect(result).to be_nil
     end
   end
@@ -264,10 +264,10 @@ RSpec.describe ProblemTypeRepository, type: :repository do
   describe 'method chaining' do
     it 'allows method chaining for complex queries' do
       result = described_class
-        .active
-        .by_fee_type(fee_type1.id)
-        .order(:issue_code)
-        .limit(1)
+               .active
+               .by_fee_type(fee_type1.id)
+               .order(:issue_code)
+               .limit(1)
 
       expect(result.count).to eq(1)
       expect(result.first).to eq(active_problem)

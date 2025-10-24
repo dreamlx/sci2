@@ -45,9 +45,9 @@ RSpec.describe ReimbursementStatusOverrideService, type: :service do
       end
 
       it 'sets manual override flag and timestamp' do
-        expect {
+        expect do
           service.set_status(reimbursement, 'closed')
-        }.to change(reimbursement, :manual_override).from(false).to(true)
+        end.to change(reimbursement, :manual_override).from(false).to(true)
 
         expect(reimbursement.reload.manual_override_at).to be_within(1.second).of(Time.current)
       end
@@ -306,7 +306,7 @@ RSpec.describe ReimbursementStatusOverrideService, type: :service do
 
         result = service.set_status(reimbursement, valid_status)
         expect(result.success?).to be true
-        expect(result.message).not_to include("Failed")
+        expect(result.message).not_to include('Failed')
         expect(reimbursement.reload.status).to eq(valid_status)
       end
     end

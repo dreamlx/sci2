@@ -27,8 +27,8 @@ class ReimbursementRepository
     Reimbursement.where(id: reimbursement_ids)
   end
 
-  def self.find_each_by_ids(reimbursement_ids, &block)
-    Reimbursement.where(id: reimbursement_ids).find_each(&block)
+  def self.find_each_by_ids(reimbursement_ids, &)
+    Reimbursement.where(id: reimbursement_ids).find_each(&)
   end
 
   def self.find_by_invoice_numbers(invoice_numbers)
@@ -183,7 +183,7 @@ class ReimbursementRepository
     joins(:active_assignment).where(reimbursement_assignments: { assignee_id: user_id })
   end
 
-  def self.with_unread_updates_for_user(user_id)
+  def self.with_unread_updates_for_user(_user_id)
     # This would need to be implemented based on the actual business logic
     # for what constitutes "unread updates"
     where(has_updates: true)
@@ -288,7 +288,7 @@ class ReimbursementRepository
   end
 
   # Performance-optimized queries
-  def self.select_fields(fields = [:id, :invoice_number, :status, :created_at])
+  def self.select_fields(fields = %i[id invoice_number status created_at])
     Reimbursement.select(fields)
   end
 
@@ -301,14 +301,14 @@ class ReimbursementRepository
     find(id)
   rescue ActiveRecord::RecordNotFound
     nil
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Error finding reimbursement #{id}: #{e.message}"
     nil
   end
 
   def self.safe_find_by_invoice_number(invoice_number)
     find_by_invoice_number(invoice_number)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Error finding reimbursement by invoice #{invoice_number}: #{e.message}"
     nil
   end

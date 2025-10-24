@@ -6,4 +6,4 @@ class AddNewFieldsToFeeDetails < ActiveRecord::Migration[7.1]
     add_column :fee_details, :expense_corresponding_plan, :string # 费用对应计划
     add_column :fee_details, :expense_associated_application, :string # 费用关联申请单
   end
-end 
+end

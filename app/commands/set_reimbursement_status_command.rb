@@ -11,6 +11,7 @@ module Commands
     include ActiveModel::Attributes
 
     attr_accessor :reimbursement_id, :status, :current_user
+
     validates :reimbursement_id, :status, :current_user, presence: true
 
     def initialize(reimbursement_id: nil, status: nil, current_user: nil)
@@ -24,7 +25,7 @@ module Commands
 
       # Get the reimbursement
       reimbursement = find_reimbursement
-      return failure_result(["Reimbursement not found"]) unless reimbursement
+      return failure_result(['Reimbursement not found']) unless reimbursement
 
       # Perform the status change
       result = perform_status_change(reimbursement)
@@ -34,7 +35,7 @@ module Commands
       else
         failure_result([result.message])
       end
-    rescue => e
+    rescue StandardError => e
       failure_result(["Unexpected error: #{e.message}"])
     end
 
@@ -59,7 +60,7 @@ module Commands
     def failure_result(errors)
       Shared::CommandResult.failure(
         errors: errors,
-        message: errors.join(", ")
+        message: errors.join(', ')
       )
     end
   end

@@ -2,7 +2,7 @@ require 'rails_helper'
 
 RSpec.describe ProblemCodeImportService, type: :service do
   let!(:csv_file_path) { Tempfile.new(['test_problem_codes', '.csv']).path }
-  
+
   after do
     FileUtils.rm(csv_file_path) if File.exist?(csv_file_path)
   end
@@ -37,7 +37,7 @@ RSpec.describe ProblemCodeImportService, type: :service do
         expect(fee_type.name).to eq('月度交通费')
         expect(fee_type.meeting_name).to eq('个人')
       end
-      
+
       it 'creates the correct number of ProblemType records' do
         expect { service.import }.to change(ProblemType, :count).by(4)
       end
@@ -46,7 +46,7 @@ RSpec.describe ProblemCodeImportService, type: :service do
         service.import
         fee_type = FeeType.find_by(reimbursement_type_code: 'EN', meeting_type_code: '00', expense_type_code: '01')
         problem_type = ProblemType.find_by(fee_type: fee_type, issue_code: '01')
-        
+
         expect(problem_type).not_to be_nil
         expect(problem_type.title).to eq('燃油费行程问题')
         expect(problem_type.legacy_problem_code).to eq('EN000101')
@@ -61,7 +61,7 @@ RSpec.describe ProblemCodeImportService, type: :service do
         CSV
         create_csv(initial_csv)
         described_class.new(csv_file_path).import
-        
+
         updated_csv = <<~CSV
           reimbursement_type_code,meeting_type_code,meeting_type_name,expense_type_code,expense_type_name,issue_code,problem_title,sop_description,standard_handling,legacy_problem_code
           EN,00,个人,01,月度交通费,01,"燃油费行程问题 Updated","根据SOP规定... Updated","请根据要求... Updated",EN000101
@@ -73,7 +73,7 @@ RSpec.describe ProblemCodeImportService, type: :service do
       it 'does not create new records for existing codes' do
         expect { service.import }.to change(ProblemType, :count).by(1) # Only MN020101 is new
       end
-      
+
       it 'updates the attributes of existing records' do
         service.import
         fee_type = FeeType.find_by(reimbursement_type_code: 'EN', meeting_type_code: '00', expense_type_code: '01')
@@ -92,7 +92,7 @@ RSpec.describe ProblemCodeImportService, type: :service do
         CSV
         create_csv(invalid_csv)
       end
-      
+
       it 'skips rows with missing essential data' do
         expect { service.import }.not_to change(ProblemType, :count)
       end

@@ -1,8 +1,8 @@
 # lib/tasks/update_reimbursement_statuses.rake
 namespace :reimbursements do
-  desc "Update reimbursement statuses based on external status for existing data"
+  desc 'Update reimbursement statuses based on external status for existing data'
   task update_statuses: :environment do
-    puts "Starting reimbursement status update..."
+    puts 'Starting reimbursement status update...'
 
     # Find all reimbursements that are not manually overridden
     reimbursements = Reimbursement.where(manual_override: false)
@@ -23,9 +23,7 @@ namespace :reimbursements do
       end
 
       # Progress logging
-      if (index + 1) % 100 == 0
-        puts "Processed #{index + 1}/#{total_count} reimbursements..."
-      end
+      puts "Processed #{index + 1}/#{total_count} reimbursements..." if (index + 1) % 100 == 0
     end
 
     puts "Status update completed! Updated #{updated_count} out of #{total_count} reimbursements."

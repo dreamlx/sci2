@@ -36,12 +36,12 @@ RSpec.describe AuthorizationConcern, type: :controller do
   let!(:test_reimbursement) { create(:reimbursement) }
 
   before do
-    routes.draw {
+    routes.draw do
       get 'test_action' => 'anonymous#test_action'
       post 'test_member_action' => 'anonymous#test_member_action'
       post 'test_batch_action' => 'anonymous#test_batch_action'
       post 'test_collection_action' => 'anonymous#test_collection_action'
-    }
+    end
   end
 
   describe 'authentication checks' do
@@ -150,7 +150,8 @@ RSpec.describe AuthorizationConcern, type: :controller do
       end
 
       it 'denies admin users' do
-        expect(controller).to receive(:handle_authorization_error).with('此操作仅限超级管理员执行', { redirect_to: admin_dashboard_path })
+        expect(controller).to receive(:handle_authorization_error).with('此操作仅限超级管理员执行',
+                                                                        { redirect_to: admin_dashboard_path })
         expect(controller.send(:require_super_admin!)).to be false
       end
     end
@@ -172,7 +173,8 @@ RSpec.describe AuthorizationConcern, type: :controller do
         allow(ReimbursementPolicy).to receive(:new).with(admin_user, test_reimbursement).and_return(mock_policy)
         allow(mock_policy).to receive(:can_test_action?).and_return(true)
 
-        expect(controller.send(:require_permission?, 'ReimbursementPolicy', 'can_test_action?', test_reimbursement)).to be true
+        expect(controller.send(:require_permission?, 'ReimbursementPolicy', 'can_test_action?',
+                               test_reimbursement)).to be true
       end
 
       it 'returns false when permission is denied' do
@@ -180,7 +182,8 @@ RSpec.describe AuthorizationConcern, type: :controller do
         allow(ReimbursementPolicy).to receive(:new).with(admin_user, test_reimbursement).and_return(mock_policy)
         allow(mock_policy).to receive(:can_test_action?).and_return(false)
 
-        expect(controller.send(:require_permission?, 'ReimbursementPolicy', 'can_test_action?', test_reimbursement)).to be false
+        expect(controller.send(:require_permission?, 'ReimbursementPolicy', 'can_test_action?',
+                               test_reimbursement)).to be false
       end
     end
   end
@@ -199,18 +202,18 @@ RSpec.describe AuthorizationConcern, type: :controller do
 
   describe 'parameter sanitization for logging' do
     it 'filters sensitive parameters' do
-      params = ActionController::Parameters.new({
-        'email' => 'test@example.com',
-        'password' => 'secret123',
-        'user' => {
-          'name' => 'Test User',
-          'password' => 'another_secret'
-        }
-      })
+      ActionController::Parameters.new({
+                                         'email' => 'test@example.com',
+                                         'password' => 'secret123',
+                                         'user' => {
+                                           'name' => 'Test User',
+                                           'password' => 'another_secret'
+                                         }
+                                       })
 
       sanitized = controller.send(:sanitize_params_for_logging)
       expect(sanitized['password']).to eq('[FILTERED]')
-      # Note: This test would need the actual params to be available in the controller
+      # NOTE: This test would need the actual params to be available in the controller
     end
   end
 end

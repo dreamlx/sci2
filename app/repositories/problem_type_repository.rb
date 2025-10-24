@@ -165,7 +165,7 @@ class ProblemTypeRepository
   end
 
   # Performance-optimized queries
-  def self.select_fields(fields = [:id, :issue_code, :title, :active, :fee_type_id])
+  def self.select_fields(fields = %i[id issue_code title active fee_type_id])
     ProblemType.select(fields)
   end
 
@@ -182,7 +182,7 @@ class ProblemTypeRepository
     find(id)
   rescue ActiveRecord::RecordNotFound
     nil
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Error finding problem type #{id}: #{e.message}"
     nil
   end
@@ -193,7 +193,7 @@ class ProblemTypeRepository
     else
       ProblemType.find_by(issue_code: issue_code, fee_type_id: nil)
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Error finding problem type by issue code #{issue_code}: #{e.message}"
     nil
   end
@@ -207,8 +207,8 @@ class ProblemTypeRepository
 
   def self.active_by_fee_type
     active.joins(:fee_type)
-      .select('problem_types.*, fee_types.name as fee_type_name')
-      .order('fee_types.name, problem_types.issue_code')
+          .select('problem_types.*, fee_types.name as fee_type_name')
+          .order('fee_types.name, problem_types.issue_code')
   end
 
   def self.problem_types_with_work_order_count

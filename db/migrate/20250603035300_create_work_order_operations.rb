@@ -8,10 +8,10 @@ class CreateWorkOrderOperations < ActiveRecord::Migration[7.0]
       t.text :previous_state # JSON格式，存储操作前的状态
       t.text :current_state # JSON格式，存储操作后的状态
       t.datetime :created_at, null: false
-      
-      t.index [:work_order_id, :created_at]
-      t.index [:admin_user_id, :created_at]
-      t.index [:operation_type, :created_at]
+
+      t.index %i[work_order_id created_at]
+      t.index %i[admin_user_id created_at]
+      t.index %i[operation_type created_at]
     end
   end
 end

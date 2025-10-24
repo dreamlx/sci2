@@ -6,7 +6,7 @@ ActiveAdmin.setup do |config|
   # Set the title that is displayed on the main layout
   # for each of the active admin pages.
   #
-  config.site_title = "SCI2工单系统"
+  config.site_title = 'SCI2工单系统'
 
   # Set the link url for the title. For example, to take
   # users to your main site. Defaults to no link.
@@ -73,7 +73,7 @@ ActiveAdmin.setup do |config|
   # config.pundit_policy_namespace = :admin
 
   # You can customize your CanCan Ability class name here.
-  config.cancan_ability_class = "Ability"
+  config.cancan_ability_class = 'Ability'
 
   # You can specify a method to be called on unauthorized access.
   # This is necessary in order to prevent a redirect loop which happens
@@ -141,7 +141,6 @@ ActiveAdmin.setup do |config|
   #
   config.batch_actions = true
   # Disable scope counts globally
-  
 
   # == Controller Filters
   #
@@ -155,7 +154,7 @@ ActiveAdmin.setup do |config|
   # You can exclude possibly sensitive model attributes from being displayed,
   # added to forms, or exported by default by ActiveAdmin
   #
-  config.filter_attributes = [:encrypted_password, :password, :password_confirmation]
+  config.filter_attributes = %i[encrypted_password password password_confirmation]
 
   # == Localize Date/Time Format
   #
@@ -213,14 +212,14 @@ ActiveAdmin.setup do |config|
   #
   # To load a javascript file:
   #   config.register_javascript 'my_javascript.js'
-  
+
   # Register custom JavaScript files for work order forms
   config.register_javascript 'audit_work_order_form.js'
   config.register_javascript 'communication_work_order_form.js'
   # config.register_javascript 'chartkick'
   # config.register_javascript 'Chart.bundle'
   config.register_javascript 'active_admin_custom.js'
-  
+
   # Register custom CSS files
   config.register_stylesheet 'active_admin_dashboard.css'
   config.register_stylesheet 'active_admin_custom'

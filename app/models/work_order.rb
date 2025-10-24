@@ -189,12 +189,14 @@ class WorkOrder < ApplicationRecord
 
   # 记录状态变更
   def log_status_change(work_order, transition)
+    return unless defined?(WorkOrderOperation)
+
     WorkOrderOperation.create!(
       work_order: work_order,
       operation_type: WorkOrderOperation::OPERATION_TYPE_STATUS_CHANGE,
       details: "状态变更: #{transition.from} -> #{transition.to}",
       admin_user_id: Current.admin_user&.id
-    ) if defined?(WorkOrderOperation)
+    )
   end
 
   # 处理状态转换
@@ -209,12 +211,14 @@ class WorkOrder < ApplicationRecord
   def log_creation
     admin_user_id = Current.admin_user&.id || created_by || 1
 
+    return unless defined?(WorkOrderOperation)
+
     WorkOrderOperation.create!(
       work_order: self,
       operation_type: WorkOrderOperation::OPERATION_TYPE_CREATE,
       details: "创建#{self.class.name.underscore.humanize}",
       admin_user_id: admin_user_id
-    ) if defined?(WorkOrderOperation)
+    )
   end
 
   # 记录更新操作
@@ -224,15 +228,17 @@ class WorkOrder < ApplicationRecord
     return unless important_changes.any?
 
     change_details = important_changes
-                      .map { |attr, values| "#{attr}: #{values[0].inspect} -> #{values[1].inspect}" }
-                      .join(', ')
+                     .map { |attr, values| "#{attr}: #{values[0].inspect} -> #{values[1].inspect}" }
+                     .join(', ')
+
+    return unless defined?(WorkOrderOperation)
 
     WorkOrderOperation.create!(
       work_order: self,
       operation_type: WorkOrderOperation::OPERATION_TYPE_UPDATE,
       details: "更新: #{change_details}",
       admin_user_id: Current.admin_user&.id
-    ) if defined?(WorkOrderOperation)
+    )
   end
 
   # 根据工单类型更新报销单状态

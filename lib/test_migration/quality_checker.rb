@@ -106,15 +106,13 @@ module TestMigration
 
       results = check_directory(directory)
 
-      report = {
+      {
         summary: generate_report_summary(results),
         by_pattern_type: group_results_by_type(results),
         common_issues: extract_common_issues(results),
         recommendations: generate_overall_recommendations(results),
         detailed_results: results
       }
-
-      report
     end
 
     private
@@ -129,8 +127,6 @@ module TestMigration
         :policy
       when %r{spec/repositories/}
         :repository
-      else
-        nil
       end
     end
 
@@ -141,10 +137,10 @@ module TestMigration
         describe_blocks: content.scan(/describe\s+['"]/).length,
         context_blocks: content.scan(/context\s+['"]/).length,
         it_blocks: content.scan(/it\s+['"]/).length,
-        let_definitions: content.scan(/let\s+[:]/).length,
-        expectations: content.scan(/expect\(/).length,
-        factories: content.scan(/create\(/).length,
-        mocks: content.scan(/allow\(/).length
+        let_definitions: content.scan(/let\s+:/).length,
+        expectations: content.scan('expect(').length,
+        factories: content.scan('create(').length,
+        mocks: content.scan('allow(').length
       }
     end
 
@@ -211,7 +207,7 @@ module TestMigration
     end
 
     def check_minimum_assertions(content, min_assertions, check_result)
-      actual_assertions = content.scan(/expect\(/).length
+      actual_assertions = content.scan('expect(').length
       check_result[:total_checks] += 1
 
       if actual_assertions >= min_assertions
@@ -221,14 +217,14 @@ module TestMigration
       end
     end
 
-    def check_structure_quality(content, check_result)
+    def check_structure_quality(_content, check_result)
       analysis = check_result[:content_analysis]
 
       # Check for proper structure
       if analysis[:describe_blocks] > 0
         check_result[:passed_checks] += 1
       else
-        check_result[:issues] << "Missing describe blocks"
+        check_result[:issues] << 'Missing describe blocks'
       end
       check_result[:total_checks] += 1
 
@@ -236,7 +232,7 @@ module TestMigration
       if analysis[:context_blocks] > 0
         check_result[:passed_checks] += 1
       else
-        check_result[:recommendations] << "Consider using context blocks for better organization"
+        check_result[:recommendations] << 'Consider using context blocks for better organization'
       end
       check_result[:total_checks] += 1
 
@@ -244,7 +240,7 @@ module TestMigration
       if analysis[:let_definitions] > 0
         check_result[:passed_checks] += 1
       else
-        check_result[:recommendations] << "Consider using let for test data setup"
+        check_result[:recommendations] << 'Consider using let for test data setup'
       end
       check_result[:total_checks] += 1
     end
@@ -277,9 +273,7 @@ module TestMigration
               end
 
       issues = []
-      if score < 80
-        issues << "Test coverage reduced from #{original_tests} to #{migrated_tests} test cases"
-      end
+      issues << "Test coverage reduced from #{original_tests} to #{migrated_tests} test cases" if score < 80
 
       { score: score, issues: issues }
     end
@@ -298,11 +292,11 @@ module TestMigration
 
       # Check for structure improvements
       if migrated_check[:content_analysis][:context_blocks] > original_check[:content_analysis][:context_blocks]
-        improvements << "Better organization with context blocks"
+        improvements << 'Better organization with context blocks'
       end
 
       if migrated_check[:content_analysis][:let_definitions] > original_check[:content_analysis][:let_definitions]
-        improvements << "Better test data management with let"
+        improvements << 'Better test data management with let'
       end
 
       improvements
@@ -335,7 +329,7 @@ module TestMigration
       regressions_count = validation[:regression_check].length
 
       # Weighted calculation
-      quality_score = (completeness_score * 0.4 + base_quality * 0.4).round
+      quality_score = ((completeness_score * 0.4) + (base_quality * 0.4)).round
       improvement_bonus = improvements_count * 5
       regression_penalty = regressions_count * 15
 
@@ -346,14 +340,13 @@ module TestMigration
       quality = validation[:migration_quality]
       regressions = validation[:regression_check].length
 
-      case
-      when quality >= 90 && regressions == 0
+      if quality >= 90 && regressions == 0
         'excellent'
-      when quality >= 75 && regressions == 0
+      elsif quality >= 75 && regressions == 0
         'good'
-      when quality >= 60
+      elsif quality >= 60
         'acceptable'
-      when quality >= 40
+      elsif quality >= 40
         'needs_improvement'
       else
         'poor'
@@ -361,7 +354,7 @@ module TestMigration
     end
 
     def generate_directory_summary(results)
-      return { error: "No results to summarize" } if results.empty?
+      return { error: 'No results to summarize' } if results.empty?
 
       total_files = results.length
       average_quality = (results.sum { |r| r[:quality_score] } / total_files.to_f).round(1)
@@ -369,7 +362,7 @@ module TestMigration
       total_recommendations = results.sum { |r| r[:recommendations].length }
 
       quality_distribution = results.group_by { |r| r[:quality_score] / 10 * 10 }
-                                         .transform_values(&:length)
+                                    .transform_values(&:length)
 
       {
         total_files: total_files,
@@ -384,13 +377,13 @@ module TestMigration
 
     def group_results_by_type(results)
       results.group_by { |r| r[:pattern_type] }
-            .transform_values do |type_results|
-              {
-                count: type_results.length,
-                average_quality: (type_results.sum { |r| r[:quality_score] } / type_results.length.to_f).round(1),
-                common_issues: extract_common_issues(type_results)
-              }
-            end
+             .transform_values do |type_results|
+        {
+          count: type_results.length,
+          average_quality: (type_results.sum { |r| r[:quality_score] } / type_results.length.to_f).round(1),
+          common_issues: extract_common_issues(type_results)
+        }
+      end
     end
 
     def extract_common_issues(results)
@@ -414,13 +407,11 @@ module TestMigration
       end
 
       # Get top recommendations that appear in multiple files
-      top_recommendations = recommendation_counts
-                            .select { |_, count| count >= 2 }
-                            .sort_by { |_, count| -count }
-                            .first(10)
-                            .map { |rec, count| { recommendation: rec, frequency: count } }
-
-      top_recommendations
+      recommendation_counts
+        .select { |_, count| count >= 2 }
+        .sort_by { |_, count| -count }
+        .first(10)
+        .map { |rec, count| { recommendation: rec, frequency: count } }
     end
   end
 end

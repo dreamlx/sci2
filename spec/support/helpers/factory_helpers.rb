@@ -57,10 +57,9 @@ module FactoryHelpers
       reimbursement = create(:reimbursement, status: 'pending')
 
       assignment = create(:reimbursement_assignment,
-        reimbursement: reimbursement,
-        assigner: assigner,
-        assignee: assignee
-      )
+                          reimbursement: reimbursement,
+                          assigner: assigner,
+                          assignee: assignee)
 
       { assigner: assigner, assignee: assignee, reimbursement: reimbursement, assignment: assignment }
     end
@@ -103,10 +102,9 @@ module FactoryHelpers
     reimbursement = create(:reimbursement, overrides.except(:assigner, :assignee))
 
     assignment = create(:reimbursement_assignment,
-      reimbursement: reimbursement,
-      assigner: assigner,
-      assignee: assignee
-    )
+                        reimbursement: reimbursement,
+                        assigner: assigner,
+                        assignee: assignee)
 
     { reimbursement: reimbursement, assignment: assignment, assigner: assigner, assignee: assignee }
   end
@@ -125,7 +123,7 @@ module FactoryHelpers
 
   def create_reimbursements_in_date_range(start_date, end_date, count: 3)
     Array.new(count) do |i|
-      time = start_date + (end_date - start_date) * (i.to_f / (count - 1))
+      time = start_date + ((end_date - start_date) * (i.to_f / (count - 1)))
       create(:reimbursement, created_at: time)
     end
   end

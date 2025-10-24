@@ -1,12 +1,12 @@
-panel "审核拒绝" do
+panel '审核拒绝' do
   form_for [:admin, resource], url: do_reject_admin_audit_work_order_path(resource), method: :post do |f|
     f.inputs do
-      f.input :audit_comment, label: "审核意见"
+      f.input :audit_comment, label: '审核意见'
       f.input :processing_opinion, as: :select, collection: ProcessingOpinionOptions.all, include_blank: '请选择处理意见'
       f.input :problem_type, as: :select, collection: ProblemTypeOptions.all, include_blank: '请选择问题类型'
       f.input :problem_description, as: :select, collection: ProblemDescriptionOptions.all, include_blank: '请选择问题描述'
-      f.input :remark, label: "备注"
+      f.input :remark, label: '备注'
     end
     f.actions
   end
-end 
+end

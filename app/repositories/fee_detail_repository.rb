@@ -33,8 +33,8 @@ class FeeDetailRepository
     FeeDetail.where(external_fee_id: external_fee_ids)
   end
 
-  def self.find_each_by_ids(fee_detail_ids, &block)
-    FeeDetail.where(id: fee_detail_ids).find_each(&block)
+  def self.find_each_by_ids(fee_detail_ids, &)
+    FeeDetail.where(id: fee_detail_ids).find_each(&)
   end
 
   # Query operations
@@ -235,7 +235,7 @@ class FeeDetailRepository
   end
 
   # Performance-optimized queries
-  def self.select_fields(fields = [:id, :document_number, :fee_type, :amount, :verification_status, :fee_date])
+  def self.select_fields(fields = %i[id document_number fee_type amount verification_status fee_date])
     FeeDetail.select(fields)
   end
 
@@ -248,14 +248,14 @@ class FeeDetailRepository
     find(id)
   rescue ActiveRecord::RecordNotFound
     nil
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Error finding fee detail #{id}: #{e.message}"
     nil
   end
 
   def self.safe_find_by_external_fee_id(external_fee_id)
     find_by_external_fee_id(external_fee_id)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Error finding fee detail by external fee ID #{external_fee_id}: #{e.message}"
     nil
   end

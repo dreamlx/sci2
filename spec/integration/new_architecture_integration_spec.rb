@@ -120,7 +120,7 @@ RSpec.describe 'New Architecture Integration' do
         policy = ReimbursementPolicy.new(admin_user, reimbursement)
 
         expect(policy.can_view?).to be true
-        expect(policy.can_edit?).to be true  # admin can edit
+        expect(policy.can_edit?).to be true # admin can edit
         expect(policy.can_assign?).to be false  # admin CANNOT assign (correct behavior)
         expect(policy.can_create?).to be true   # admin can create
       end
@@ -130,8 +130,8 @@ RSpec.describe 'New Architecture Integration' do
         policy = ReimbursementPolicy.new(super_admin, reimbursement)
 
         expect(policy.can_view?).to be true
-        expect(policy.can_edit?).to be true   # super admin可以编辑
-        expect(policy.can_assign?).to be true   # super admin可以分配
+        expect(policy.can_edit?).to be true # super admin可以编辑
+        expect(policy.can_assign?).to be true # super admin可以分配
         expect(policy.can_create?).to be true
       end
 
@@ -151,7 +151,7 @@ RSpec.describe 'New Architecture Integration' do
         policy = ReimbursementPolicy.new(admin_user, nil)
 
         expect(policy.can_index?).to be true
-        expect(policy.can_view?).to be true  # Policy allows view without specific object
+        expect(policy.can_view?).to be true # Policy allows view without specific object
       end
     end
   end
@@ -173,7 +173,7 @@ RSpec.describe 'New Architecture Integration' do
       end
 
       it 'handles not found cases gracefully' do
-        expect(ReimbursementRepository.find(99999)).to be_nil
+        expect(ReimbursementRepository.find(99_999)).to be_nil
         expect(ReimbursementRepository.find_by_invoice_number('NONEXISTENT')).to be_nil
       end
 
@@ -207,7 +207,7 @@ RSpec.describe 'New Architecture Integration' do
 
       it 'handles different scopes correctly' do
         # 测试各种scope
-        scopes = ['assigned_to_me', 'pending', 'processing', 'unassigned', 'all']
+        scopes = %w[assigned_to_me pending processing unassigned all]
 
         scopes.each do |scope|
           service = ReimbursementScopeService.new(admin_user, { scope: scope })
@@ -313,7 +313,7 @@ RSpec.describe 'New Architecture Integration' do
 
       # Command会成功执行，但权限由Controller层的Policy控制
       result = command.call
-      expect(result.success?).to be true  # Command层不检查权限
+      expect(result.success?).to be true # Command层不检查权限
 
       # 验证Policy正确阻止权限
       expect(policy.can_assign?).to be false
@@ -392,7 +392,7 @@ RSpec.describe 'New Architecture Integration' do
 
     it 'avoids N+1 queries through proper associations' do
       # 创建测试数据
-      reimbursements = create_list(:reimbursement, 5)
+      create_list(:reimbursement, 5)
 
       service = ReimbursementScopeService.new(admin_user, { scope: 'pending' })
 

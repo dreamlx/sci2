@@ -5,18 +5,18 @@ class RemoveMaterialsRelatedTables < ActiveRecord::Migration[7.1]
       # First remove material_ids from work_orders
       remove_column :work_orders, :material_ids
     end
-    
+
     # Check if problem_type_materials table exists
     if table_exists?(:problem_type_materials)
       # Now drop the join table first (to maintain referential integrity)
       drop_table :problem_type_materials
     end
-    
+
     # Check if materials table exists
-    if table_exists?(:materials)
-      # Then drop the materials table
-      drop_table :materials
-    end
+    return unless table_exists?(:materials)
+
+    # Then drop the materials table
+    drop_table :materials
   end
 
   def down
@@ -29,7 +29,7 @@ class RemoveMaterialsRelatedTables < ActiveRecord::Migration[7.1]
         t.timestamps
       end
     end
-    
+
     # Only create the problem_type_materials table if it doesn't exist
     unless table_exists?(:problem_type_materials)
       # Recreate problem_type_materials join table
@@ -40,10 +40,10 @@ class RemoveMaterialsRelatedTables < ActiveRecord::Migration[7.1]
         t.timestamps
       end
     end
-    
+
     # Add material_ids back to work_orders if it doesn't exist
-    if table_exists?(:work_orders) && !column_exists?(:work_orders, :material_ids)
-      add_column :work_orders, :material_ids, :text
-    end
+    return unless table_exists?(:work_orders) && !column_exists?(:work_orders, :material_ids)
+
+    add_column :work_orders, :material_ids, :text
   end
 end

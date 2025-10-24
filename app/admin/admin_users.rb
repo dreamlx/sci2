@@ -1,7 +1,7 @@
 ActiveAdmin.register AdminUser do
   permit_params :email, :password, :password_confirmation, :role, :name, :telephone, :status
 
-  menu priority: 10, label: "管理员用户", if: proc {
+  menu priority: 10, label: '管理员用户', if: proc {
     AdminUserPolicy.new(current_admin_user).can_index?
   }
 
@@ -34,10 +34,8 @@ ActiveAdmin.register AdminUser do
       policy = AdminUserPolicy.new(current_admin_user, resource)
       if policy.can_update_own_profile?
         # Allow self-update with restricted params
-        allowed_params = [:email, :name, :telephone]
-        if params[:admin_user][:password].present?
-          allowed_params += [:password, :password_confirmation]
-        end
+        allowed_params = %i[email name telephone]
+        allowed_params += %i[password password_confirmation] if params[:admin_user][:password].present?
         params[:admin_user] = params[:admin_user].permit(*allowed_params)
       end
       super
@@ -66,17 +64,17 @@ ActiveAdmin.register AdminUser do
     column :role
     column :status do |user|
       status_tag user.status_display, class: (case user.status
-      when 'active'
-        'ok'
-      when 'inactive'
-        'warning'
-      when 'suspended'
-        'error'
-      when 'deleted'
-        'error'
-      else
-        ''
-      end)
+                                              when 'active'
+                                                'ok'
+                                              when 'inactive'
+                                                'warning'
+                                              when 'suspended'
+                                                'error'
+                                              when 'deleted'
+                                                'error'
+                                              else
+                                                ''
+                                              end)
     end
     column :telephone
     column :current_sign_in_at
@@ -86,31 +84,29 @@ ActiveAdmin.register AdminUser do
     actions defaults: false do |user|
       policy = AdminUserPolicy.new(current_admin_user, user)
 
-      item "查看", admin_admin_user_path(user), class: "member_link" if policy.can_show?
+      item '查看', admin_admin_user_path(user), class: 'member_link' if policy.can_show?
 
-      if policy.can_edit?
-        item "编辑", edit_admin_admin_user_path(user), class: "member_link"
-      end
+      item '编辑', edit_admin_admin_user_path(user), class: 'member_link' if policy.can_edit?
 
       if policy.can_soft_delete? && !user.deleted?
-        item "软删除", soft_delete_admin_admin_user_path(user),
-              method: :put,
-              data: { confirm: '确定要软删除此用户吗？' },
-              class: "member_link"
+        item '软删除', soft_delete_admin_admin_user_path(user),
+             method: :put,
+             data: { confirm: '确定要软删除此用户吗？' },
+             class: 'member_link'
       end
 
       if policy.can_restore? && user.deleted?
-        item "恢复", restore_admin_admin_user_path(user),
-              method: :put,
-              data: { confirm: '确定要恢复此用户吗？' },
-              class: "member_link"
+        item '恢复', restore_admin_admin_user_path(user),
+             method: :put,
+             data: { confirm: '确定要恢复此用户吗？' },
+             class: 'member_link'
       end
 
       if policy.can_destroy?
-        item "删除", admin_admin_user_path(user),
-              method: :delete,
-              data: { confirm: '确定要永久删除此用户吗？此操作不可逆。' },
-              class: "member_link important"
+        item '删除', admin_admin_user_path(user),
+             method: :delete,
+             data: { confirm: '确定要永久删除此用户吗？此操作不可逆。' },
+             class: 'member_link important'
       end
     end
   end
@@ -142,68 +138,73 @@ ActiveAdmin.register AdminUser do
       row :created_at
       row :updated_at
     end
-    
+
     # 显示关联的报销单分配
-    panel "报销单分配记录" do
-      table_for admin_user.assigned_reimbursements.recent_first.limit(10) do
-        column :id
-        column :报销单 do |assignment|
-          link_to assignment.reimbursement.id, admin_reimbursement_path(assignment.reimbursement)
-        end
-        column :分配者 do |assignment|
-          assignment.assigner.name
-        end
-        column :状态 do |assignment|
-          assignment.is_active? ? '活跃' : '非活跃'
-        end
-        column :创建时间 do |assignment|
-          assignment.created_at.strftime('%Y-%m-%d %H:%M')
+    if admin_user.assigned_reimbursements.any?
+      panel '报销单分配记录' do
+        table_for admin_user.assigned_reimbursements.recent_first.limit(10) do
+          column :id
+          column :报销单 do |assignment|
+            link_to assignment.reimbursement.id, admin_reimbursement_path(assignment.reimbursement)
+          end
+          column :分配者 do |assignment|
+            assignment.assigner.name
+          end
+          column :状态 do |assignment|
+            assignment.is_active? ? '活跃' : '非活跃'
+          end
+          column :创建时间 do |assignment|
+            assignment.created_at.strftime('%Y-%m-%d %H:%M')
+          end
         end
       end
-    end if admin_user.assigned_reimbursements.any?
-    
+    end
+
     # 显示工单操作记录
-    panel "工单操作记录" do
-      table_for admin_user.work_order_operations.recent_first.limit(10) do
-        column :id
-        column :工单 do |operation|
-          link_to operation.work_order.id, admin_work_order_path(operation.work_order)
-        end
-        column :操作类型 do |operation|
-          operation.operation_type_display
-        end
-        column :操作时间 do |operation|
-          operation.created_at.strftime('%Y-%m-%d %H:%M')
+    if admin_user.work_order_operations.any?
+      panel '工单操作记录' do
+        table_for admin_user.work_order_operations.recent_first.limit(10) do
+          column :id
+          column :工单 do |operation|
+            link_to operation.work_order.id, admin_work_order_path(operation.work_order)
+          end
+          column :操作类型 do |operation|
+            operation.operation_type_display
+          end
+          column :操作时间 do |operation|
+            operation.created_at.strftime('%Y-%m-%d %H:%M')
+          end
         end
       end
-    end if admin_user.work_order_operations.any?
+    end
   end
 
   form do |f|
     policy = AdminUserPolicy.new(current_admin_user, f.object)
 
-    f.inputs "基本信息" do
+    f.inputs '基本信息' do
       f.input :email if policy.can_update? || policy.can_update_own_profile?
       f.input :name if policy.can_update? || policy.can_update_own_profile?
       f.input :telephone if policy.can_update? || policy.can_update_own_profile?
 
       # Role and status only for super admins
       f.input :role, as: :select, collection: AdminUser.roles.keys, include_blank: false if policy.show_role_field?
-      f.input :status, as: :select, collection: AdminUser.statuses.keys, include_blank: false if policy.show_status_field?
+      if policy.show_status_field?
+        f.input :status, as: :select, collection: AdminUser.statuses.keys,
+                         include_blank: false
+      end
 
       # Password fields for new records or self password change
       if f.object.new_record? && policy.can_create?
         f.input :password
         f.input :password_confirmation
       elsif policy.can_change_own_password? && !f.object.new_record?
-        f.input :password, hint: "留空则不修改密码"
-        f.input :password_confirmation, hint: "请再次输入新密码"
+        f.input :password, hint: '留空则不修改密码'
+        f.input :password_confirmation, hint: '请再次输入新密码'
       end
     end
 
-    if policy.can_create? || policy.can_update? || policy.can_update_own_profile?
-      f.actions
-    end
+    f.actions if policy.can_create? || policy.can_update? || policy.can_update_own_profile?
   end
 
   # 批量操作 - 基于Policy的权限控制
@@ -213,7 +214,7 @@ ActiveAdmin.register AdminUser do
     batch_action_collection.find(ids).each do |user|
       user.soft_delete unless user.deleted?
     end
-    redirect_to collection_path, notice: "已软删除选中的用户"
+    redirect_to collection_path, notice: '已软删除选中的用户'
   end
 
   batch_action :恢复, if: proc {
@@ -222,7 +223,7 @@ ActiveAdmin.register AdminUser do
     batch_action_collection.find(ids).each do |user|
       user.restore if user.deleted?
     end
-    redirect_to collection_path, notice: "已恢复选中的用户"
+    redirect_to collection_path, notice: '已恢复选中的用户'
   end
 
   batch_action :设置为活跃, if: proc {
@@ -231,7 +232,7 @@ ActiveAdmin.register AdminUser do
     batch_action_collection.find(ids).each do |user|
       user.update(status: 'active') unless user.deleted?
     end
-    redirect_to collection_path, notice: "已设置选中的用户为活跃状态"
+    redirect_to collection_path, notice: '已设置选中的用户为活跃状态'
   end
 
   batch_action :设置为非活跃, if: proc {
@@ -240,31 +241,31 @@ ActiveAdmin.register AdminUser do
     batch_action_collection.find(ids).each do |user|
       user.update(status: 'inactive') unless user.deleted?
     end
-    redirect_to collection_path, notice: "已设置选中的用户为非活跃状态"
+    redirect_to collection_path, notice: '已设置选中的用户为非活跃状态'
   end
 
   # 自定义成员操作 - 权限由AuthorizationConcern自动保护
   member_action :soft_delete, method: :put do
     resource.soft_delete
-    redirect_to resource_path, notice: "用户已软删除"
+    redirect_to resource_path, notice: '用户已软删除'
   end
 
   member_action :restore, method: :put do
     resource.restore
-    redirect_to resource_path, notice: "用户已恢复"
+    redirect_to resource_path, notice: '用户已恢复'
   end
 
   controller do
     def update
       if params[:admin_user][:password].blank? && params[:admin_user][:password_confirmation].blank?
-        params[:admin_user].delete("password")
-        params[:admin_user].delete("password_confirmation")
+        params[:admin_user].delete('password')
+        params[:admin_user].delete('password_confirmation')
       end
       super
     end
-    
+
     private
-    
+
     def status_class_for_user(user)
       case user.status
       when 'active'

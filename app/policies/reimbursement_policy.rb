@@ -165,6 +165,7 @@ class ReimbursementPolicy
   def show_action_buttons?
     # Determine which action buttons to show based on user role
     return 'primary_action' if user&.super_admin?
+
     'disabled_action'
   end
 

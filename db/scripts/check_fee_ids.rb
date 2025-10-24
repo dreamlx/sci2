@@ -1,7 +1,7 @@
 # Script to check external_fee_id values in the database
 # Run with: rails runner db/scripts/check_fee_ids.rb
 
-puts "Checking external_fee_id values in fee_details table..."
+puts 'Checking external_fee_id values in fee_details table...'
 
 # Check for null or empty external_fee_id values
 null_count = FeeDetail.where(external_fee_id: nil).count
@@ -10,23 +10,24 @@ puts "Records with null external_fee_id: #{null_count}"
 puts "Records with empty external_fee_id: #{empty_count}"
 
 # Check for duplicate external_fee_id values
-duplicates = FeeDetail.group(:external_fee_id).having("COUNT(*) > 1").count
+duplicates = FeeDetail.group(:external_fee_id).having('COUNT(*) > 1').count
 puts "\nDuplicate external_fee_id values:"
 if duplicates.empty?
-  puts "No duplicates found."
+  puts 'No duplicates found.'
 else
   puts "Found #{duplicates.size} unique external_fee_id values that appear in multiple records:"
   duplicates.each do |fee_id, count|
     next if fee_id.nil? # Skip nil values
+
     puts "  #{fee_id}: appears #{count} times"
-    
+
     # Show details of the first few duplicates
     if count <= 5
       FeeDetail.where(external_fee_id: fee_id).each do |fd|
         puts "    ID: #{fd.id}, Document: #{fd.document_number}, Amount: #{fd.amount}, Date: #{fd.fee_date}"
       end
     else
-      puts "    (Too many to display details)"
+      puts '    (Too many to display details)'
     end
   end
 end

@@ -42,12 +42,12 @@ class AdjustWorkOrderFieldsForAlignment < ActiveRecord::Migration[7.1]
       puts "Removing legacy 'problem_type' string column."
       remove_column :work_orders, :problem_type, :string
     end
-    if column_exists?(:work_orders, :problem_description)
-      puts "Removing legacy 'problem_description' string column."
-      remove_column :work_orders, :problem_description, :string
-    end
+    return unless column_exists?(:work_orders, :problem_description)
 
-    # Note: Fields like audit_comment, audit_date, vat_verified are assumed to be correct
+    puts "Removing legacy 'problem_description' string column."
+    remove_column :work_orders, :problem_description, :string
+
+    # NOTE: Fields like audit_comment, audit_date, vat_verified are assumed to be correct
     # for AuditWorkOrder and now also for CommunicationWorkOrder due to alignment.
   end
 end

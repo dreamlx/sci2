@@ -16,8 +16,12 @@ class Reimbursement < ApplicationRecord
   has_many :fee_details, foreign_key: 'document_number', primary_key: 'invoice_number', dependent: :destroy
   has_many :work_orders, dependent: :destroy
   has_many :audit_work_orders, -> { where(type: 'AuditWorkOrder') }, class_name: 'AuditWorkOrder'
-  has_many :communication_work_orders, -> { where(type: 'CommunicationWorkOrder') }, class_name: 'CommunicationWorkOrder'
-  has_many :express_receipt_work_orders, -> { where(type: 'ExpressReceiptWorkOrder') }, class_name: 'ExpressReceiptWorkOrder'
+  has_many :communication_work_orders, lambda {
+    where(type: 'CommunicationWorkOrder')
+  }, class_name: 'CommunicationWorkOrder'
+  has_many :express_receipt_work_orders, lambda {
+    where(type: 'ExpressReceiptWorkOrder')
+  }, class_name: 'ExpressReceiptWorkOrder'
   has_many :operation_histories, foreign_key: 'document_number', primary_key: 'invoice_number', dependent: :destroy
 
   # 报销单分配关联
@@ -102,12 +106,14 @@ class Reimbursement < ApplicationRecord
   # 检查是否有未查看的操作历史
   def has_unviewed_operation_histories?
     return true if last_viewed_operation_histories_at.nil?
+
     operation_histories.where('created_at > ?', last_viewed_operation_histories_at).exists?
   end
 
   # 检查是否有未查看的快递收单
   def has_unviewed_express_receipts?
     return true if last_viewed_express_receipts_at.nil?
+
     express_receipt_work_orders.where('created_at > ?', last_viewed_express_receipts_at).exists?
   end
 
@@ -164,7 +170,7 @@ class Reimbursement < ApplicationRecord
   # 更新通知状态
   def update_notification_status!
     new_last_update_at = calculate_last_update_time
-    new_has_updates = (last_viewed_at.nil? || new_last_update_at > last_viewed_at)
+    new_has_updates = last_viewed_at.nil? || new_last_update_at > last_viewed_at
 
     update_columns(
       last_update_at: new_last_update_at,
@@ -183,39 +189,38 @@ class Reimbursement < ApplicationRecord
     )
   end
 
-
   # 查询范围：有未查看操作历史的报销单
-  scope :with_unviewed_operation_histories, -> {
+  scope :with_unviewed_operation_histories, lambda {
     where('last_viewed_operation_histories_at IS NULL OR EXISTS (SELECT 1 FROM operation_histories WHERE operation_histories.document_number = reimbursements.invoice_number AND operation_histories.created_at > reimbursements.last_viewed_operation_histories_at)')
   }
 
   # 查询范围：有未查看快递收单的报销单
-  scope :with_unviewed_express_receipts, -> {
+  scope :with_unviewed_express_receipts, lambda {
     where('last_viewed_express_receipts_at IS NULL OR EXISTS (SELECT 1 FROM work_orders WHERE work_orders.reimbursement_id = reimbursements.id AND work_orders.type = ? AND work_orders.created_at > reimbursements.last_viewed_express_receipts_at)', 'ExpressReceiptWorkOrder')
   }
 
   # === 新增：查询范围 ===
 
   # 有未读更新的报销单（替换原有的with_unviewed_records）
-  scope :with_unread_updates, -> {
+  scope :with_unread_updates, lambda {
     where(has_updates: true)
       .where('last_viewed_at IS NULL OR last_update_at > last_viewed_at')
   }
 
   # 分配给用户且有未读更新的报销单
-  scope :assigned_with_unread_updates, ->(user_id) {
+  scope :assigned_with_unread_updates, lambda { |user_id|
     assigned_to_user(user_id).with_unread_updates
   }
 
   # 按通知状态排序（有更新的优先，然后按最新更新时间倒序）
-  scope :ordered_by_notification_status, -> {
+  scope :ordered_by_notification_status, lambda {
     order(
       Arel.sql('has_updates DESC, last_update_at DESC NULLS LAST')
     )
   }
 
   # 查询范围：有任何未查看记录的报销单
-  scope :with_unviewed_records, -> {
+  scope :with_unviewed_records, lambda {
     with_unviewed_operation_histories.or(with_unviewed_express_receipts)
   }
 
@@ -283,9 +288,10 @@ class Reimbursement < ApplicationRecord
 
   # Close this reimbursement
   def close!
-    if can_be_closed?
-      mark_as_close! # Use state machine event
-    end
+    return unless can_be_closed?
+
+    mark_as_close! # Use state machine event
+
     # If cannot be closed, do nothing (legacy behavior)
   end
 
@@ -301,7 +307,7 @@ class Reimbursement < ApplicationRecord
 
   # Check if this reimbursement is in closed status (handles both 'close' and 'closed')
   def closed?
-    status == STATUS_CLOSED || status == STATUS_CLOSE_ALIAS
+    [STATUS_CLOSED, STATUS_CLOSE_ALIAS].include?(status)
   end
 
   # Update the status based on fee details
@@ -318,6 +324,7 @@ class Reimbursement < ApplicationRecord
   # Reopen a closed reimbursement to processing
   def reopen_to_processing!
     return false unless closed?
+
     update(status: STATUS_PROCESSING)
   end
 
@@ -342,6 +349,7 @@ class Reimbursement < ApplicationRecord
   # Check if external status should force closure
   def should_close_based_on_external_status?
     return false unless external_status.present?
+
     external_status.match?(/已付款|待付款/)
   end
 
@@ -354,10 +362,9 @@ class Reimbursement < ApplicationRecord
   def determine_internal_status_from_external(external_status_value)
     return status if manual_override?
 
-    case
-    when external_status_value&.match?(/已付款|待付款/)
+    if external_status_value&.match?(/已付款|待付款/)
       STATUS_CLOSED
-    when has_active_work_orders?
+    elsif has_active_work_orders?
       STATUS_PROCESSING
     else
       STATUS_PENDING
@@ -382,11 +389,15 @@ class Reimbursement < ApplicationRecord
   def meeting_type_context
     # Logic to determine if this is a personal or academic expense
     # This is a simplified example - you would need more sophisticated logic based on your data
-    return "个人" if document_name.to_s.include?("个人") || document_name.to_s.include?("交通") || document_name.to_s.include?("电话")
-    return "学术论坛" if document_name.to_s.include?("学术") || document_name.to_s.include?("会议") || document_name.to_s.include?("论坛")
+    if document_name.to_s.include?('个人') || document_name.to_s.include?('交通') || document_name.to_s.include?('电话')
+      return '个人'
+    end
+    if document_name.to_s.include?('学术') || document_name.to_s.include?('会议') || document_name.to_s.include?('论坛')
+      return '学术论坛'
+    end
 
     # Default
-    "个人"
+    '个人'
   end
 
   # === 回调方法：自动更新通知状态 ===
@@ -403,10 +414,8 @@ class Reimbursement < ApplicationRecord
     end
   end
 
-  public
-
   # === 保持向后兼容的方法 ===
 
   # 保留原有方法以确保向后兼容
-  alias_method :has_unviewed_records?, :has_unread_updates?
+  alias has_unviewed_records? has_unread_updates?
 end

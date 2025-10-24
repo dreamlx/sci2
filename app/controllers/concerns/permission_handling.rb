@@ -24,7 +24,7 @@ module PermissionHandling
   end
 
   # Handle permission denied in ActiveAdmin context
-  def handle_activeadmin_permission_denied(exception)
+  def handle_activeadmin_permission_denied(_exception)
     # Try to determine the action from the request
     action = determine_action_from_request
     resource_type = determine_resource_type_from_request
@@ -114,16 +114,14 @@ module PermissionHandling
     when :import
       "您没有权限导入#{resource_type}，请联系超级管理员获取相应权限。"
     else
-      "您没有权限执行此操作，请联系超级管理员获取相应权限。"
+      '您没有权限执行此操作，请联系超级管理员获取相应权限。'
     end
   end
 
   # Determine where to redirect after permission denied
   def redirect_to_permission_denied_location
     # If user is not logged in, redirect to login
-    unless current_admin_user
-      return redirect_to new_admin_user_session_path
-    end
+    return redirect_to new_admin_user_session_path unless current_admin_user
 
     # Try to redirect to a safe location based on user role
     if current_admin_user.super_admin?
@@ -138,19 +136,19 @@ module PermissionHandling
   # Check if user has permission and show appropriate UI
   def verify_permission(policy_class, action, resource = nil)
     policy = policy_class.new(current_admin_user, resource)
-    unless policy.send("can_#{action}?")
-      message = policy.authorization_error_message(action: action)
-      raise CanCan::AccessDenied.new(message, action, resource ? resource.class : nil)
-    end
+    return if policy.send("can_#{action}?")
+
+    message = policy.authorization_error_message(action: action)
+    raise CanCan::AccessDenied.new(message, action, resource ? resource.class : nil)
   end
 
   # Render permission denied notice in ActiveAdmin views
   def render_permission_denied_notice(action:, resource_type: nil, policy: nil)
-    if policy
-      message = policy.authorization_error_message(action: action)
-    else
-      message = generate_permission_message(action, resource_type)
-    end
+    message = if policy
+                policy.authorization_error_message(action: action)
+              else
+                generate_permission_message(action, resource_type)
+              end
 
     render partial: 'admin/shared/permission_denied', locals: {
       message: message,

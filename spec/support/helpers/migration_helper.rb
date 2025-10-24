@@ -43,8 +43,8 @@ module MigrationHelper
       describe_blocks: content.scan(/describe\s+['"]/).length,
       context_blocks: content.scan(/context\s+['"]/).length,
       it_blocks: content.scan(/it\s+['"]/).length,
-      let_definitions: content.scan(/let\s+[:]/).length,
-      expectations: content.scan(/expect\(/).length
+      let_definitions: content.scan(/let\s+:/).length,
+      expectations: content.scan('expect(').length
     }
   end
 

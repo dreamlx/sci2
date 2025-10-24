@@ -18,15 +18,13 @@ module TestMigration
     end
 
     def process_all_legacy_tests(target_patterns = nil)
-      puts "🔄 Starting batch migration of legacy tests..."
+      puts '🔄 Starting batch migration of legacy tests...'
       puts "📊 Dry run mode: #{@options[:dry_run] ? 'ENABLED' : 'DISABLED'}"
 
       analysis = @migration_helper.analyze_all_tests
       legacy_tests = analysis[:legacy_tests]
 
-      if target_patterns
-        legacy_tests = filter_by_target_patterns(legacy_tests, target_patterns)
-      end
+      legacy_tests = filter_by_target_patterns(legacy_tests, target_patterns) if target_patterns
 
       puts "📋 Processing #{legacy_tests.length} legacy test files..."
 
@@ -44,31 +42,29 @@ module TestMigration
 
       patterns.each do |pattern|
         class_names.each do |class_name|
-          begin
-            generator = TemplateGenerator.new(pattern, class_name)
-            template = generator.generate
+          generator = TemplateGenerator.new(pattern, class_name)
+          template = generator.generate
 
-            unless @options[:dry_run]
-              written = generator.write_to_file
-              if written
-                templates << template
-                puts "  ✅ Generated #{pattern} template: #{class_name}"
-              else
-                puts "  ⚠️  Skipped existing file: #{template[:file_path]}"
-              end
-            else
+          if @options[:dry_run]
+            templates << template
+            puts "  📄 Would generate: #{template[:file_path]}"
+          else
+            written = generator.write_to_file
+            if written
               templates << template
-              puts "  📄 Would generate: #{template[:file_path]}"
+              puts "  ✅ Generated #{pattern} template: #{class_name}"
+            else
+              puts "  ⚠️  Skipped existing file: #{template[:file_path]}"
             end
-          rescue => e
-            @errors << {
-              type: :template_generation,
-              pattern: pattern,
-              class_name: class_name,
-              error: e.message
-            }
-            puts "  ❌ Error generating #{pattern} template for #{class_name}: #{e.message}"
           end
+        rescue StandardError => e
+          @errors << {
+            type: :template_generation,
+            pattern: pattern,
+            class_name: class_name,
+            error: e.message
+          }
+          puts "  ❌ Error generating #{pattern} template for #{class_name}: #{e.message}"
         end
       end
 
@@ -76,7 +72,7 @@ module TestMigration
     end
 
     def validate_migrations(migration_pairs)
-      puts "🔍 Validating migration quality..."
+      puts '🔍 Validating migration quality...'
 
       validations = []
 
@@ -92,10 +88,10 @@ module TestMigration
           puts "    ✅ Quality acceptable: #{validation[:migration_quality]}%"
         end
 
-        if @options[:verbose]
-          validation[:regression_check].each do |regression|
-            puts "    🔸 Regression: #{regression}"
-          end
+        next unless @options[:verbose]
+
+        validation[:regression_check].each do |regression|
+          puts "    🔸 Regression: #{regression}"
         end
       end
 
@@ -105,21 +101,19 @@ module TestMigration
     def create_migration_plan(analysis_result = nil)
       analysis = analysis_result || @migration_helper.analyze_all_tests
 
-      puts "📋 Creating migration plan..."
+      puts '📋 Creating migration plan...'
 
-      plan = {
+      {
         overview: generate_plan_overview(analysis),
         phases: create_migration_phases(analysis),
         effort_estimation: estimate_total_effort(analysis),
         risks_and_mitigations: identify_risks(analysis),
         recommendations: generate_plan_recommendations(analysis)
       }
-
-      plan
     end
 
     def execute_migration_plan(plan)
-      puts "🚀 Executing migration plan..."
+      puts '🚀 Executing migration plan...'
 
       execution_results = []
 
@@ -198,7 +192,7 @@ module TestMigration
 
         if suggestions[:suggestions].empty?
           result[:status] = :no_suggestions
-          result[:errors] << "No migration suggestions found"
+          result[:errors] << 'No migration suggestions found'
           return result
         end
 
@@ -216,8 +210,7 @@ module TestMigration
         else
           result[:status] = :failed
         end
-
-      rescue => e
+      rescue StandardError => e
         result[:status] = :error
         result[:errors] << e.message
         @errors << {
@@ -253,13 +246,13 @@ module TestMigration
           # Write file
           ensure_directory_exists(template[:file_path])
 
-          unless File.exist?(template[:file_path]) || @options[:force_overwrite]
+          if File.exist?(template[:file_path]) || @options[:force_overwrite]
+            template_result[:status] = :skipped_existing
+            template_result[:file_path] = template[:file_path]
+          else
             File.write(template[:file_path], template[:content])
             template_result[:file_path] = template[:file_path]
             template_result[:status] = :written
-          else
-            template_result[:status] = :skipped_existing
-            template_result[:file_path] = template[:file_path]
           end
 
           # Check quality if written
@@ -268,8 +261,7 @@ module TestMigration
             template_result[:quality_score] = quality_check[:quality_score]
           end
         end
-
-      rescue => e
+      rescue StandardError => e
         template_result[:status] = :error
         template_result[:errors] = [e.message]
       end
@@ -285,15 +277,15 @@ module TestMigration
     def print_progress_indicator(result)
       case result[:status]
       when :success
-        print "✅"
+        print '✅'
       when :no_suggestions
-        print "⚪"
+        print '⚪'
       when :failed
-        print "❌"
+        print '❌'
       when :error
-        print "🔥"
+        print '🔥'
       else
-        print "⏳"
+        print '⏳'
       end
     end
 
@@ -375,11 +367,11 @@ module TestMigration
 
         # Base effort by complexity
         base_effort = case file_analysis[:complexity]
-                     when 1..3 then 2  # 2 hours
-                     when 4..6 then 4  # 4 hours
-                     when 7..8 then 6  # 6 hours
-                     else 8            # 8+ hours for complex files
-                     end
+                      when 1..3 then 2  # 2 hours
+                      when 4..6 then 4  # 4 hours
+                      when 7..8 then 6  # 6 hours
+                      else 8 # 8+ hours for complex files
+                      end
 
         # Adjust by number of migration targets
         multiplier = [1, suggestions.length * 0.5].max
@@ -467,11 +459,11 @@ module TestMigration
 
     def generate_batch_report
       puts "\n📊 Batch Migration Report"
-      puts "=" * 50
+      puts '=' * 50
 
       total_files = @results.length
       successful = @results.count { |r| r[:status] == :success }
-      failed = @results.count { |r| r[:status] == :failed || r[:status] == :error }
+      failed = @results.count { |r| %i[failed error].include?(r[:status]) }
       no_suggestions = @results.count { |r| r[:status] == :no_suggestions }
 
       puts "Total files processed: #{total_files}"

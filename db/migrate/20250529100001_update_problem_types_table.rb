@@ -4,33 +4,23 @@ class UpdateProblemTypesTable < ActiveRecord::Migration[7.1]
     if table_exists?(:problem_types)
       # If it exists, update it
       # Add code column if it doesn't exist
-      unless column_exists?(:problem_types, :code)
-        add_column :problem_types, :code, :string, null: false, default: ""
-      end
-      
+      add_column :problem_types, :code, :string, null: false, default: '' unless column_exists?(:problem_types, :code)
+
       # Add title column if it doesn't exist
-      unless column_exists?(:problem_types, :title)
-        add_column :problem_types, :title, :string, null: false, default: ""
-      end
-      
+      add_column :problem_types, :title, :string, null: false, default: '' unless column_exists?(:problem_types, :title)
+
       # Add sop_description column if it doesn't exist
-      unless column_exists?(:problem_types, :sop_description)
-        add_column :problem_types, :sop_description, :text
-      end
-      
+      add_column :problem_types, :sop_description, :text unless column_exists?(:problem_types, :sop_description)
+
       # Add standard_handling column if it doesn't exist
-      unless column_exists?(:problem_types, :standard_handling)
-        add_column :problem_types, :standard_handling, :text
-      end
-      
+      add_column :problem_types, :standard_handling, :text unless column_exists?(:problem_types, :standard_handling)
+
       # Add fee_type_id column if it doesn't exist
-      unless column_exists?(:problem_types, :fee_type_id)
-        add_reference :problem_types, :fee_type, foreign_key: true
-      end
-      
+      add_reference :problem_types, :fee_type, foreign_key: true unless column_exists?(:problem_types, :fee_type_id)
+
       # Add composite unique index for code within fee_type if it doesn't exist
-      unless index_exists?(:problem_types, [:code, :fee_type_id], unique: true)
-        add_index :problem_types, [:code, :fee_type_id], unique: true
+      unless index_exists?(:problem_types, %i[code fee_type_id], unique: true)
+        add_index :problem_types, %i[code fee_type_id], unique: true
       end
     else
       # If it doesn't exist, create it
@@ -42,12 +32,12 @@ class UpdateProblemTypesTable < ActiveRecord::Migration[7.1]
         t.text :standard_handling
         t.references :fee_type, foreign_key: true
         t.boolean :active, default: true, null: false
-        
+
         t.timestamps
       end
-      
+
       # Add composite unique index for code within fee_type
-      add_index :problem_types, [:code, :fee_type_id], unique: true
+      add_index :problem_types, %i[code fee_type_id], unique: true
     end
   end
 end

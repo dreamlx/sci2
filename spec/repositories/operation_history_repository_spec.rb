@@ -6,39 +6,36 @@ RSpec.describe OperationHistoryRepository, type: :repository do
   let!(:reimbursement) { create(:reimbursement, invoice_number: 'INV-001') }
   let!(:operation_history1) do
     create(:operation_history,
-      document_number: 'INV-001',
-      operation_type: '审批',
-      operation_time: 1.day.ago,
-      operator: '张三',
-      applicant: '李四',
-      employee_company: 'SPC',
-      currency: 'CNY',
-      amount: 1000.0
-    )
+           document_number: 'INV-001',
+           operation_type: '审批',
+           operation_time: 1.day.ago,
+           operator: '张三',
+           applicant: '李四',
+           employee_company: 'SPC',
+           currency: 'CNY',
+           amount: 1000.0)
   end
   let!(:operation_history2) do
     create(:operation_history,
-      document_number: 'INV-002',
-      operation_type: '回复',
-      operation_time: 2.hours.ago,
-      operator: '王五',
-      applicant: '赵六',
-      employee_company: 'ABC',
-      currency: 'USD',
-      amount: 500.0
-    )
+           document_number: 'INV-002',
+           operation_type: '回复',
+           operation_time: 2.hours.ago,
+           operator: '王五',
+           applicant: '赵六',
+           employee_company: 'ABC',
+           currency: 'USD',
+           amount: 500.0)
   end
   let!(:operation_history3) do
     create(:operation_history,
-      document_number: 'INV-001',
-      operation_type: '提交',
-      operation_time: 3.hours.ago,
-      operator: '李四',
-      applicant: '张三',
-      employee_company: 'SPC',
-      currency: 'EUR',
-      amount: 750.0
-    )
+           document_number: 'INV-001',
+           operation_type: '提交',
+           operation_time: 3.hours.ago,
+           operator: '李四',
+           applicant: '张三',
+           employee_company: 'SPC',
+           currency: 'EUR',
+           amount: 750.0)
   end
 
   describe '.find' do
@@ -48,7 +45,7 @@ RSpec.describe OperationHistoryRepository, type: :repository do
     end
 
     it 'returns nil when not found' do
-      result = described_class.find(99999)
+      result = described_class.find(99_999)
       expect(result).to be_nil
     end
   end
@@ -60,7 +57,7 @@ RSpec.describe OperationHistoryRepository, type: :repository do
     end
 
     it 'returns nil when not found' do
-      result = described_class.find_by_id(99999)
+      result = described_class.find_by_id(99_999)
       expect(result).to be_nil
     end
   end
@@ -74,7 +71,7 @@ RSpec.describe OperationHistoryRepository, type: :repository do
     end
 
     it 'returns empty relation when no ids match' do
-      result = described_class.find_by_ids([99999, 99998])
+      result = described_class.find_by_ids([99_999, 99_998])
       expect(result.count).to eq(0)
     end
   end
@@ -265,7 +262,7 @@ RSpec.describe OperationHistoryRepository, type: :repository do
       expect(result.count).to eq(1)
       # Just verify the method returns a result and it's ordered correctly
       expect(result.first.document_number).to eq('INV-001')
-      expect(result.first.operation_type).to be_in(['审批', '提交'])
+      expect(result.first.operation_type).to be_in(%w[审批 提交])
     end
   end
 
@@ -285,7 +282,7 @@ RSpec.describe OperationHistoryRepository, type: :repository do
     end
 
     it 'returns false when operation history does not exist' do
-      result = described_class.exists?(id: 99999)
+      result = described_class.exists?(id: 99_999)
       expect(result).to be false
     end
   end
@@ -311,13 +308,13 @@ RSpec.describe OperationHistoryRepository, type: :repository do
 
     it 'returns nil when not found without logging error' do
       expect(Rails.logger).not_to receive(:error)
-      result = described_class.safe_find(99999)
+      result = described_class.safe_find(99_999)
       expect(result).to be_nil
     end
 
     it 'returns nil when exception occurs' do
       allow(OperationHistory).to receive(:find).and_raise(StandardError, 'Database connection failed')
-      result = described_class.safe_find(99999)
+      result = described_class.safe_find(99_999)
       expect(result).to be_nil
     end
   end
@@ -376,10 +373,10 @@ RSpec.describe OperationHistoryRepository, type: :repository do
   describe 'method chaining' do
     it 'allows method chaining for complex queries' do
       result = described_class
-        .by_employee_company('SPC')
-        .by_currency('CNY')
-        .order(:operation_time)
-        .limit(1)
+               .by_employee_company('SPC')
+               .by_currency('CNY')
+               .order(:operation_time)
+               .limit(1)
 
       expect(result.count).to eq(1)
       expect(result.first).to eq(operation_history1)

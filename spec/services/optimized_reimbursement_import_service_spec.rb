@@ -22,9 +22,12 @@ RSpec.describe OptimizedReimbursementImportService do
 
     before do
       # Create test reimbursements
-      create(:reimbursement, invoice_number: 'R202501001', status: Reimbursement::STATUS_PENDING, external_status: '处理中', manual_override: false)
-      create(:reimbursement, invoice_number: 'R202501002', status: Reimbursement::STATUS_PROCESSING, external_status: '处理中', manual_override: false)
-      create(:reimbursement, invoice_number: 'R202501003', status: Reimbursement::STATUS_PENDING, external_status: '处理中', manual_override: false)
+      create(:reimbursement, invoice_number: 'R202501001', status: Reimbursement::STATUS_PENDING,
+                             external_status: '处理中', manual_override: false)
+      create(:reimbursement, invoice_number: 'R202501002', status: Reimbursement::STATUS_PROCESSING,
+                             external_status: '处理中', manual_override: false)
+      create(:reimbursement, invoice_number: 'R202501003', status: Reimbursement::STATUS_PENDING,
+                             external_status: '处理中', manual_override: false)
     end
 
     it 'updates status to closed for reimbursements with paid external status' do
@@ -49,7 +52,8 @@ RSpec.describe OptimizedReimbursementImportService do
 
     it 'respects manual override flag' do
       # Create a reimbursement with manual override enabled
-      create(:reimbursement, invoice_number: 'R202501004', status: Reimbursement::STATUS_PROCESSING, external_status: '处理中', manual_override: true)
+      create(:reimbursement, invoice_number: 'R202501004', status: Reimbursement::STATUS_PROCESSING,
+                             external_status: '处理中', manual_override: true)
       validated_data << { invoice_number: 'R202501004', external_status: '已付款' }
 
       service.batch_update_statuses(validated_data)
@@ -61,12 +65,13 @@ RSpec.describe OptimizedReimbursementImportService do
 
     it 'only updates when status actually changes' do
       # Create a reimbursement that already has closed status
-      create(:reimbursement, invoice_number: 'R202501005', status: Reimbursement::STATUS_CLOSED, external_status: '已付款', manual_override: false)
+      create(:reimbursement, invoice_number: 'R202501005', status: Reimbursement::STATUS_CLOSED,
+                             external_status: '已付款', manual_override: false)
       validated_data << { invoice_number: 'R202501005', external_status: '已付款' }
 
       expect do
         service.batch_update_statuses(validated_data)
-      end.not_to change { Reimbursement.find_by(invoice_number: 'R202501005').status }
+      end.not_to(change { Reimbursement.find_by(invoice_number: 'R202501005').status })
     end
   end
 end

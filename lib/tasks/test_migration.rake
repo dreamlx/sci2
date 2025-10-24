@@ -6,9 +6,9 @@ require_relative '../test_migration/quality_checker'
 require_relative '../test_migration/batch_processor'
 
 namespace :test_migration do
-  desc "Analyze all legacy tests and generate migration suggestions"
-  task :analyze_all => :environment do
-    puts "🔍 Analyzing all legacy tests..."
+  desc 'Analyze all legacy tests and generate migration suggestions'
+  task analyze_all: :environment do
+    puts '🔍 Analyzing all legacy tests...'
 
     helper = TestMigration::MigrationHelper.new
     analysis = helper.analyze_all_tests
@@ -46,14 +46,14 @@ namespace :test_migration do
     puts "\n📄 Detailed analysis saved to: #{output_file}"
   end
 
-  desc "Generate test template for specific pattern and class"
-  task :generate_template, [:pattern, :class_name] => :environment do |t, args|
+  desc 'Generate test template for specific pattern and class'
+  task :generate_template, %i[pattern class_name] => :environment do |_t, args|
     pattern = args[:pattern]
     class_name = args[:class_name]
 
     unless pattern && class_name
-      puts "Usage: rake test_migration:generate_template[pattern,class_name]"
-      puts "Patterns: service, command, policy, repository"
+      puts 'Usage: rake test_migration:generate_template[pattern,class_name]'
+      puts 'Patterns: service, command, policy, repository'
       next
     end
 
@@ -66,24 +66,24 @@ namespace :test_migration do
       if result
         puts "✅ Template generated successfully: #{generator.send(:target_file_path)}"
       else
-        puts "⚠️  File already exists or generation failed"
+        puts '⚠️  File already exists or generation failed'
       end
-    rescue => e
+    rescue StandardError => e
       puts "❌ Error generating template: #{e.message}"
     end
   end
 
-  desc "Generate batch templates for multiple patterns and classes"
-  task :generate_batch => :environment do
-    patterns = [:service, :command, :policy, :repository]
-    class_names = [
-      'UserService', 'ReimbursementService', 'AttachmentService',
-      'CreateReimbursementCommand', 'UpdateStatusCommand', 'AssignTaskCommand',
-      'UserPolicy', 'ReimbursementPolicy', 'AdminPolicy',
-      'UserRepository', 'ReimbursementRepository', 'FeeDetailRepository'
+  desc 'Generate batch templates for multiple patterns and classes'
+  task generate_batch: :environment do
+    patterns = %i[service command policy repository]
+    class_names = %w[
+      UserService ReimbursementService AttachmentService
+      CreateReimbursementCommand UpdateStatusCommand AssignTaskCommand
+      UserPolicy ReimbursementPolicy AdminPolicy
+      UserRepository ReimbursementRepository FeeDetailRepository
     ]
 
-    puts "📝 Generating batch templates..."
+    puts '📝 Generating batch templates...'
 
     processor = TestMigration::BatchProcessor.new(dry_run: false)
     templates = processor.generate_templates_for_patterns(patterns, class_names)
@@ -91,18 +91,18 @@ namespace :test_migration do
     puts "✅ Generated #{templates.length} templates"
   end
 
-  desc "Validate migration quality between original and migrated files"
-  task :validate_migration, [:original_file, :migrated_file] => :environment do |t, args|
+  desc 'Validate migration quality between original and migrated files'
+  task :validate_migration, %i[original_file migrated_file] => :environment do |_t, args|
     original = args[:original_file]
     migrated = args[:migrated_file]
 
     unless original && migrated
-      puts "Usage: rake test_migration:validate_migration[original_file,migrated_file]"
-      puts "Example: rake test_migration:validate_migration[spec/models/user_spec.rb,spec/services/user_service_spec.rb]"
+      puts 'Usage: rake test_migration:validate_migration[original_file,migrated_file]'
+      puts 'Example: rake test_migration:validate_migration[spec/models/user_spec.rb,spec/services/user_service_spec.rb]'
       next
     end
 
-    puts "🔍 Validating migration quality..."
+    puts '🔍 Validating migration quality...'
 
     checker = TestMigration::QualityChecker.new
     validation = checker.validate_migration(original, migrated)
@@ -127,10 +127,10 @@ namespace :test_migration do
     end
   end
 
-  desc "Check quality of test files in directory"
-  task :quality_check, [:directory, :pattern] => :environment do |t, args|
+  desc 'Check quality of test files in directory'
+  task :quality_check, %i[directory pattern] => :environment do |_t, args|
     directory = args[:directory] || 'spec'
-    pattern = args[:pattern]
+    args[:pattern]
 
     puts "🔍 Checking quality for #{directory}..."
 
@@ -151,11 +151,11 @@ namespace :test_migration do
     puts "\n🏗️ Quality by Pattern Type:"
     report[:by_pattern_type].each do |type, stats|
       puts "  #{type}: #{stats[:count]} files, avg #{stats[:average_quality]}%"
-      if stats[:common_issues].any?
-        puts "    Common issues:"
-        stats[:common_issues].first(3).each do |issue, count|
-          puts "      #{count}x: #{issue}"
-        end
+      next unless stats[:common_issues].any?
+
+      puts '    Common issues:'
+      stats[:common_issues].first(3).each do |issue, count|
+        puts "      #{count}x: #{issue}"
       end
     end
 
@@ -170,12 +170,12 @@ namespace :test_migration do
     puts "\n📄 Detailed report saved to: #{output_file}"
   end
 
-  desc "Execute batch migration of legacy tests (dry run)"
-  task :batch_migrate, [:dry_run, :target_patterns] => :environment do |t, args|
+  desc 'Execute batch migration of legacy tests (dry run)'
+  task :batch_migrate, %i[dry_run target_patterns] => :environment do |_t, args|
     dry_run = args[:dry_run] != 'false'
     target_patterns = args[:target_patterns]&.split(',')&.map(&:to_sym)
 
-    puts "🔄 Starting batch migration..."
+    puts '🔄 Starting batch migration...'
     puts "Dry run: #{dry_run ? 'ENABLED' : 'DISABLED'}"
     puts "Target patterns: #{target_patterns&.join(', ') || 'ALL'}"
 
@@ -200,9 +200,9 @@ namespace :test_migration do
     end
   end
 
-  desc "Create detailed migration plan"
-  task :create_migration_plan => :environment do
-    puts "📋 Creating migration plan..."
+  desc 'Create detailed migration plan'
+  task create_migration_plan: :environment do
+    puts '📋 Creating migration plan...'
 
     processor = TestMigration::BatchProcessor.new
     plan = processor.create_migration_plan
@@ -240,9 +240,9 @@ namespace :test_migration do
     puts "\n📄 Migration plan saved to: #{output_file}"
   end
 
-  desc "Generate progress report for migration monitoring"
-  task :progress_report => :environment do
-    puts "📊 Generating migration progress report..."
+  desc 'Generate progress report for migration monitoring'
+  task progress_report: :environment do
+    puts '📊 Generating migration progress report...'
 
     helper = TestMigration::MigrationHelper.new
     analysis = helper.analyze_all_tests
@@ -265,8 +265,8 @@ namespace :test_migration do
     end
 
     puts "\n📈 Migration Progress Report"
-    puts "=" * 40
-    puts "📊 Overall Progress:"
+    puts '=' * 40
+    puts '📊 Overall Progress:'
     puts "  Total test files: #{total_tests}"
     puts "  New architecture: #{new_arch_tests}"
     puts "  Migration progress: #{progress_percentage}%"
@@ -304,9 +304,9 @@ namespace :test_migration do
     puts "\n📄 Progress report saved to: #{output_file}"
   end
 
-  desc "Execute full migration workflow (analyze -> plan -> batch migrate dry run)"
-  task :full_workflow => :environment do
-    puts "🚀 Starting full migration workflow..."
+  desc 'Execute full migration workflow (analyze -> plan -> batch migrate dry run)'
+  task full_workflow: :environment do
+    puts '🚀 Starting full migration workflow...'
 
     puts "\n1️⃣ Analyzing legacy tests..."
     Rake::Task['test_migration:analyze_all'].invoke
@@ -324,13 +324,13 @@ namespace :test_migration do
     if new_arch_report[:error]
       puts "⚠️  Could not check service directory: #{new_arch_report[:error]}"
     else
-      puts "📊 New Architecture Quality Summary:"
+      puts '📊 New Architecture Quality Summary:'
       puts "  Files: #{new_arch_report[:summary][:total_files]}"
       puts "  Average quality: #{new_arch_report[:summary][:average_quality]}%"
     end
 
     puts "\n✅ Full workflow completed!"
-    puts "📄 Check tmp/ directory for detailed reports and plans"
+    puts '📄 Check tmp/ directory for detailed reports and plans'
   end
 
   private
@@ -349,9 +349,9 @@ namespace :test_migration do
 
   def estimate_completion_date(current_progress)
     if current_progress >= 100
-      return "Completed ✅"
+      'Completed ✅'
     elsif current_progress == 0
-      return "Not started"
+      'Not started'
     else
       # Simple linear extrapolation - adjust based on your team velocity
       remaining_percentage = 100 - current_progress
