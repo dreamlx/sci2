@@ -6,42 +6,33 @@ RSpec.describe FeeType, type: :model do
   end
   
   describe "验证" do
-    it { should validate_presence_of(:code) }
-    
-    it "验证code的唯一性" do
-      create(:fee_type, code: 'FT001')
-      duplicate = build(:fee_type, code: 'FT001')
-      expect(duplicate).not_to be_valid
-      expect(duplicate.errors[:code]).to include("已经被使用")
-    end
-    
-    it { should validate_presence_of(:title) }
-    it { should validate_presence_of(:meeting_type) }
+    it { should validate_presence_of(:name) }
+    it { should validate_presence_of(:reimbursement_type_code) }
+    it { should validate_presence_of(:meeting_type_code) }
+    it { should validate_presence_of(:expense_type_code) }
     it { should validate_inclusion_of(:active).in_array([true, false]) }
+
+    it "验证expense_type_code的唯一性" do
+      create(:fee_type, expense_type_code: '01', reimbursement_type_code: 'EN', meeting_type_code: '10')
+      duplicate = build(:fee_type, expense_type_code: '01', reimbursement_type_code: 'EN', meeting_type_code: '10')
+      expect(duplicate).not_to be_valid
+    end
   end
   
   describe "作用域" do
     it "active返回活跃的费用类型" do
       active = create(:fee_type, active: true)
       inactive = create(:fee_type, active: false)
-      
+
       expect(FeeType.active).to include(active)
       expect(FeeType.active).not_to include(inactive)
-    end
-    
-    it "by_meeting_type返回指定会议类型的费用类型" do
-      personal = create(:fee_type, meeting_type: '个人')
-      academic = create(:fee_type, meeting_type: '学术')
-      
-      expect(FeeType.by_meeting_type('个人')).to include(personal)
-      expect(FeeType.by_meeting_type('个人')).not_to include(academic)
     end
   end
   
   describe "#display_name" do
     it "返回格式化的名称" do
-      fee_type = build(:fee_type, code: 'FT001', title: '会议讲课费')
-      expect(fee_type.display_name).to eq('FT001 - 会议讲课费')
+      fee_type = build(:fee_type, expense_type_code: 'FT001', name: '会议讲课费', reimbursement_type_code: 'EN', meeting_type_code: '15')
+      expect(fee_type.display_name).to eq('EN-15-FT001: 会议讲课费')
     end
   end
   
