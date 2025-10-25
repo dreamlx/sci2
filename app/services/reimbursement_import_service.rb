@@ -73,43 +73,57 @@ class ReimbursementImportService
   end
 
   def import_reimbursement(row, row_number)
-    invoice_number = row['报销单单号']&.strip
+    invoice_number = validate_and_extract_invoice_number(row, row_number)
+    return unless invoice_number
 
-    unless invoice_number.present?
-      @error_count += 1
-      @errors << "行 #{row_number}: 报销单单号不能为空"
-      return
-    end
-
-    # According to invoice_number find or initialize reimbursement (Req 15)
-    reimbursement = Reimbursement.find_or_initialize_by(invoice_number: invoice_number)
+    reimbursement = find_or_initialize_reimbursement(invoice_number)
     is_new_record = reimbursement.new_record?
+    
+    log_import_start(reimbursement, row, row_number)
+    apply_row_attributes(reimbursement, row)
+    apply_status_logic(reimbursement, row, is_new_record)
+    save_and_post_process(reimbursement, row, is_new_record, row_number)
+  end
 
-    Rails.logger.debug "Importing Reimbursement #{invoice_number} (Row #{row_number})"
+  private
+
+  def validate_and_extract_invoice_number(row, row_number)
+    invoice_number = row['报销单单号']&.strip
+    return invoice_number if invoice_number.present?
+    
+    @error_count += 1
+    @errors << "行 #{row_number}: 报销单单号不能为空"
+    nil
+  end
+
+  def find_or_initialize_reimbursement(invoice_number)
+    Reimbursement.find_or_initialize_by(invoice_number: invoice_number)
+  end
+
+  def log_import_start(reimbursement, row, row_number)
+    Rails.logger.debug "Importing Reimbursement #{reimbursement.invoice_number} (Row #{row_number})"
     Rails.logger.debug "  Original external_status: #{reimbursement.external_status.inspect}"
     Rails.logger.debug "  CSV '报销单状态' value: #{row['报销单状态'].inspect}"
+  end
 
-    # Map attributes from row data
+  def apply_row_attributes(reimbursement, row)
     reimbursement.assign_attributes(
       document_name: row['单据名称'] || reimbursement.document_name,
       applicant: row['报销单申请人'] || reimbursement.applicant,
       applicant_id: row['报销单申请人工号'] || reimbursement.applicant_id,
       company: row['申请人公司'] || reimbursement.company,
       department: row['申请人部门'] || reimbursement.department,
-      amount: row['报销金额（单据币种）'] || reimbursement.amount,
+      amount: row['报销金额(单据币种)'] || reimbursement.amount,
       receipt_status: parse_receipt_status(row['收单状态']) || reimbursement.receipt_status,
       receipt_date: parse_date(row['收单日期']) || reimbursement.receipt_date,
       submission_date: parse_date(row['提交报销日期']) || reimbursement.submission_date,
-      is_electronic: row['单据标签']&.include?('全电子发票') || false, # Explicitly default to false
-      external_status: row['报销单状态'] || reimbursement.external_status, # Store external status
+      is_electronic: row['单据标签']&.include?('全电子发票') || false,
+      external_status: row['报销单状态'] || reimbursement.external_status,
       approval_date: parse_datetime(row['报销单审核通过日期']) || reimbursement.approval_date,
       approver_name: row['审核通过人'] || reimbursement.approver_name,
-      # Additional fields from CSV
       related_application_number: row['关联申请单号'] || reimbursement.related_application_number,
       accounting_date: parse_date(row['记账日期']) || reimbursement.accounting_date,
       document_tags: row['单据标签'] || reimbursement.document_tags,
-
-      # ERP fields from CSV
       erp_current_approval_node: row['当前审批节点'] || reimbursement.erp_current_approval_node,
       erp_current_approver: row['当前审批人'] || reimbursement.erp_current_approver,
       erp_flexible_field_2: row['弹性字段2'] || reimbursement.erp_flexible_field_2,
@@ -117,29 +131,23 @@ class ReimbursementImportService
       erp_first_submitted_at: parse_datetime(row['首次提交时间']) || reimbursement.erp_first_submitted_at,
       erp_flexible_field_8: row['弹性字段8'] || reimbursement.erp_flexible_field_8
     )
+  end
 
-    Rails.logger.debug "  external_status after assign_attributes: #{reimbursement.external_status.inspect}"
-    Rails.logger.debug "  Reimbursement status BEFORE mapping logic: #{reimbursement.status.inspect}"
-
-    # 应用新的状态逻辑：外部状态优先，手动覆盖保护
+  def apply_status_logic(reimbursement, row, is_new_record)
     external_status_from_csv = row['报销单状态']&.strip
+    Rails.logger.debug "  external_status after assign_attributes: #{reimbursement.external_status.inspect}"
     Rails.logger.debug "  CSV '报销单状态' stripped value: #{external_status_from_csv.inspect}"
-
-    # Store the original status for logging
+    
     original_internal_status = reimbursement.status
     Rails.logger.debug "  Reimbursement status BEFORE new logic: #{original_internal_status.inspect}"
 
-    # Apply new status determination logic
     if is_new_record
-      # For new records, start with pending and then apply business rules
       reimbursement.status = Reimbursement::STATUS_PENDING
       Rails.logger.debug '  Setting initial status to PENDING for new record'
     end
 
-    # Apply the new status determination logic
     new_status = reimbursement.determine_internal_status_from_external(external_status_from_csv)
 
-    # Only update status if it's different and not manually overridden
     if new_status != reimbursement.status && !reimbursement.manual_override?
       reimbursement.status = new_status
       Rails.logger.debug "  Updated status from #{original_internal_status} to #{new_status} based on external status"
@@ -147,27 +155,21 @@ class ReimbursementImportService
       Rails.logger.debug '  Status change blocked by manual override flag'
     end
 
-    # Update last_external_status for tracking
     reimbursement.last_external_status = external_status_from_csv
-
     Rails.logger.debug "  Reimbursement status AFTER new logic: #{reimbursement.status.inspect}"
+  end
 
+  def save_and_post_process(reimbursement, row, is_new_record, row_number)
     if reimbursement.save
       Rails.logger.debug "  Reimbursement saved successfully. Final external_status: #{reimbursement.external_status.inspect}, Final internal_status: #{reimbursement.status.inspect}"
-
-      # 自动分配审核员：如果当前审批节点是审核，且当前审批人匹配到admin_user，则自动指派
+      
       assign_auditor_if_needed(reimbursement, row)
-
-      if is_new_record
-        @created_count += 1
-      else
-        # If it's not a new record and it was saved successfully, count it as updated
-        @updated_count += 1
-      end
+      
+      is_new_record ? @created_count += 1 : @updated_count += 1
     else
       @error_count += 1
       error_messages = reimbursement.errors.full_messages.join(', ')
-      @errors << "行 #{row_number} (单号: #{invoice_number}): #{error_messages}"
+      @errors << "行 #{row_number} (单号: #{reimbursement.invoice_number}): #{error_messages}"
       Rails.logger.error "  Reimbursement save failed: #{error_messages}"
     end
   end
