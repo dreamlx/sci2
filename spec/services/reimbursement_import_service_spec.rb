@@ -377,5 +377,248 @@ RSpec.describe ReimbursementImportService do
         end
       end
     end
+
+    context 'missing required columns validation' do
+      it 'returns error when essential headers are missing' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        # Missing critical columns: 报销单单号, 报销金额（单据币种）
+        allow(spreadsheet).to receive(:row).with(1).and_return(['单据名称', '报销单申请人'])
+        allow(spreadsheet).to receive(:each_with_index)
+
+        result = service.import(spreadsheet)
+
+        expect(result[:success]).to be false
+        expect(result[:error_details].first).to include('缺少必要的列')
+        expect(result[:error_details].first).to include('报销单单号')
+      end
+    end
+
+    context 'date parsing edge cases' do
+      let(:base_headers) do
+        ['报销单单号', '单据名称', '报销单申请人', '报销单申请人工号', '申请人公司',
+         '申请人部门', '报销金额（单据币种）', '报销单状态', '收单日期', '提交报销日期',
+         '报销单审核通过日期', '记账日期']
+      end
+
+      it 'handles invalid date formats gracefully' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(base_headers)
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501015', '测试报销单', '测试用户', 'TEST001', '测试公司', '测试部门',
+           '100.00', '审批中', 'invalid-date', '2025-13-45', '2025-99-99', 'not-a-date'], 1
+        )
+
+        expect do
+          service.import(spreadsheet)
+        end.to change(Reimbursement, :count).by(1)
+
+        reimbursement = Reimbursement.find_by(invoice_number: 'R202501015')
+        expect(reimbursement.receipt_date).to be_nil
+        expect(reimbursement.submission_date).to be_nil
+        expect(reimbursement.approval_date).to be_nil
+        expect(reimbursement.accounting_date).to be_nil
+      end
+
+      it 'parses multiple date formats correctly' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(base_headers)
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501016', '测试报销单', '测试用户', 'TEST001', '测试公司', '测试部门',
+           '100.00', '审批中', '2025-01-15', '2025/01/16', '2025.01.17 14:30:00', '2025-01-18'], 1
+        )
+
+        expect do
+          service.import(spreadsheet)
+        end.to change(Reimbursement, :count).by(1)
+
+        reimbursement = Reimbursement.find_by(invoice_number: 'R202501016')
+        expect(reimbursement.receipt_date).to eq(Date.parse('2025-01-15'))
+        expect(reimbursement.submission_date).to eq(Date.parse('2025-01-16'))
+        expect(reimbursement.accounting_date).to eq(Date.parse('2025-01-18'))
+      end
+    end
+
+    context 'large dataset performance' do
+      it 'handles 100+ rows efficiently with SQLite optimization' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(
+          ['报销单单号', '单据名称', '报销单申请人', '报销单申请人工号', '申请人公司',
+           '申请人部门', '报销金额（单据币种）', '报销单状态']
+        )
+
+        # Simulate 100 rows
+        rows = (1..100).map do |i|
+          ["R2025#{format('%05d', i)}", "报销单#{i}", "用户#{i}", "TEST#{format('%03d', i)}",
+           '测试公司', '测试部门', '100.00', '审批中']
+        end
+
+        allow(spreadsheet).to receive(:each_with_index) do |&block|
+          rows.each_with_index { |row, idx| block.call(row, idx + 1) }
+        end
+
+        result = nil
+        expect do
+          result = service.import(spreadsheet)
+        end.to change(Reimbursement, :count).by(100)
+
+        expect(result[:success]).to be true
+        expect(result[:created]).to eq(100)
+        expect(result[:errors]).to eq(0)
+      end
+    end
+
+    context 'CSV format error handling' do
+      it 'handles CSV::MalformedCSVError' do
+        tempfile = double('tempfile', path: '/tmp/malformed.csv', to_path: '/tmp/malformed.csv')
+        file = double('file', tempfile: tempfile, present?: true)
+        service = described_class.new(file, admin_user)
+
+        allow(Roo::Spreadsheet).to receive(:open).and_raise(CSV::MalformedCSVError.new('Illegal quoting', 1))
+
+        result = service.import
+
+        expect(result[:success]).to be false
+        expect(result[:error_details].first).to include('CSV文件格式错误')
+      end
+    end
+
+    context 'Roo::FileNotFound error handling' do
+      it 'handles missing file gracefully' do
+        tempfile = double('tempfile', path: '/tmp/nonexistent.xlsx', to_path: '/tmp/nonexistent.xlsx')
+        file = double('file', tempfile: tempfile, present?: true)
+        service = described_class.new(file, admin_user)
+
+        allow(Roo::Spreadsheet).to receive(:open).and_raise(Roo::FileNotFound.new('File not found'))
+
+        result = service.import
+
+        expect(result[:success]).to be false
+        expect(result[:error_details].first).to include('导入文件未找到')
+      end
+    end
+
+    context 'receipt status parsing' do
+      let(:base_headers) do
+        ['报销单单号', '单据名称', '报销单申请人', '报销单申请人工号', '申请人公司',
+         '申请人部门', '报销金额（单据币种）', '报销单状态', '收单状态']
+      end
+
+      it 'parses "已收单" as received' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(base_headers)
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501017', '测试报销单', '测试用户', 'TEST001', '测试公司', '测试部门',
+           '100.00', '审批中', '已收单'], 1
+        )
+
+        service.import(spreadsheet)
+
+        reimbursement = Reimbursement.find_by(invoice_number: 'R202501017')
+        expect(reimbursement.receipt_status).to eq('received')
+      end
+
+      it 'parses non-"已收单" as pending' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(base_headers)
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501018', '测试报销单', '测试用户', 'TEST001', '测试公司', '测试部门',
+           '100.00', '审批中', '未收单'], 1
+        )
+
+        service.import(spreadsheet)
+
+        reimbursement = Reimbursement.find_by(invoice_number: 'R202501018')
+        expect(reimbursement.receipt_status).to eq('pending')
+      end
+
+      it 'handles nil receipt status' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(base_headers)
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501019', '测试报销单', '测试用户', 'TEST001', '测试公司', '测试部门',
+           '100.00', '审批中', nil], 1
+        )
+
+        service.import(spreadsheet)
+
+        reimbursement = Reimbursement.find_by(invoice_number: 'R202501019')
+        expect(reimbursement.receipt_status).to be_nil
+      end
+    end
+
+    context 'datetime parsing' do
+      let(:base_headers) do
+        ['报销单单号', '单据名称', '报销单申请人', '报销单申请人工号', '申请人公司',
+         '申请人部门', '报销金额（单据币种）', '报销单状态', '报销单审核通过日期',
+         '当前审批节点转入时间', '首次提交时间']
+      end
+
+      it 'parses datetime fields correctly' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(base_headers)
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501020', '测试报销单', '测试用户', 'TEST001', '测试公司', '测试部门',
+           '100.00', '审批中', '2025-01-15 14:30:00', '2025-01-16 10:00:00', '2025-01-14 09:00:00'], 1
+        )
+
+        service.import(spreadsheet)
+
+        reimbursement = Reimbursement.find_by(invoice_number: 'R202501020')
+        expect(reimbursement.approval_date).to be_a(Time)
+        expect(reimbursement.erp_node_entry_time).to be_a(Time)
+        expect(reimbursement.erp_first_submitted_at).to be_a(Time)
+      end
+
+      it 'handles invalid datetime gracefully' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(base_headers)
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501021', '测试报销单', '测试用户', 'TEST001', '测试公司', '测试部门',
+           '100.00', '审批中', 'invalid', 'not-datetime', ''], 1
+        )
+
+        expect do
+          service.import(spreadsheet)
+        end.to change(Reimbursement, :count).by(1)
+
+        reimbursement = Reimbursement.find_by(invoice_number: 'R202501021')
+        expect(reimbursement.approval_date).to be_nil
+        expect(reimbursement.erp_node_entry_time).to be_nil
+        expect(reimbursement.erp_first_submitted_at).to be_nil
+      end
+    end
+
+    context 'SqliteOptimizationManager integration' do
+      it 'uses SqliteOptimizationManager during import' do
+        optimization_manager = instance_double(SqliteOptimizationManager)
+        allow(SqliteOptimizationManager).to receive(:new).with(level: :moderate).and_return(optimization_manager)
+        allow(optimization_manager).to receive(:during_import).and_yield
+
+        service = described_class.new(file, admin_user)
+
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(
+          ['报销单单号', '单据名称', '报销单申请人', '报销单申请人工号', '申请人公司',
+           '申请人部门', '报销金额（单据币种）', '报销单状态']
+        )
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501022', '测试报销单', '测试用户', 'TEST001', '测试公司', '测试部门', '100.00', '审批中'], 1
+        )
+
+        service.import(spreadsheet)
+
+        expect(optimization_manager).to have_received(:during_import)
+      end
+    end
   end
 end
