@@ -307,5 +307,224 @@ RSpec.describe ExpressReceiptImportService do
         expect(new_work_order.filling_id).to be_present # 自动生成filling_id
       end
     end
+
+    context 'with date parsing scenarios' do
+      let!(:reimbursement) { create(:reimbursement, invoice_number: 'R202501001', status: 'pending') }
+
+      it 'parses standard datetime format YYYY-MM-DD HH:MM:SS' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(%w[单据编号 操作意见 操作时间])
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501001', '快递单号: SF1001', '2025-01-15 14:30:00'], 1
+        )
+
+        service.import(spreadsheet)
+        work_order = ExpressReceiptWorkOrder.last
+        expect(work_order.received_at).to eq(DateTime.parse('2025-01-15 14:30:00'))
+      end
+
+      it 'parses alternative format YYYY/MM/DD HH:MM:SS' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(%w[单据编号 操作意见 操作时间])
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501001', '快递单号: SF1001', '2025/01/15 14:30:00'], 1
+        )
+
+        service.import(spreadsheet)
+        work_order = ExpressReceiptWorkOrder.last
+        expect(work_order.received_at).to eq(DateTime.parse('2025-01-15 14:30:00'))
+      end
+
+      it 'parses date-only format YYYY-MM-DD' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(%w[单据编号 操作意见 操作时间])
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501001', '快递单号: SF1001', '2025-01-15'], 1
+        )
+
+        service.import(spreadsheet)
+        work_order = ExpressReceiptWorkOrder.last
+        expect(work_order.received_at.to_date).to eq(Date.parse('2025-01-15'))
+      end
+
+      it 'handles Date object input' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(%w[单据编号 操作意见 操作时间])
+        date_obj = Date.parse('2025-01-15')
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501001', '快递单号: SF1001', date_obj], 1
+        )
+
+        service.import(spreadsheet)
+        work_order = ExpressReceiptWorkOrder.last
+        expect(work_order.received_at).to eq(date_obj)
+      end
+
+      it 'handles DateTime object input' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(%w[单据编号 操作意见 操作时间])
+        datetime_obj = DateTime.parse('2025-01-15 14:30:00')
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501001', '快递单号: SF1001', datetime_obj], 1
+        )
+
+        service.import(spreadsheet)
+        work_order = ExpressReceiptWorkOrder.last
+        expect(work_order.received_at).to eq(datetime_obj)
+      end
+
+      it 'rejects Excel serial number format' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(%w[单据编号 操作意见 操作时间])
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501001', '快递单号: SF1001', '45678.5'], 1
+        )
+
+        result = service.import(spreadsheet)
+        expect(result[:errors]).to eq(1)
+        expect(result[:error_details].first).to include('无法解析操作时间')
+      end
+
+      it 'handles empty datetime string' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(%w[单据编号 操作意见 操作时间])
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501001', '快递单号: SF1001', ''], 1
+        )
+
+        result = service.import(spreadsheet)
+        expect(result[:errors]).to eq(1)
+        expect(result[:error_details].first).to include('操作时间不能为空')
+      end
+
+      it 'handles nil datetime' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(%w[单据编号 操作意见 操作时间])
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501001', '快递单号: SF1001', nil], 1
+        )
+
+        result = service.import(spreadsheet)
+        expect(result[:errors]).to eq(1)
+        expect(result[:error_details].first).to include('操作时间不能为空')
+      end
+
+      it 'handles invalid datetime format' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(%w[单据编号 操作意见 操作时间])
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501001', '快递单号: SF1001', 'invalid-date-format'], 1
+        )
+
+        result = service.import(spreadsheet)
+        expect(result[:errors]).to eq(1)
+        expect(result[:error_details].first).to include('无法解析操作时间')
+      end
+    end
+
+    context 'with unsupported file format' do
+      it 'rejects non-CSV/Excel files' do
+        tempfile = double('tempfile', path: '/tmp/test.txt', to_path: '/tmp/test.txt')
+        file = double('file', tempfile: tempfile, present?: true)
+        service = described_class.new(file, admin_user)
+
+        result = service.import
+
+        expect(result[:success]).to be false
+        expect(result[:errors]).to include('不支持的文件格式，请上传 CSV 或 Excel 文件')
+      end
+    end
+
+    context 'with alternative column names' do
+      let!(:reimbursement) { create(:reimbursement, invoice_number: 'R202501001', status: 'pending') }
+
+      it 'handles legacy column name 单号 instead of 单据编号' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(['单号', '操作意见', '操作日期'])
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501001', '快递单号: SF1001', '2025-01-15 14:30:00'], 1
+        )
+
+        result = service.import(spreadsheet)
+        expect(result[:created]).to eq(1)
+        work_order = ExpressReceiptWorkOrder.last
+        expect(work_order.reimbursement.invoice_number).to eq('R202501001')
+      end
+
+      it 'handles legacy column name 操作日期 instead of 操作时间' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(['单据编号', '操作意见', '操作日期'])
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501001', '快递单号: SF1001', '2025-01-15 14:30:00'], 1
+        )
+
+        result = service.import(spreadsheet)
+        expect(result[:created]).to eq(1)
+        work_order = ExpressReceiptWorkOrder.last
+        expect(work_order.received_at).to be_present
+      end
+    end
+
+    context 'with notification status reset' do
+      let!(:reimbursement) do
+        create(:reimbursement,
+               invoice_number: 'R202501001',
+               status: 'pending',
+               last_viewed_express_receipts_at: 1.hour.ago)
+      end
+
+      it 'resets notification status when importing new receipt' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(%w[单据编号 操作意见 操作时间])
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501001', '快递单号: SF1001', '2025-01-15 14:30:00'], 1
+        )
+
+        expect(reimbursement.last_viewed_express_receipts_at).to be_present
+
+        service.import(spreadsheet)
+        reimbursement.reload
+
+        expect(reimbursement.last_viewed_express_receipts_at).to be_nil
+      end
+    end
+
+    context 'with state machine errors' do
+      let!(:reimbursement) { create(:reimbursement, invoice_number: 'R202501001', status: 'pending') }
+
+      it 'handles StateMachines::InvalidTransition gracefully' do
+        spreadsheet = double('spreadsheet')
+        allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+        allow(spreadsheet).to receive(:row).with(1).and_return(%w[单据编号 操作意见 操作时间])
+        allow(spreadsheet).to receive(:each_with_index).and_yield(
+          ['R202501001', '快递单号: SF1001', '2025-01-15 14:30:00'], 1
+        )
+
+        # Mock the state transition to raise an error - create error with proper parameters
+        error_message = "Cannot transition from pending to received"
+        state_machine_error = StateMachines::InvalidTransition.allocate
+        allow(state_machine_error).to receive(:message).and_return(error_message)
+
+        allow_any_instance_of(Reimbursement).to receive(:mark_as_received)
+          .and_raise(state_machine_error)
+
+        result = service.import(spreadsheet)
+
+        expect(result[:errors]).to eq(1)
+        expect(result[:error_details].first).to include('更新报销单状态失败')
+      end
+    end
   end
 end
