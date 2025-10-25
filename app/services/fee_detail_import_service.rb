@@ -2,6 +2,8 @@
 require 'securerandom'
 
 class FeeDetailImportService
+  include DateParsingHelper
+
   def initialize(file, current_admin_user)
     @file = file
     @current_admin_user = current_admin_user
@@ -151,26 +153,6 @@ class FeeDetailImportService
       @skipped_due_to_error_count += 1
       @errors << "行 #{row_number} (费用ID: #{external_id}): 保存失败 - #{fee_detail.errors.full_messages.join(', ')}"
       Rails.logger.error "保存费用明细失败: external_fee_id=#{external_id}, errors=#{fee_detail.errors.full_messages.join(', ')}"
-    end
-  end
-
-  def parse_date(date_string)
-    return nil unless date_string.present?
-
-    begin
-      date_string.is_a?(Date) || date_string.is_a?(DateTime) ? date_string.to_date : Date.parse(date_string.to_s)
-    rescue ArgumentError
-      nil
-    end
-  end
-
-  def parse_datetime(datetime_string)
-    return nil unless datetime_string.present?
-
-    begin
-      datetime_string.is_a?(Date) || datetime_string.is_a?(DateTime) ? datetime_string : DateTime.parse(datetime_string.to_s)
-    rescue ArgumentError
-      nil
     end
   end
 
