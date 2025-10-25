@@ -14,6 +14,7 @@ RSpec.describe WorkOrderService, type: :service do
 
   let(:fee_detail) do
     FeeDetail.create!(
+      external_fee_id: 'FEE001',
       document_number: reimbursement.invoice_number,
       fee_type: '月度交通费',
       amount: 100.0,
@@ -65,7 +66,6 @@ RSpec.describe WorkOrderService, type: :service do
       WorkOrderFeeDetail.create!(
         work_order: work_order,
         fee_detail: fee_detail,
-        work_order_type: work_order.class.name
       )
 
       work_order
@@ -135,7 +135,6 @@ RSpec.describe WorkOrderService, type: :service do
       WorkOrderFeeDetail.create!(
         work_order: work_order,
         fee_detail: fee_detail,
-        work_order_type: work_order.class.name
       )
 
       work_order
@@ -216,7 +215,6 @@ RSpec.describe WorkOrderService, type: :service do
       WorkOrderFeeDetail.create!(
         work_order: work_order,
         fee_detail: fee_detail,
-        work_order_type: work_order.class.name
       )
 
       work_order
@@ -248,7 +246,6 @@ RSpec.describe WorkOrderService, type: :service do
       WorkOrderFeeDetail.create!(
         work_order: work_order,
         fee_detail: fee_detail,
-        work_order_type: work_order.class.name
       )
 
       work_order
@@ -266,7 +263,6 @@ RSpec.describe WorkOrderService, type: :service do
       WorkOrderFeeDetail.create!(
         work_order: work_order,
         fee_detail: fee_detail,
-        work_order_type: work_order.class.name
       )
 
       work_order

@@ -14,117 +14,11 @@ class WorkOrderService
   end
 
   def approve(params = {})
-    # 添加调试日志
-    Rails.logger.debug "WorkOrderService#approve: 开始处理工单 ##{@work_order.id}, 当前状态: #{@work_order.status}"
-    Rails.logger.debug "WorkOrderService#approve: 参数: #{params.inspect}"
-
-    # Assign attributes like audit_comment. The processing_opinion might be in params.
-    # Model validations will check for audit_comment if opinion is '可以通过'
-    assign_shared_attributes(params)
-
-    Rails.logger.debug "WorkOrderService#approve: 分配属性后，处理意见: #{@work_order.processing_opinion}"
-    Rails.logger.debug "WorkOrderService#approve: 分配属性后，工单状态: #{@work_order.status}"
-
-    # 直接尝试调用 approve 方法，不再检查 can_approve?
-    begin
-      # 设置处理意见为"可以通过"
-      @work_order.processing_opinion = '可以通过'
-      Rails.logger.debug "WorkOrderService#approve: 设置处理意见为'可以通过'"
-
-      # 调用 approve 方法更新状态
-      Rails.logger.debug 'WorkOrderService#approve: 调用 @work_order.approve 方法'
-      result = @work_order.approve
-      Rails.logger.debug "WorkOrderService#approve: @work_order.approve 返回结果: #{result}"
-      Rails.logger.debug "WorkOrderService#approve: 调用 approve 后，工单状态: #{@work_order.status}"
-
-      # 确保状态已更新
-      if result && @work_order.status == 'approved'
-        Rails.logger.debug 'WorkOrderService#approve: 状态已更新为 approved，开始同步费用明细状态'
-        # 手动触发费用明细状态更新
-        @work_order.send(:sync_fee_details_verification_status)
-
-        # 记录状态变更操作
-        @operation_service.record_status_change('pending', 'approved')
-        Rails.logger.debug 'WorkOrderService#approve: 状态变更操作已记录'
-
-        # Model's after_transition should set audit_date
-        # Model's validations for approved state should have run.
-        Rails.logger.debug 'WorkOrderService#approve: 操作成功完成'
-        true unless @work_order.errors.any? # Check for validation errors after state change
-      else
-        Rails.logger.debug "WorkOrderService#approve: 状态更新失败，当前状态: #{@work_order.status}, 错误: #{@work_order.errors.full_messages.join(', ')}"
-      end
-    rescue StateMachines::InvalidTransition => e
-      Rails.logger.debug "WorkOrderService#approve: 无法批准工单，当前状态: #{@work_order.status}, 错误: #{e.message}"
-      @work_order.errors.add(:base, "无法批准工单 (当前状态: #{@work_order.status}): #{e.message}") unless @work_order.errors.any?
-      Rails.logger.debug 'WorkOrderService#approve: 返回 false，操作失败'
-      false
-    end
-  rescue StateMachines::InvalidTransition => e
-    @work_order.errors.add(:base, "无法批准 (状态无效的转换): #{e.message}")
-    Rails.logger.error "WorkOrderService Error: #{e.message} for work order #{@work_order.id}"
-    false
-  rescue StandardError => e
-    @work_order.errors.add(:base, "批准工单时发生错误: #{e.message}")
-    Rails.logger.error "WorkOrderService Error: #{e.message} for work order #{@work_order.id}"
-    false
+    process_action('approve', '可以通过', 'approved', params)
   end
 
   def reject(params = {})
-    # 添加调试日志
-    Rails.logger.debug "WorkOrderService#reject: 开始处理工单 ##{@work_order.id}, 当前状态: #{@work_order.status}"
-    Rails.logger.debug "WorkOrderService#reject: 参数: #{params.inspect}"
-
-    # Assign attributes like audit_comment, problem_type_id etc.
-    # Model validations will check for these if opinion is '无法通过'
-    assign_shared_attributes(params)
-
-    Rails.logger.debug "WorkOrderService#reject: 分配属性后，处理意见: #{@work_order.processing_opinion}"
-    Rails.logger.debug "WorkOrderService#reject: 分配属性后，工单状态: #{@work_order.status}"
-
-    # 直接尝试调用 reject 方法，不再检查 can_reject?
-    begin
-      # 设置处理意见为"无法通过"
-      @work_order.processing_opinion = '无法通过'
-      Rails.logger.debug "WorkOrderService#reject: 设置处理意见为'无法通过'"
-
-      # 调用 reject 方法更新状态
-      Rails.logger.debug 'WorkOrderService#reject: 调用 @work_order.reject 方法'
-      result = @work_order.reject
-      Rails.logger.debug "WorkOrderService#reject: @work_order.reject 返回结果: #{result}"
-      Rails.logger.debug "WorkOrderService#reject: 调用 reject 后，工单状态: #{@work_order.status}"
-
-      # 确保状态已更新
-      if result && @work_order.status == 'rejected'
-        Rails.logger.debug 'WorkOrderService#reject: 状态已更新为 rejected，开始同步费用明细状态'
-        # 手动触发费用明细状态更新
-        @work_order.send(:sync_fee_details_verification_status)
-
-        # 记录状态变更操作
-        @operation_service.record_status_change('pending', 'rejected')
-        Rails.logger.debug 'WorkOrderService#reject: 状态变更操作已记录'
-
-        # Model's after_transition should set audit_date
-        # Model's validations for rejected state should have run.
-        Rails.logger.debug 'WorkOrderService#reject: 操作成功完成'
-        true unless @work_order.errors.any? # Check for validation errors after state change
-      else
-        Rails.logger.debug "WorkOrderService#reject: 状态更新失败，当前状态: #{@work_order.status}, 错误: #{@work_order.errors.full_messages.join(', ')}"
-      end
-    rescue StateMachines::InvalidTransition => e
-      Rails.logger.debug "WorkOrderService#reject: 无法拒绝工单，当前状态: #{@work_order.status}, 错误: #{e.message}"
-      @work_order.errors.add(:base, "无法拒绝工单 (当前状态: #{@work_order.status}): #{e.message}") unless @work_order.errors.any?
-      Rails.logger.debug 'WorkOrderService#reject: 返回 false，操作失败'
-      false
-    end
-  rescue StateMachines::InvalidTransition => e
-    @work_order.errors.add(:base, "无法拒绝 (状态无效的转换): #{e.message}")
-    Rails.logger.error "WorkOrderService Error: #{e.message} for work order #{@work_order.id}"
-    false
-  rescue StandardError => e
-    @work_order.errors.add(:base, "拒绝工单时发生错误: #{e.message}")
-    Rails.logger.error "WorkOrderService Error: #{e.message} for work order #{@work_order.id}"
-    false
+    process_action('reject', '无法通过', 'rejected', params)
   end
 
   # General update method - now handles status changes based on processing_opinion
@@ -245,6 +139,66 @@ class WorkOrderService
     # Ensure errors from the exception message are also on the object if not already captured by validations (though they should be)
     # Example: @work_order.errors.add(:base, e.message) unless @work_order.errors.full_messages.include?(e.message)
     false # Indicate failure
+  end
+
+  def process_action(action_name, opinion_value, target_status, params = {})
+    # 添加调试日志
+    Rails.logger.debug "WorkOrderService##{action_name}: 开始处理工单 ##{@work_order.id}, 当前状态: #{@work_order.status}"
+    Rails.logger.debug "WorkOrderService##{action_name}: 参数: #{params.inspect}"
+
+    # Assign attributes like audit_comment. The processing_opinion might be in params.
+    # Model validations will check for these based on the opinion value
+    assign_shared_attributes(params)
+
+    Rails.logger.debug "WorkOrderService##{action_name}: 分配属性后，处理意见: #{@work_order.processing_opinion}"
+    Rails.logger.debug "WorkOrderService##{action_name}: 分配属性后，工单状态: #{@work_order.status}"
+
+    # 直接尝试调用状态转换方法，不再检查 can_#{action_name}?
+    begin
+      # 设置处理意见
+      @work_order.processing_opinion = opinion_value
+      Rails.logger.debug "WorkOrderService##{action_name}: 设置处理意见为'#{opinion_value}'"
+
+      # 调用状态转换方法
+      Rails.logger.debug "WorkOrderService##{action_name}: 调用 @work_order.#{action_name} 方法"
+      result = @work_order.send(action_name)
+      Rails.logger.debug "WorkOrderService##{action_name}: @work_order.#{action_name} 返回结果: #{result}"
+      Rails.logger.debug "WorkOrderService##{action_name}: 调用 #{action_name} 后，工单状态: #{@work_order.status}"
+
+      # 确保状态已更新
+      if result && @work_order.status == target_status
+        Rails.logger.debug "WorkOrderService##{action_name}: 状态已更新为 #{target_status}，开始同步费用明细状态"
+        # 手动触发费用明细状态更新
+        @work_order.send(:sync_fee_details_verification_status)
+
+        # 记录状态变更操作
+        @operation_service.record_status_change('pending', target_status)
+        Rails.logger.debug "WorkOrderService##{action_name}: 状态变更操作已记录"
+
+        # Model's after_transition should set audit_date
+        # Model's validations for the new state should have run.
+        Rails.logger.debug "WorkOrderService##{action_name}: 操作成功完成"
+        true unless @work_order.errors.any? # Check for validation errors after state change
+      else
+        Rails.logger.debug "WorkOrderService##{action_name}: 状态更新失败，当前状态: #{@work_order.status}, 错误: #{@work_order.errors.full_messages.join(', ')}"
+      end
+    rescue StateMachines::InvalidTransition => e
+      action_verb = action_name == 'approve' ? '批准' : '拒绝'
+      Rails.logger.debug "WorkOrderService##{action_name}: 无法#{action_verb}工单，当前状态: #{@work_order.status}, 错误: #{e.message}"
+      @work_order.errors.add(:base, "无法#{action_verb}工单 (当前状态: #{@work_order.status}): #{e.message}") unless @work_order.errors.any?
+      Rails.logger.debug "WorkOrderService##{action_name}: 返回 false，操作失败"
+      false
+    end
+  rescue StateMachines::InvalidTransition => e
+    action_verb = action_name == 'approve' ? '批准' : '拒绝'
+    @work_order.errors.add(:base, "无法#{action_verb} (状态无效的转换): #{e.message}")
+    Rails.logger.error "WorkOrderService Error: #{e.message} for work order #{@work_order.id}"
+    false
+  rescue StandardError => e
+    action_verb = action_name == 'approve' ? '批准' : '拒绝'
+    @work_order.errors.add(:base, "#{action_verb}工单时发生错误: #{e.message}")
+    Rails.logger.error "WorkOrderService Error: #{e.message} for work order #{@work_order.id}"
+    false
   end
 
   # 处理费用明细选择
