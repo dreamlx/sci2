@@ -64,9 +64,20 @@ RSpec.configure do |config|
   config.before(:each, type: :system) do
     driven_by :rack_test
   end
-  
+
   config.before(:each, type: :system, js: true) do
+    # Use optimized Chrome driver configuration for better stability
     driven_by :selenium_chrome_headless
+  end
+
+  # Additional setup for Chrome driver management
+  config.before(:suite) do
+    # Ensure webdrivers are properly cached
+    Webdrivers.cache_time = 86_400 # 24 hours cache
+
+    # Set ChromeDriver version to avoid version mismatch issues
+    # Use a stable version that works with most Chrome installations
+    Webdrivers::Chromedriver.required_version = '114.0.5735.90'
   end
 
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures
@@ -110,20 +121,41 @@ RSpec.configure do |config|
   # Configure FactoryBot
   config.include FactoryBot::Syntax::Methods
 
-  # Performance optimization settings
+  # Performance optimization settings with improved test isolation
   config.before(:suite) do
-    # Database cleaner for better performance
-    DatabaseCleaner.strategy = :transaction
+    # Configure DatabaseCleaner for better test isolation
     DatabaseCleaner.clean_with(:truncation)
 
     # Pre-warm factories for better performance
     FactoryBot.lint if ENV['LINT_FACTORIES']
   end
 
+  config.before(:each) do
+    # Use transaction for most tests for speed
+    DatabaseCleaner.strategy = :transaction
+  end
+
+  config.before(:each, type: :system) do
+    # Use truncation for system tests to handle JavaScript properly
+    DatabaseCleaner.strategy = :truncation
+  end
+
+  config.before(:each, js: true) do
+    # Use truncation for JavaScript tests
+    DatabaseCleaner.strategy = :truncation
+  end
+
   config.around(:each) do |example|
     DatabaseCleaner.cleaning do
       example.run
     end
+  end
+
+  # Additional cleanup for Repository tests - simplified approach
+  # DatabaseCleaner should handle most cleanup, but we ensure specific isolation
+  config.after(:each, type: :repository) do
+    # Only clean up operations table to avoid foreign key issues
+    WorkOrderOperation.delete_all if defined?(WorkOrderOperation)
   end
 
   # Parallel testing for faster execution

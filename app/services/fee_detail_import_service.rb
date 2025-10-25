@@ -147,12 +147,6 @@ class FeeDetailImportService
 
       # 更新报销单状态，确保与费用明细状态保持一致
       reimbursement.update_status_based_on_fee_details!
-
-      # 如果我们更改了document_number，则更新旧报销单的状态
-      if existing_fee_detail && existing_fee_detail.document_number != document_number && defined?(old_reimbursement) && old_reimbursement
-        # 更新旧报销单的状态，因为费用明细已被移除
-        old_reimbursement.update_status_based_on_fee_details!
-      end
     else
       @skipped_due_to_error_count += 1
       @errors << "行 #{row_number} (费用ID: #{external_id}): 保存失败 - #{fee_detail.errors.full_messages.join(', ')}"

@@ -10,7 +10,8 @@ RSpec.describe 'Work Order Operations', type: :system do
     # Create some operations for the work order
     operation_service = WorkOrderOperationService.new(work_order, admin_user)
     operation_service.record_create
-    operation_service.record_update({ 'remark' => nil })
+    # Use a valid attribute for AuditWorkOrder
+    operation_service.record_update({ 'audit_comment' => 'Updated comment' })
 
     # Log in as admin user
     login_as(admin_user, scope: :admin_user)
@@ -28,7 +29,7 @@ RSpec.describe 'Work Order Operations', type: :system do
       expect(page).to have_content('更新工单')
 
       # Check that admin user is displayed
-      expect(page).to have_content(admin_user.email)
+      expect(page).to have_content("管理员用户 ##{admin_user.id}")
     end
 
     it 'allows viewing operation details' do

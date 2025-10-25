@@ -13,9 +13,6 @@ class WorkOrderService
     @operation_service = WorkOrderOperationService.new(work_order, current_admin_user)
   end
 
-  # REMOVED: start_processing method as 'processing' state is removed.
-  # If there was other logic here besides state change, it needs to be re-evaluated.
-
   def approve(params = {})
     # 添加调试日志
     Rails.logger.debug "WorkOrderService#approve: 开始处理工单 ##{@work_order.id}, 当前状态: #{@work_order.status}"

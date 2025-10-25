@@ -3,13 +3,15 @@
 require 'rails_helper'
 
 RSpec.describe WorkOrderOperationRepository, type: :repository do
+  # Use more specific test data setup to ensure isolation
   let!(:work_order) { create(:audit_work_order) }
-  let!(:admin_user) { create(:admin_user) }
+  let!(:admin_user) { create(:admin_user, email: "test-#{SecureRandom.hex(4)}@example.com") }
   let!(:operation1) do
     create(:work_order_operation,
            work_order: work_order,
            admin_user: admin_user,
            operation_type: 'create',
+           details: "Test create operation #{SecureRandom.hex(4)}",
            created_at: 1.day.ago)
   end
   let!(:operation2) do
@@ -17,7 +19,13 @@ RSpec.describe WorkOrderOperationRepository, type: :repository do
            work_order: work_order,
            admin_user: admin_user,
            operation_type: 'update',
+           details: "Test update operation #{SecureRandom.hex(4)}",
            created_at: 2.days.ago)
+  end
+
+  # Ensure clean test data before each test
+  before do
+    WorkOrderOperation.where.not(id: [operation1&.id, operation2&.id].compact).delete_all
   end
 
   describe '.find' do
@@ -48,7 +56,7 @@ RSpec.describe WorkOrderOperationRepository, type: :repository do
     it 'returns operations for specific work order' do
       result = described_class.by_work_order(work_order.id)
       expect(result.count).to eq(2)
-      expect(result).to include(operation1, operation2)
+      expect(result.pluck(:id)).to match_array([operation1.id, operation2.id])
     end
   end
 
@@ -56,7 +64,7 @@ RSpec.describe WorkOrderOperationRepository, type: :repository do
     it 'returns operations for specific admin user' do
       result = described_class.by_admin_user(admin_user.id)
       expect(result.count).to eq(2)
-      expect(result).to include(operation1, operation2)
+      expect(result.pluck(:id)).to match_array([operation1.id, operation2.id])
     end
   end
 
@@ -64,24 +72,31 @@ RSpec.describe WorkOrderOperationRepository, type: :repository do
     it 'returns operations with specified operation type' do
       result = described_class.by_operation_type('create')
       expect(result.count).to eq(1)
+      expect(result.first.id).to eq(operation1.id)
       expect(result.first.operation_type).to eq('create')
     end
   end
 
   describe '.created_today' do
     it 'returns operations created today' do
-      today_operation = create(:work_order_operation, created_at: Time.current)
+      today_operation = create(:work_order_operation,
+                              operation_type: 'status_change',
+                              details: "Today operation #{SecureRandom.hex(4)}",
+                              created_at: Time.current)
       result = described_class.created_today
-      expect(result).to include(today_operation)
+      expect(result.pluck(:id)).to include(today_operation.id)
     end
   end
 
   describe '.recent' do
     it 'returns most recent operations' do
-      recent_operation = create(:work_order_operation, created_at: 1.hour.from_now)
-      result = described_class.recent(2)
-      expect(result.first).to eq(recent_operation)
-      expect(result.count).to eq(2)
+      recent_operation = create(:work_order_operation,
+                               operation_type: 'remove_problem',
+                               details: "Recent operation #{SecureRandom.hex(4)}",
+                               created_at: 1.hour.from_now)
+      result = described_class.recent(3)
+      expect(result.first.id).to eq(recent_operation.id)
+      expect(result.count).to eq(3)
     end
   end
 
