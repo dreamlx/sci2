@@ -69,9 +69,9 @@ RSpec.describe AuditWorkOrderService, type: :service do
     it 'selects a fee detail' do
       expect do
         subject.select_fee_detail(fee_detail)
-      end.to change(FeeDetailSelection, :count).by(1)
+      end.to change(WorkOrderFeeDetail, :count).by(1)
 
-      selection = FeeDetailSelection.last
+      selection = WorkOrderFeeDetail.last
       expect(selection.fee_detail_id).to eq(fee_detail.id)
       expect(selection.work_order_id).to eq(audit_work_order.id)
     end
@@ -82,7 +82,7 @@ RSpec.describe AuditWorkOrderService, type: :service do
 
       expect do
         subject.select_fee_detail(other_fee_detail)
-      end.not_to change(FeeDetailSelection, :count)
+      end.not_to change(WorkOrderFeeDetail, :count)
     end
   end
 
@@ -93,9 +93,9 @@ RSpec.describe AuditWorkOrderService, type: :service do
     it 'selects multiple fee details' do
       expect do
         subject.select_fee_details([fee_detail1.id, fee_detail2.id])
-      end.to change(FeeDetailSelection, :count).by(2)
+      end.to change(WorkOrderFeeDetail, :count).by(2)
 
-      selections = FeeDetailSelection.all
+      selections = WorkOrderFeeDetail.all
       expect(selections.map(&:fee_detail_id)).to include(fee_detail1.id, fee_detail2.id)
       expect(selections.map(&:work_order_id)).to all(eq(audit_work_order.id))
     end
@@ -106,7 +106,7 @@ RSpec.describe AuditWorkOrderService, type: :service do
 
       expect do
         subject.select_fee_details([other_fee_detail.id])
-      end.not_to change(FeeDetailSelection, :count)
+      end.not_to change(WorkOrderFeeDetail, :count)
     end
   end
 
@@ -116,7 +116,7 @@ RSpec.describe AuditWorkOrderService, type: :service do
     it 'updates the verification status of a fee detail' do
       expect do
         subject.update_fee_detail_verification(fee_detail.id, 'verified', 'Test comment')
-      end.not_to change(FeeDetailSelection, :count)
+      end.not_to change(WorkOrderFeeDetail, :count)
 
       fee_detail.reload
       expect(fee_detail.verification_status).to eq('verified')

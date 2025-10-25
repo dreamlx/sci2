@@ -7,6 +7,52 @@ class AuditWorkOrderService < WorkOrderService
     @audit_work_order = audit_work_order
   end
 
+  # 开始处理工单
+  def start_processing(params = {})
+    assign_shared_attributes(params)
+
+    if @audit_work_order.pending?
+      @audit_work_order.start_processing!
+      true
+    else
+      @audit_work_order.errors.add(:base, "工单当前状态不允许开始处理")
+      false
+    end
+  rescue => e
+    @audit_work_order.errors.add(:base, "开始处理失败: #{e.message}")
+    false
+  end
+
+  # 选择单个费用明细
+  def select_fee_detail(fee_detail)
+    return false unless fee_detail.is_a?(FeeDetail)
+    return false unless fee_detail.document_number == @audit_work_order.reimbursement.invoice_number
+
+    # 使用 work_order_fee_details 关联添加费用明细
+    unless @audit_work_order.fee_details.include?(fee_detail)
+      @audit_work_order.work_order_fee_details.create(fee_detail: fee_detail)
+      @audit_work_order.sync_fee_details_verification_status
+      true
+    else
+      false
+    end
+  end
+
+  # 选择多个费用明细
+  def select_fee_details(fee_detail_ids)
+    fee_details_to_select = FeeDetail.where(
+      id: fee_detail_ids,
+      document_number: @audit_work_order.reimbursement.invoice_number
+    )
+
+    count = 0
+    fee_details_to_select.each do |fd|
+      count += 1 if select_fee_detail(fd)
+    end
+
+    count > 0
+  end
+
   # The generic WorkOrderService#approve and WorkOrderService#reject methods
   # will now be used, which call the state machine events.
   # Specific logic for AuditWorkOrder, if any beyond attribute assignment

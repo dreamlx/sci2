@@ -61,7 +61,7 @@ class WorkOrder < ApplicationRecord
 
     # 状态变更回调
     after_transition any => any do |work_order, transition|
-      log_status_change(work_order, transition)
+      work_order.log_status_change(transition)
       work_order.sync_fee_details_verification_status
     end
   end
@@ -185,19 +185,25 @@ class WorkOrder < ApplicationRecord
     end
   end
 
-  private
-
   # 记录状态变更
-  def log_status_change(work_order, transition)
+  def log_status_change(transition)
     return unless defined?(WorkOrderOperation)
 
+    # 确保有有效的admin_user_id
+    admin_user = Current.admin_user || creator || AdminUser.first
+
     WorkOrderOperation.create!(
-      work_order: work_order,
+      work_order: self,
       operation_type: WorkOrderOperation::OPERATION_TYPE_STATUS_CHANGE,
       details: "状态变更: #{transition.from} -> #{transition.to}",
-      admin_user_id: Current.admin_user&.id
+      admin_user_id: admin_user&.id || 1
     )
+  rescue ActiveRecord::InvalidForeignKey => e
+    Rails.logger.error "Failed to log status change for WorkOrder ##{id}: #{e.message}"
+    # 不阻断状态转换
   end
+
+  private
 
   # 处理状态转换
   def handle_status_transition(action, status)
@@ -209,9 +215,11 @@ class WorkOrder < ApplicationRecord
 
   # 记录创建操作
   def log_creation
-    admin_user_id = Current.admin_user&.id || created_by || 1
-
     return unless defined?(WorkOrderOperation)
+
+    # 确保有有效的admin_user_id
+    admin_user = Current.admin_user || creator || AdminUser.first
+    admin_user_id = admin_user&.id || 1
 
     WorkOrderOperation.create!(
       work_order: self,
@@ -219,6 +227,9 @@ class WorkOrder < ApplicationRecord
       details: "创建#{self.class.name.underscore.humanize}",
       admin_user_id: admin_user_id
     )
+  rescue ActiveRecord::InvalidForeignKey => e
+    Rails.logger.error "Failed to log creation for WorkOrder ##{id}: #{e.message}"
+    # 不阻断工单创建
   end
 
   # 记录更新操作
@@ -233,12 +244,18 @@ class WorkOrder < ApplicationRecord
 
     return unless defined?(WorkOrderOperation)
 
+    # 确保有有效的admin_user_id
+    admin_user = Current.admin_user || creator || AdminUser.first
+
     WorkOrderOperation.create!(
       work_order: self,
       operation_type: WorkOrderOperation::OPERATION_TYPE_UPDATE,
       details: "更新: #{change_details}",
-      admin_user_id: Current.admin_user&.id
+      admin_user_id: admin_user&.id || 1
     )
+  rescue ActiveRecord::InvalidForeignKey => e
+    Rails.logger.error "Failed to log update for WorkOrder ##{id}: #{e.message}"
+    # 不阻断工单更新
   end
 
   # 根据工单类型更新报销单状态
