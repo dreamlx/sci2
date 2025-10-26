@@ -1,5 +1,15 @@
 # app/models/express_receipt_work_order.rb
 class ExpressReceiptWorkOrder < WorkOrder
+  include WorkOrderStatusTraits
+
+  # 定义快递收单工单的状态特性 - 总是完成状态
+  define_status_traits(
+    available_statuses: %w[completed],
+    initial_status: 'completed',
+    final_statuses: %w[completed],
+    always_completed: true
+  )
+
   # 验证
   validates :tracking_number, presence: true
   validates :status, inclusion: { in: ['completed'] } # 仅允许的状态

@@ -2,6 +2,16 @@
 # frozen_string_literal: true
 
 class AuditWorkOrder < WorkOrder
+  include WorkOrderStatusTraits
+
+  # 定义审核工单的状态特性
+  define_status_traits(
+    available_statuses: %w[pending processing approved rejected],
+    initial_status: 'pending',
+    final_statuses: %w[approved rejected],
+    manual_status_only: true
+  )
+
   # 特有属性 (这些字段也应存在于 work_orders 表中, 对其他 type 的工单为 null)
   # :audit_result (string, e.g., 'approved', 'rejected')
   # :audit_comment (text)

@@ -2,6 +2,16 @@
 # frozen_string_literal: true
 
 class CommunicationWorkOrder < WorkOrder
+  include WorkOrderStatusTraits
+
+  # 定义沟通工单的状态特性 - 自动完成
+  define_status_traits(
+    available_statuses: %w[completed],
+    initial_status: 'completed',
+    final_statuses: %w[completed],
+    auto_completed: true
+  )
+
   # 沟通工单专注于记录电话沟通，不影响费用明细状态
   # 字段：communication_method, audit_comment
 

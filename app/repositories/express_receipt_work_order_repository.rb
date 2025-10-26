@@ -1,178 +1,103 @@
 # frozen_string_literal: true
 
-class ExpressReceiptWorkOrderRepository
-  # Basic query methods
-  def self.find(id)
-    ExpressReceiptWorkOrder.find_by(id: id)
-  end
+# ExpressReceiptWorkOrderRepository - 快递收单工单Repository
+# 继承BaseWorkOrderRepository，只保留快递收单特有的业务逻辑
+class ExpressReceiptWorkOrderRepository < BaseWorkOrderRepository
+  class << self
+    # 快递单号查询 - 特有业务逻辑
+    def by_tracking_number(tracking_number)
+      model_class.where(tracking_number: tracking_number)
+    end
 
-  def self.find_by_id(id)
-    ExpressReceiptWorkOrder.find_by(id: id)
-  end
+    def find_by_tracking_number(tracking_number)
+      model_class.find_by(tracking_number: tracking_number)
+    end
 
-  def self.find_by_ids(ids)
-    ExpressReceiptWorkOrder.where(id: ids)
-  end
+    # 填充ID查询 - 特有业务逻辑
+    def by_filling_id(filling_id)
+      model_class.where(filling_id: filling_id)
+    end
 
-  # Tracking number queries
-  def self.by_tracking_number(tracking_number)
-    ExpressReceiptWorkOrder.where(tracking_number: tracking_number)
-  end
+    def find_by_filling_id(filling_id)
+      model_class.find_by(filling_id: filling_id)
+    end
 
-  def self.find_by_tracking_number(tracking_number)
-    ExpressReceiptWorkOrder.find_by(tracking_number: tracking_number)
-  end
+    # 快递公司查询 - 特有业务逻辑
+    def by_courier_name(courier_name)
+      model_class.where(courier_name: courier_name)
+    end
 
-  # Filling ID queries
-  def self.by_filling_id(filling_id)
-    ExpressReceiptWorkOrder.where(filling_id: filling_id)
-  end
+    # 状态查询 - 快递收单特殊处理（总是completed状态）
+    def all_completed
+      model_class.all # All express receipts should be completed
+    end
 
-  def self.find_by_filling_id(filling_id)
-    ExpressReceiptWorkOrder.find_by(filling_id: filling_id)
-  end
+    # 收货日期查询 - 特有业务逻辑
+    def received_today
+      model_class.where(received_at: Date.current.all_day)
+    end
 
-  # Courier queries
-  def self.by_courier_name(courier_name)
-    ExpressReceiptWorkOrder.where(courier_name: courier_name)
-  end
+    def received_this_week
+      model_class.where(received_at: Date.current.beginning_of_week..Date.current.end_of_week)
+    end
 
-  # Status queries (always completed)
-  def self.by_status(status)
-    ExpressReceiptWorkOrder.where(status: status)
-  end
+    def received_this_month
+      model_class.where(received_at: Date.current.beginning_of_month..Date.current.end_of_month)
+    end
 
-  def self.completed
-    ExpressReceiptWorkOrder.where(status: 'completed')
-  end
+    def by_received_date_range(start_date, end_date)
+      model_class.where(received_at: start_date..end_date)
+    end
 
-  def self.all_completed
-    ExpressReceiptWorkOrder.all # All express receipts should be completed
-  end
+    # 计数方法 - 快递收单特有
+    def courier_counts
+      model_class.group(:courier_name).count
+    end
 
-  # Reimbursement-based queries
-  def self.for_reimbursement(reimbursement_id)
-    ExpressReceiptWorkOrder.where(reimbursement_id: reimbursement_id)
-  end
+    def received_count_by_date(date)
+      model_class.where(received_at: date.all_day).count
+    end
 
-  def self.by_reimbursement(reimbursement)
-    ExpressReceiptWorkOrder.where(reimbursement: reimbursement)
-  end
+    # 排序查询 - 快递收单特有
+    def recent_received(limit = 10)
+      model_class.order(received_at: :desc).limit(limit)
+    end
 
-  # Received date queries
-  def self.received_today
-    ExpressReceiptWorkOrder.where(received_at: Date.current.all_day)
-  end
+    def recent_first
+      model_class.order(created_at: :desc)
+    end
 
-  def self.received_this_week
-    ExpressReceiptWorkOrder.where(received_at: Date.current.beginning_of_week..Date.current.end_of_week)
-  end
+    # 存在性检查 - 快递收单特有
+    def exists_by_tracking_number?(tracking_number)
+      by_tracking_number(tracking_number).exists?
+    end
 
-  def self.received_this_month
-    ExpressReceiptWorkOrder.where(received_at: Date.current.beginning_of_month..Date.current.end_of_month)
-  end
+    def exists_by_filling_id?(filling_id)
+      by_filling_id(filling_id).exists?
+    end
 
-  def self.by_received_date_range(start_date, end_date)
-    ExpressReceiptWorkOrder.where(received_at: start_date..end_date)
-  end
+    # 错误处理 - 快递收单特有
+    def safe_find_by_tracking_number(tracking_number)
+      find_by_tracking_number(tracking_number)
+    rescue StandardError => e
+      Rails.logger.error "#{self.name}.safe_find_by_tracking_number error: #{e.message}"
+      nil
+    end
 
-  # Creation date queries
-  def self.created_today
-    ExpressReceiptWorkOrder.where(created_at: Date.current.all_day)
-  end
+    # 性能优化 - 重写基类方法以包含快递收单特有关联
+    def optimized_list
+      model_class.includes(:reimbursement, :creator)
+    end
 
-  def self.created_this_week
-    ExpressReceiptWorkOrder.where(created_at: Date.current.beginning_of_week..Date.current.end_of_week)
-  end
+    def with_associations
+      model_class.includes(:reimbursement, :creator)
+    end
 
-  def self.created_this_month
-    ExpressReceiptWorkOrder.where(created_at: Date.current.beginning_of_month..Date.current.end_of_month)
-  end
+    private
 
-  # Count and aggregation methods
-  def self.total_count
-    ExpressReceiptWorkOrder.count
-  end
-
-  def self.courier_counts
-    ExpressReceiptWorkOrder.group(:courier_name).count
-  end
-
-  def self.received_count_by_date(date)
-    ExpressReceiptWorkOrder.where(received_at: date.all_day).count
-  end
-
-  # Ordering queries
-  def self.recent(limit = 10)
-    ExpressReceiptWorkOrder.order(created_at: :desc).limit(limit)
-  end
-
-  def self.recent_received(limit = 10)
-    ExpressReceiptWorkOrder.order(received_at: :desc).limit(limit)
-  end
-
-  def self.recent_first
-    ExpressReceiptWorkOrder.order(created_at: :desc)
-  end
-
-  def self.oldest_first
-    ExpressReceiptWorkOrder.order(created_at: :asc)
-  end
-
-  # Pagination
-  def self.page(page_number, per_page = 20)
-    ExpressReceiptWorkOrder.limit(per_page).offset((page_number - 1) * per_page)
-  end
-
-  # Existence checks
-  def self.exists?(id:)
-    ExpressReceiptWorkOrder.exists?(id: id)
-  end
-
-  def self.exists_for_reimbursement?(reimbursement_id)
-    for_reimbursement(reimbursement_id).exists?
-  end
-
-  def self.exists_by_tracking_number?(tracking_number)
-    by_tracking_number(tracking_number).exists?
-  end
-
-  def self.exists_by_filling_id?(filling_id)
-    by_filling_id(filling_id).exists?
-  end
-
-  # Performance optimizations
-  def self.select_fields(fields)
-    ExpressReceiptWorkOrder.select(fields)
-  end
-
-  def self.optimized_list
-    ExpressReceiptWorkOrder.includes(:reimbursement, :creator)
-  end
-
-  def self.with_associations
-    ExpressReceiptWorkOrder.includes(:reimbursement, :creator)
-  end
-
-  # Error handling
-  def self.safe_find(id)
-    find(id)
-  rescue StandardError => e
-    Rails.logger.error "ExpressReceiptWorkOrderRepository.safe_find error: #{e.message}"
-    nil
-  end
-
-  def self.safe_find_by_id(id)
-    find_by_id(id)
-  rescue StandardError => e
-    Rails.logger.error "ExpressReceiptWorkOrderRepository.safe_find_by_id error: #{e.message}"
-    nil
-  end
-
-  def self.safe_find_by_tracking_number(tracking_number)
-    find_by_tracking_number(tracking_number)
-  rescue StandardError => e
-    Rails.logger.error "ExpressReceiptWorkOrderRepository.safe_find_by_tracking_number error: #{e.message}"
-    nil
+    # 返回对应的Model类
+    def model_class
+      ExpressReceiptWorkOrder
+    end
   end
 end
