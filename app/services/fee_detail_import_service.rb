@@ -78,55 +78,85 @@ class FeeDetailImportService
   end
 
   def import_fee_detail(row, row_number)
+    external_id = extract_and_validate_external_id(row, row_number)
+    return unless external_id
+
+    document_number = extract_and_validate_required_fields(row, row_number)
+    return unless document_number
+
+    reimbursement = find_reimbursement(document_number, external_id, row_number)
+    return unless reimbursement
+
+    fee_detail = find_or_initialize_fee_detail(external_id, document_number, row_number)
+    return unless fee_detail
+
+    apply_fee_detail_attributes(fee_detail, row)
+    save_and_update_reimbursement(fee_detail, reimbursement, external_id, document_number, row_number)
+  end
+
+  private
+
+  def extract_and_validate_external_id(row, row_number)
     external_id = row['费用id']&.to_s&.strip
+    document_number = row['报销单单号']&.to_s&.strip
+    
+    # Generate unique ID if not provided (backward compatibility)
+    external_id.blank? ? "AUTO_#{document_number}_#{SecureRandom.hex(4)}" : external_id
+  end
+
+  def extract_and_validate_required_fields(row, row_number)
     document_number = row['报销单单号']&.to_s&.strip
     fee_type = row['费用类型']&.to_s&.strip
     amount_str = row['原始金额']
     fee_date_str = row['费用发生日期']
 
-    # external_id is optional for backward compatibility
-    # Generate a unique ID if not provided
-    external_id = "AUTO_#{document_number}_#{SecureRandom.hex(4)}" if external_id.blank?
-
-    # 检查其他必要字段
     unless document_number.present? && fee_type.present? && amount_str.present? && fee_date_str.present?
       @skipped_due_to_error_count += 1
       @errors << "行 #{row_number}: 缺少必要字段 (报销单单号, 费用类型, 金额, 费用发生日期)"
-      return
+      return nil
     end
 
-    # 检查报销单是否存在
+    document_number
+  end
+
+  def find_reimbursement(document_number, external_id, row_number)
     reimbursement = Reimbursement.find_by(invoice_number: document_number)
+
     unless reimbursement
       @unmatched_reimbursement_count += 1
-      @unmatched_reimbursement_details << { row: row_number, external_fee_id: external_id,
-                                            document_number: document_number, error: '关联的报销单不存在' }
-      return
+      @unmatched_reimbursement_details << {
+        row: row_number,
+        external_fee_id: external_id,
+        document_number: document_number,
+        error: '关联的报销单不存在'
+      }
     end
 
-    # 简化重复检测逻辑：仅使用 external_fee_id 作为唯一标识符
+    reimbursement
+  end
+
+  def find_or_initialize_fee_detail(external_id, document_number, row_number)
     existing_fee_detail = FeeDetail.find_by(external_fee_id: external_id)
 
-    # 检查现有费用明细是否具有不同的document_number
+    # Check for document number mismatch
     if existing_fee_detail && existing_fee_detail.document_number != document_number
       @skipped_due_to_error_count += 1
       @errors << "行 #{row_number} (费用ID: #{external_id}): 关联的报销单号不匹配 - 现有: #{existing_fee_detail.document_number}, 导入: #{document_number}"
-      return
+      return nil
     end
 
-    # 如果找到现有记录，则更新；否则创建新记录
-    fee_detail = existing_fee_detail || FeeDetail.new(external_fee_id: external_id)
-    is_new_record = fee_detail.new_record?
+    existing_fee_detail || FeeDetail.new(external_fee_id: external_id)
+  end
 
-    attributes = {
-      document_number: document_number,
-      fee_type: fee_type,
-      amount: parse_decimal(amount_str),
-      fee_date: parse_date(fee_date_str),
-      verification_status: fee_detail.verification_status || FeeDetail::VERIFICATION_STATUS_PENDING, # 保留现有状态，否则默认
+  def apply_fee_detail_attributes(fee_detail, row)
+    fee_detail.assign_attributes(
+      document_number: row['报销单单号']&.to_s&.strip,
+      fee_type: row['费用类型']&.to_s&.strip,
+      amount: parse_decimal(row['原始金额']),
+      fee_date: parse_date(row['费用发生日期']),
+      verification_status: fee_detail.verification_status || FeeDetail::VERIFICATION_STATUS_PENDING,
       month_belonging: row['所属月']&.to_s&.strip,
       first_submission_date: parse_datetime(row['首次提交日期']&.to_s&.strip),
-      # 新字段
       plan_or_pre_application: row['计划/预申请']&.to_s&.strip,
       product: row['产品']&.to_s&.strip,
       flex_field_11: row['弹性字段11']&.to_s&.strip,
@@ -134,9 +164,11 @@ class FeeDetailImportService
       flex_field_7: row['弹性字段7(报销单)']&.to_s&.strip,
       expense_corresponding_plan: row['费用对应计划']&.to_s&.strip,
       expense_associated_application: row['费用关联申请单']&.to_s&.strip
-    }
+    )
+  end
 
-    fee_detail.assign_attributes(attributes)
+  def save_and_update_reimbursement(fee_detail, reimbursement, external_id, document_number, row_number)
+    is_new_record = fee_detail.new_record?
 
     if fee_detail.save
       if is_new_record
@@ -147,7 +179,6 @@ class FeeDetailImportService
         Rails.logger.info "更新现有费用明细: external_fee_id=#{external_id}, document_number=#{document_number}"
       end
 
-      # 更新报销单状态，确保与费用明细状态保持一致
       reimbursement.update_status_based_on_fee_details!
     else
       @skipped_due_to_error_count += 1

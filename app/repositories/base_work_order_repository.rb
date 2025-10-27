@@ -73,7 +73,8 @@ class BaseWorkOrderRepository
 
     # 报销单关联查询
     def for_reimbursement(reimbursement)
-      model_class.where(reimbursement_id: reimbursement.id)
+      reimbursement_id = reimbursement.is_a?(Integer) ? reimbursement : reimbursement.id
+      model_class.where(reimbursement_id: reimbursement_id)
     end
 
     def for_reimbursement_id(reimbursement_id)
