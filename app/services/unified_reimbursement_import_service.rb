@@ -170,8 +170,15 @@ class UnifiedReimbursementImportService < BaseImportService
       )
     end
 
-    # 使用批量插入优化
-    Reimbursement.insert_all(reimbursements.map(&:attributes))
+    # 使用批量插入优化，包含时间戳
+    now = Time.current
+    reimbursements_data = reimbursements.map do |r|
+      attrs = r.attributes
+      attrs[:created_at] = now
+      attrs[:updated_at] = now
+      attrs
+    end
+    Reimbursement.insert_all(reimbursements_data)
   end
 
   def process_update_records(update_records)
