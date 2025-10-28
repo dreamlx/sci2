@@ -2,7 +2,8 @@ ActiveAdmin.register FeeDetail do
   actions :index, :show, :edit, :update, :create, :new
 
   menu priority: 3, label: '费用明细管理', if: proc {
-    FeeDetailPolicy.new(current_admin_user).can_index?
+    # 延迟执行避免在数据库创建时访问表
+    AdminUser.table_exists? && current_admin_user && FeeDetailPolicy.new(current_admin_user).can_index?
   }
 
   # 允许附件参数
@@ -13,7 +14,10 @@ ActiveAdmin.register FeeDetail do
                 :expense_associated_application, attachments: []
 
   # 启用批量操作功能 - 基于权限控制
-  config.batch_actions = FeeDetailPolicy.new(AdminUser.new).can_batch_operations?
+  config.batch_actions = proc {
+    # 延迟执行避免在数据库创建时访问表
+    AdminUser.table_exists? && FeeDetailPolicy.new(AdminUser.new).can_batch_operations?
+  }
 
   # 控制器配置
   controller do

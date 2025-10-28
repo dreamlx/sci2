@@ -9,11 +9,10 @@ SCI2 是一个基于 Rails 7 + ActiveAdmin 的企业报销单管理系统，提�
 - **后端框架**: Ruby on Rails 7.x
 - **Ruby版本**: ruby 3.4.2(rbenv)
 - **管理界面**: ActiveAdmin
-- **数据库**: PostgreSQL (测试/开发) / MySQL (生产)
-- **测试框架**: RSpec + Capybara + Selenium WebDriver
+- **数据库**: PostgreSQL/MySQL
+- **测试框架**: RSpec
 - **状态机**: state_machines gem
 - **认证系统**: Devise
-- **容器化**: Docker & Docker Compose
 
 ## 🏗️ 核心架构
 
@@ -27,7 +26,7 @@ SCI2 是一个基于 Rails 7 + ActiveAdmin 的企业报销单管理系统，提�
 
 #### 🎫 WorkOrder (工单) - STI继承
 - **ExpressReceiptWorkOrder**: 快递收单工单
-- **AuditWorkOrder**: 审核工单
+- **AuditWorkOrder**: 审核工单  
 - **CommunicationWorkOrder**: 沟通工单
 - 支持状态机管理工单生命周期
 
@@ -70,11 +69,12 @@ SCI2 是一个基于 Rails 7 + ActiveAdmin 的企业报销单管理系统，提�
 ```bash
 Ruby 3.4.2 (使用 rbenv 管理)
 Rails 7.x
-Docker & Docker Compose
-PostgreSQL (测试/开发)
+MySQL (生产环境)
 ```
 
 ### Ruby 环境设置
+项目使用 rbenv 管理 Ruby 版本，详细设置请参考 [Ruby 环境设置文档](docs/ruby_environment_setup.md)。
+
 ```bash
 # 检查 rbenv 安装
 rbenv --version
@@ -86,47 +86,7 @@ rbenv local 3.4.2
 RBENV_VERSION=3.4.2 bundle install
 ```
 
-### 🐳 PostgreSQL 数据库设置（推荐）
-
-#### 启动 PostgreSQL 容器
-```bash
-# 启动测试数据库
-docker compose up -d
-
-# 查看容器状态
-docker ps | grep sci2_test_db
-
-# 查看日志
-docker compose logs -f postgres_test
-```
-
-#### 数据库配置
-```bash
-# 测试环境配置已设置在 .env.test
-DATABASE_HOST=localhost
-DATABASE_PORT=55000
-DATABASE_USERNAME=sci2_test
-DATABASE_PASSWORD=test_password_123
-
-# 创建和迁移数据库
-RAILS_ENV=test bundle exec rails db:create
-RAILS_ENV=test bundle exec rails db:migrate
-RAILS_ENV=test bundle exec rails db:seed
-```
-
-#### 容器管理
-```bash
-# 停止容器
-docker compose down
-
-# 重启容器
-docker compose down && docker compose up -d
-
-# 查看端口映射
-docker ps --format "table {{.Names}}\t{{.Ports}}"
-```
-
-### 传统数据库设置（备选）
+### 数据库设置
 ```bash
 # 开发环境 (SQLite)
 rails db:create
@@ -148,90 +108,23 @@ RBENV_VERSION=3.4.2 rails server
 ### 运行测试
 ```bash
 # 运行所有测试
-DATABASE_PORT=55000 RAILS_ENV=test bundle exec rspec
-
-# 运行特定测试
-DATABASE_PORT=55000 RAILS_ENV=test bundle exec rspec spec/features/admin/communication_work_orders_spec.rb
+RBENV_VERSION=3.4.2 bundle exec rspec
 
 # 运行通知系统测试
-DATABASE_PORT=55000 RAILS_ENV=test bundle exec rspec spec/models/reimbursement_notification_spec.rb
-```
-
-## 🌐 生产部署数据库策略
-
-### 生产环境数据库选项
-
-#### 选项1：云数据库服务（推荐）
-- **阿里云 RDS PostgreSQL**
-- **腾讯云 PostgreSQL**
-- **AWS RDS PostgreSQL**
-
-**优势**：
-- 自动备份和容灾
-- 高可用性
-- 运维成本低
-- 安全性高
-
-#### 选项2：自建 PostgreSQL 容器
-```yaml
-# docker-compose.prod.yml
-version: '3.8'
-services:
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_DB: sci2_production
-      POSTGRES_USER: sci2
-      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./backups:/backups
-    ports:
-      - "5432:5432"
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
-```
-
-#### 选项3：混合架构
-- **生产环境**: 云数据库服务
-- **测试环境**: 本地容器
-- **开发环境**: 本地容器
-
-### 数据库迁移策略
-
-#### 开发到生产迁移
-```bash
-# 1. 导出开发数据（如果需要）
-pg_dump -h localhost -p 55000 -U sci2_test sci2_test > dev_data.sql
-
-# 2. 生产环境执行迁移
-RAILS_ENV=production bundle exec rails db:migrate
-
-# 3. 导入基础数据（可选）
-psql -h $PROD_DB_HOST -U $PROD_DB_USER -d $PROD_DB_NAME < dev_data.sql
-```
-
-#### 备份策略
-```bash
-# 自动备份脚本
-#!/bin/bash
-DATE=$(date +%Y%m%d_%H%M%S)
-pg_dump -h $DB_HOST -U $DB_USER -d $DB_NAME > backup_$DATE.sql
-aws s3 cp backup_$DATE.sql s3://sci2-backups/
+RBENV_VERSION=3.4.2 bundle exec rspec spec/models/reimbursement_notification_spec.rb
+RBENV_VERSION=3.4.2 bundle exec rspec spec/integration/reimbursement_notification_integration_spec.rb
 ```
 
 ## 🚀 部署指南
 
 ### 部署概述
-项目使用 Capistrano 进行自动化部署，支持从本地开发环境直接推送到服务器。
+项目使用 Capistrano 进行自动化部署，支持从本地开发环境直接推送到服务器，无需服务器访问 GitHub。
 
 ### 环境配置
 - **生产环境**: 阿里云服务器 (8.136.10.88)
 - **测试环境**: 阿里云服务器 (47.97.35.0)
 - **部署用户**: deploy
-- **数据库**: 云 PostgreSQL 或 MySQL
+- **数据库**: MySQL (MariaDB 10.11.11)
 
 ### 快速部署
 
@@ -253,13 +146,46 @@ RBENV_VERSION=3.4.2 bundle exec cap production deploy
 RBENV_VERSION=3.4.2 bundle exec cap staging deploy
 ```
 
+### 部署前准备
+1. **确保本地代码已提交**
+   ```bash
+   git add .
+   git commit -m "部署更新"
+   ```
+
+2. **检查 Ruby 版本**
+   ```bash
+   rbenv versions | grep 3.4.2
+   ```
+
+3. **验证 SSH 连接**
+   ```bash
+   ssh root@8.136.10.88  # 生产环境
+   ssh root@47.97.35.0   # 测试环境
+   ```
+
 ### 部署流程
 1. **代码推送**: 从本地 Git 仓库推送到服务器
 2. **依赖安装**: 自动安装 gem 依赖
 3. **数据库迁移**: 执行数据库迁移
 4. **资产预编译**: 编译静态资源
 5. **服务重启**: 重启 Puma 服务
-6. **健康检查**: 验证服务正常运行
+6. **防火墙配置**: 自动开放必要端口
+
+### 部署后验证
+```bash
+# 检查服务状态
+ssh root@8.136.10.88 "systemctl status puma"
+
+# 查看应用日志
+ssh root@8.136.10.88 "tail -f /opt/sci2/shared/log/puma.error.log"
+
+# 访问应用
+curl http://8.136.10.88:3000
+```
+
+### 故障排除
+常见问题和解决方案请参考 [Ruby 环境设置文档](docs/ruby_environment_setup.md) 中的"常见问题解决"部分。
 
 ## 📊 数据库结构
 
@@ -269,7 +195,6 @@ RBENV_VERSION=3.4.2 bundle exec cap staging deploy
 - `operation_histories` - 操作历史表
 - `admin_users` - 管理员用户表
 - `fee_details` - 费用明细表
-- `communication_records` - 沟通记录表
 
 ### 关联表
 - `reimbursement_assignments` - 报销单分配关系
@@ -283,17 +208,25 @@ RBENV_VERSION=3.4.2 bundle exec cap staging deploy
 - ✅ 模型验证和关联测试
 - ✅ 服务类功能测试
 
-### 集成测试
+### 集成测试  
 - ✅ **9个测试用例** - 完整业务流程模拟
 - ✅ 多用户协作场景
 - ✅ 数据导入场景
 - ✅ 边界情况处理
 
-### 端到端测试
-- ✅ JavaScript 交互测试 (Selenium WebDriver)
-- ✅ 沟通工单创建流程
-- ✅ 费用明细选择交互
-- ✅ 表单验证和提交
+## 📈 最新更新
+
+### v2.1.0 (2025-08-06) ✅
+- **统一通知状态系统完成**
+  - 合并 `+快` 和 `+记` 为统一的 "有更新" 状态
+  - 实现自动回调机制
+  - 添加用户分配过滤功能
+  - 完善测试覆盖 (30个测试用例)
+
+### 开发中功能
+- 📋 docs/ 目录文档整理和更新
+- 🔧 系统性能优化
+- 📊 报表功能增强
 
 ## 🎯 ActiveAdmin 管理界面
 
@@ -309,7 +242,6 @@ RBENV_VERSION=3.4.2 bundle exec cap staging deploy
 - 🎫 工单创建和处理
 - 📈 工单状态跟踪
 - 💬 沟通记录管理
-- 🔍 添加沟通记录功能
 
 ### 数据导入
 - 📥 批量导入操作历史
@@ -327,7 +259,6 @@ RBENV_VERSION=3.4.2 bundle exec cap staging deploy
 ### 测试规范
 - 单元测试覆盖所有模型方法
 - 集成测试验证完整业务流程
-- E2E测试覆盖JavaScript交互
 - 使用工厂模式创建测试数据
 
 ### 代码规范
@@ -335,53 +266,12 @@ RBENV_VERSION=3.4.2 bundle exec cap staging deploy
 - 使用服务对象处理复杂业务逻辑
 - 保持模型精简，逻辑清晰
 
-## 🐳 Docker 容器管理
-
-### 测试容器配置
-```yaml
-# docker-compose.yml
-version: '3.8'
-services:
-  postgres_test:
-    image: postgres:15-alpine
-    container_name: sci2_test_db
-    restart: always
-    environment:
-      POSTGRES_USER: sci2_test
-      POSTGRES_PASSWORD: test_password_123
-      POSTGRES_DB: sci2_test
-    ports:
-      - "55000:5432"  # 固定端口映射
-    volumes:
-      - postgres_test_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sci2_test -d sci2_test"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-```
-
-### 容器故障排除
-```bash
-# 查看容器日志
-docker compose logs postgres_test
-
-# 进入容器
-docker compose exec postgres_test psql -U sci2_test -d sci2_test
-
-# 重建容器
-docker compose down
-docker volume rm sci2_postgres_test_data  # 删除数据（谨慎）
-docker compose up -d
-```
-
 ## 📞 技术支持
 
 如需技术支持或有疑问，请：
 1. 查看 `docs/` 目录中的详细文档
 2. 运行测试确保功能正常
 3. 检查日志文件排查问题
-4. 验证数据库连接状态
 
 ## 📝 更新日志
 
@@ -392,15 +282,14 @@ git log --oneline --graph
 
 ---
 
-**最后更新**: 2025-10-29
-**版本**: v2.3.0
-**状态**: PostgreSQL 集成完成 ✅
+**最后更新**: 2025-08-28
+**版本**: v2.2.0
+**状态**: 部署系统优化 ✅ 完成
 
-### v2.3.0 (2025-10-29) ✅
-- **PostgreSQL 集成**
-  - 配置 Docker Compose PostgreSQL 测试环境
-  - 修复端口随机分配问题，使用固定端口 55000
-  - 优化数据库连接配置和超时设置
-  - 完成 Selenium WebDriver 配置和 ChromeDriver 安装
-  - 项目文档整理和目录结构优化
-  - 添加容器化部署指南和数据库迁移策略
+### v2.2.0 (2025-08-28) ✅
+- **部署系统优化**
+  - 添加 Ruby 环境设置文档
+  - 创建自动化部署脚本
+  - 修改部署配置支持本地 Git 推送
+  - 更新 README 添加完整部署指南
+  - 解决国内服务器无法访问 GitHub 的问题

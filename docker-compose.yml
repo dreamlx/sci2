@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  postgres_test:
+    image: postgres:15-alpine
+    container_name: sci2_test_db
+    restart: always
+    environment:
+      POSTGRES_USER: sci2_test
+      POSTGRES_PASSWORD: test_password_123
+      POSTGRES_DB: sci2_test
+    ports:
+      # 固定端口映射到PostgreSQL默认端口5432
+      - "55000:5432"
+    volumes:
+      # 数据持久化到本地目录
+      - postgres_test_data:/var/lib/postgresql/data
+      # 初始化脚本
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sci2_test -d sci2_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres_test_data:
+    driver: local
