@@ -3,13 +3,11 @@ class Reimbursement < ApplicationRecord
   STATUS_PENDING = 'pending'.freeze
   STATUS_PROCESSING = 'processing'.freeze
   STATUS_CLOSED = 'closed'.freeze
-  STATUS_CLOSE_ALIAS = 'close'.freeze # Alias for backward compatibility
 
   STATUSES = [
     STATUS_PENDING,
     STATUS_PROCESSING,
-    STATUS_CLOSED,
-    STATUS_CLOSE_ALIAS
+    STATUS_CLOSED
   ].freeze
 
   # Associations
@@ -47,16 +45,6 @@ class Reimbursement < ApplicationRecord
 
     event :reopen_to_processing do
       transition closed: :processing
-    end
-
-    # Support backward compatibility for 'close' status
-    state :close, value: STATUS_CLOSE_ALIAS
-    event :mark_as_close do
-      transition processing: :close
-    end
-
-    event :reopen_from_close do
-      transition close: :processing
     end
   end
 
@@ -288,26 +276,13 @@ class Reimbursement < ApplicationRecord
 
   # Close this reimbursement
   def close!
-    return unless can_be_closed?
-
-    mark_as_close! # Use state machine event
-
-    # If cannot be closed, do nothing (legacy behavior)
+    return false unless can_be_closed?
+    update(status: STATUS_CLOSED)
   end
 
-  # Alternative close method with different naming convention for backward compatibility
-  def mark_as_close!
-    close_processing! # Use state machine event
-  end
-
-  # Check if this reimbursement can be closed (alternative naming convention)
-  def can_mark_as_close?
-    can_be_closed?
-  end
-
-  # Check if this reimbursement is in closed status (handles both 'close' and 'closed')
+  # Check if this reimbursement is in closed status
   def closed?
-    [STATUS_CLOSED, STATUS_CLOSE_ALIAS].include?(status)
+    status == STATUS_CLOSED
   end
 
   # Update the status based on fee details

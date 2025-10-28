@@ -127,8 +127,10 @@ class OperationHistoryImportService
       # 自动分配审核员：如果报销单没有分配人，且操作类型是加签，且操作人匹配到admin_user，则自动指派
       assign_auditor_from_operation_history(operation_history, reimbursement)
 
-      # NOTE: Removed automatic reopening of closed reimbursements
-      # Status changes should now be driven by external status priority system
+      # 自动更新报销单状态：如果操作类型是"审批"且操作意见包含"审批通过"，尝试关闭报销单
+      if operation_type == '审批' && notes&.include?('审批通过')
+        attempt_to_close_reimbursement(reimbursement)
+      end
     else
       @error_count += 1
       @errors << "行 #{row_number} (单号: #{document_number}): #{operation_history.errors.full_messages.join(', ')}"
@@ -143,6 +145,17 @@ class OperationHistoryImportService
       datetime_string.is_a?(Date) || datetime_string.is_a?(DateTime) ? datetime_string : DateTime.parse(datetime_string.to_s).in_time_zone
     rescue ArgumentError
       nil
+    end
+  end
+
+  def attempt_to_close_reimbursement(reimbursement)
+    # 尝试关闭报销单，如果不满足条件close!方法会自动处理
+    if reimbursement.can_be_closed?
+      reimbursement.close!
+      @updated_reimbursement_count += 1
+      Rails.logger.info "  报销单 #{reimbursement.invoice_number} 已自动关闭"
+    else
+      Rails.logger.debug "  报销单 #{reimbursement.invoice_number} 不满足关闭条件：状态=#{reimbursement.status}, fee_details_verified=#{reimbursement.all_fee_details_verified?}"
     end
   end
 
