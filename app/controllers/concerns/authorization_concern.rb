@@ -7,7 +7,9 @@ module AuthorizationConcern
 
   included do
     before_action :check_current_user
-    rescue_from StandardError, with: :handle_authorization_error
+    # 在重构阶段，移除全局异常捕获以暴露真实问题
+    # 只在生产环境或用户大规模测试后再考虑恢复
+    # rescue_from StandardError, with: :handle_authorization_error
   end
 
   class_methods do
@@ -67,7 +69,10 @@ module AuthorizationConcern
       resource = options[:resource]
 
       before_action only: [action_name] do
-        instance_eval(&standard_action_permission_check(policy_class, method_name, resource))
+        target_resource = resource ? resource.classify.constantize : nil
+        policy = policy_class.constantize.new(current_admin_user, target_resource)
+        current_action = params[:action] || request.path_parameters[:action]
+        check_authorization(policy, method_name, standard_action: current_action)
       end
     end
 
@@ -89,14 +94,6 @@ module AuthorizationConcern
       lambda do
         policy = policy_class.constantize.new(current_admin_user)
         check_authorization(policy, method_name, collection_action: params[:action])
-      end
-    end
-
-    def standard_action_permission_check(policy_class, method_name, resource_name)
-      lambda do
-        target_resource = resource_name ? controller_name.classify.constantize : resource
-        policy = policy_class.constantize.new(current_admin_user, target_resource)
-        check_authorization(policy, method_name, standard_action: action_name)
       end
     end
   end
@@ -182,9 +179,13 @@ module AuthorizationConcern
   end
 
   # Handle unexpected errors
-  def handle_authorization_error(exception)
-    Rails.logger.error "Authorization error: #{exception.class}: #{exception.message}"
-    Rails.logger.error exception.backtrace.join("\n") if Rails.env.development?
+  def handle_authorization_error(exception, options = {})
+    if exception.respond_to?(:class) && exception.respond_to?(:message)
+      Rails.logger.error "Authorization error: #{exception.class}: #{exception.message}"
+      Rails.logger.error exception.backtrace.join("\n") if Rails.env.development?
+    else
+      Rails.logger.error "Authorization error: #{exception}"
+    end
 
     respond_to do |format|
       format.html do

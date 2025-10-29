@@ -21,10 +21,11 @@ ActiveAdmin.register AdminUser do
     protect_action :member_action, action_name: :restore, with: 'AdminUserPolicy', method: :can_restore?
 
     # Protect batch actions
-    protect_action :batch_action, action_name: :软删除, with: 'AdminUserPolicy', method: :can_batch_soft_delete?
-    protect_action :batch_action, action_name: :恢复, with: 'AdminUserPolicy', method: :can_batch_restore?
-    protect_action :batch_action, action_name: :设置为活跃, with: 'AdminUserPolicy', method: :can_batch_set_active?
-    protect_action :batch_action, action_name: :设置为非活跃, with: 'AdminUserPolicy', method: :can_batch_set_inactive?
+    # Note: ActiveAdmin batch_actions use the action name as defined, not Chinese display names
+    protect_action :batch_action, with: 'AdminUserPolicy', method: :can_batch_soft_delete?
+    protect_action :batch_action, with: 'AdminUserPolicy', method: :can_batch_restore?
+    protect_action :batch_action, with: 'AdminUserPolicy', method: :can_batch_set_active?
+    protect_action :batch_action, with: 'AdminUserPolicy', method: :can_batch_set_inactive?
 
     def scoped_collection
       end_of_association_chain.exclude_deleted
