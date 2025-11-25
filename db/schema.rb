@@ -10,14 +10,17 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_17_26_000025) do
+ActiveRecord::Schema[7.1].define(version: 2025_17_26_000024) do
+  # These are extensions that must be enabled in order to support this database
+  enable_extension "plpgsql"
+
   create_table "active_admin_comments", force: :cascade do |t|
     t.string "namespace"
     t.text "body"
     t.string "resource_type"
-    t.integer "resource_id"
+    t.bigint "resource_id"
     t.string "author_type"
-    t.integer "author_id"
+    t.bigint "author_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["author_type", "author_id"], name: "index_active_admin_comments_on_author"
@@ -73,7 +76,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000025) do
   end
 
   create_table "communication_records", force: :cascade do |t|
-    t.integer "communication_work_order_id", null: false
+    t.bigint "communication_work_order_id", null: false
     t.text "content", null: false
     t.string "communicator_role"
     t.string "communicator_name"
@@ -146,19 +149,19 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000025) do
     t.string "operation_node"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.string "applicant"
-    t.string "employee_id"
-    t.string "employee_company"
-    t.string "employee_department"
-    t.text "employee_department_path"
-    t.string "document_company"
-    t.string "document_department"
-    t.text "document_department_path"
-    t.string "submitter"
-    t.string "document_name"
-    t.string "currency"
-    t.decimal "amount", precision: 10, scale: 2
-    t.datetime "created_date"
+    t.string "applicant", comment: "申请人"
+    t.string "employee_id", comment: "员工工号"
+    t.string "employee_company", comment: "员工公司"
+    t.string "employee_department", comment: "员工部门"
+    t.text "employee_department_path", comment: "员工部门路径"
+    t.string "document_company", comment: "员工单据公司"
+    t.string "document_department", comment: "员工单据部门"
+    t.text "document_department_path", comment: "员工单据部门路径"
+    t.string "submitter", comment: "提交人"
+    t.string "document_name", comment: "单据名称"
+    t.string "currency", comment: "币种"
+    t.decimal "amount", precision: 10, scale: 2, comment: "金额"
+    t.datetime "created_date", comment: "创建日期"
     t.index ["applicant"], name: "index_operation_histories_on_applicant"
     t.index ["created_date"], name: "index_operation_histories_on_created_date"
     t.index ["currency"], name: "index_operation_histories_on_currency"
@@ -181,14 +184,14 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000025) do
     t.text "sop_description"
     t.text "standard_handling"
     t.string "legacy_problem_code"
-    t.integer "fee_type_id", null: false
+    t.bigint "fee_type_id", null: false
     t.index ["fee_type_id"], name: "index_problem_types_on_fee_type_id"
   end
 
   create_table "reimbursement_assignments", force: :cascade do |t|
-    t.integer "reimbursement_id", null: false
-    t.integer "assignee_id", null: false
-    t.integer "assigner_id", null: false
+    t.bigint "reimbursement_id", null: false
+    t.bigint "assignee_id", null: false
+    t.bigint "assigner_id", null: false
     t.boolean "is_active", default: true
     t.text "notes"
     t.datetime "created_at", null: false
@@ -228,7 +231,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000025) do
     t.datetime "erp_first_submitted_at"
     t.string "erp_flexible_field_8"
     t.boolean "manual_override", default: false, null: false
-    t.datetime "manual_override_at"
+    t.datetime "manual_override_at", precision: nil
     t.string "last_external_status", limit: 50
     t.datetime "last_viewed_operation_histories_at"
     t.datetime "last_viewed_express_receipts_at"
@@ -255,8 +258,8 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000025) do
   end
 
   create_table "work_order_fee_details", force: :cascade do |t|
-    t.integer "work_order_id", null: false
-    t.integer "fee_detail_id", null: false
+    t.bigint "work_order_id", null: false
+    t.bigint "fee_detail_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["fee_detail_id"], name: "index_work_order_fee_details_on_fee_detail_id"
@@ -265,8 +268,8 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000025) do
   end
 
   create_table "work_order_operations", force: :cascade do |t|
-    t.integer "work_order_id", null: false
-    t.integer "admin_user_id", null: false
+    t.bigint "work_order_id", null: false
+    t.bigint "admin_user_id", null: false
     t.string "operation_type", null: false
     t.text "details"
     t.text "previous_state"
@@ -280,8 +283,8 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000025) do
   end
 
   create_table "work_order_problems", force: :cascade do |t|
-    t.integer "work_order_id", null: false
-    t.integer "problem_type_id", null: false
+    t.bigint "work_order_id", null: false
+    t.bigint "problem_type_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["problem_type_id"], name: "index_work_order_problems_on_problem_type_id"
@@ -291,11 +294,11 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000025) do
 
   create_table "work_order_status_changes", force: :cascade do |t|
     t.string "work_order_type", null: false
-    t.integer "work_order_id", null: false
+    t.bigint "work_order_id", null: false
     t.string "from_status"
     t.string "to_status", null: false
     t.datetime "changed_at", null: false
-    t.integer "changer_id"
+    t.bigint "changer_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["changed_at"], name: "index_work_order_status_changes_on_changed_at"
@@ -304,10 +307,10 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000025) do
   end
 
   create_table "work_orders", force: :cascade do |t|
-    t.integer "reimbursement_id", null: false
+    t.bigint "reimbursement_id", null: false
     t.string "type", null: false
     t.string "status", null: false
-    t.integer "created_by"
+    t.bigint "created_by"
     t.string "processing_opinion"
     t.string "tracking_number"
     t.datetime "received_at"
@@ -323,11 +326,9 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000025) do
     t.string "communication_method"
     t.integer "fee_type_id"
     t.string "filling_id", limit: 10
-    t.integer "assignee_id"
-    t.index ["assignee_id"], name: "index_work_orders_on_assignee_id"
     t.index ["created_by"], name: "index_work_orders_on_created_by"
-    t.index ["filling_id"], name: "index_work_orders_on_filling_id", unique: true, where: "type = 'ExpressReceiptWorkOrder' AND filling_id IS NOT NULL"
-    t.index ["reimbursement_id", "tracking_number"], name: "index_work_orders_on_reimbursement_and_tracking", where: "type = 'ExpressReceiptWorkOrder' AND tracking_number IS NOT NULL"
+    t.index ["filling_id"], name: "index_work_orders_on_filling_id", unique: true, where: "(((type)::text = 'ExpressReceiptWorkOrder'::text) AND (filling_id IS NOT NULL))"
+    t.index ["reimbursement_id", "tracking_number"], name: "index_work_orders_on_reimbursement_and_tracking", where: "(((type)::text = 'ExpressReceiptWorkOrder'::text) AND (tracking_number IS NOT NULL))"
     t.index ["reimbursement_id"], name: "index_work_orders_on_reimbursement_id"
     t.index ["status"], name: "index_work_orders_on_status"
     t.index ["tracking_number"], name: "index_work_orders_on_tracking_number"
@@ -348,7 +349,6 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000025) do
   add_foreign_key "work_order_problems", "problem_types"
   add_foreign_key "work_order_problems", "work_orders"
   add_foreign_key "work_order_status_changes", "admin_users", column: "changer_id"
-  add_foreign_key "work_orders", "admin_users", column: "assignee_id"
   add_foreign_key "work_orders", "admin_users", column: "created_by"
   add_foreign_key "work_orders", "reimbursements"
 end

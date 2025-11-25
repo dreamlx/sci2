@@ -23,13 +23,13 @@ class MigrateProblemCodeData < ActiveRecord::Migration[7.1]
     # Create default fee types if they don't exist
     execute <<-SQL
       INSERT INTO fee_types (code, title, meeting_type, active, created_at, updated_at)
-      SELECT '00', '个人费用', '个人', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+      SELECT '00', '个人费用', '个人', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       WHERE NOT EXISTS (SELECT 1 FROM fee_types WHERE code = '00')
     SQL
 
     execute <<-SQL
       INSERT INTO fee_types (code, title, meeting_type, active, created_at, updated_at)
-      SELECT '01', '学术费用', '学术论坛', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+      SELECT '01', '学术费用', '学术论坛', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       WHERE NOT EXISTS (SELECT 1 FROM fee_types WHERE code = '01')
     SQL
 
@@ -45,7 +45,7 @@ class MigrateProblemCodeData < ActiveRecord::Migration[7.1]
                             WHEN meeting_type IS NULL THEN '其他'
                             ELSE meeting_type
                           END,
-            active = CASE WHEN active IS NULL THEN 1 ELSE active END
+            active = CASE WHEN active IS NULL THEN true ELSE active END
         WHERE name IS NOT NULL AND (code IS NULL OR title IS NULL OR meeting_type IS NULL OR active IS NULL);
       SQL
     end
@@ -71,7 +71,7 @@ class MigrateProblemCodeData < ActiveRecord::Migration[7.1]
                             WHEN fee_type_id IS NULL THEN (SELECT id FROM fee_types LIMIT 1)
                             ELSE fee_type_id
                           END,
-            active = CASE WHEN active IS NULL THEN 1 ELSE active END
+            active = CASE WHEN active IS NULL THEN true ELSE active END
         WHERE name IS NOT NULL AND (code IS NULL OR title IS NULL OR sop_description IS NULL OR standard_handling IS NULL OR fee_type_id IS NULL);
       SQL
     end
