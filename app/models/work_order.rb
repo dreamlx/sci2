@@ -30,7 +30,7 @@ class WorkOrder < ApplicationRecord
   validates :status, presence: true
 
   # 虚拟属性，用于表单处理
-  attr_accessor :submitted_fee_detail_ids, :problem_type_ids
+  attr_accessor :submitted_fee_detail_ids, :problem_type_ids, :remark, :problem_description
 
   # 状态机
   state_machine :status, initial: :pending do
@@ -261,13 +261,18 @@ class WorkOrder < ApplicationRecord
   # 根据工单类型更新报销单状态
   def update_reimbursement_status_on_create
     return unless is_a?(AuditWorkOrder) || is_a?(CommunicationWorkOrder)
-    return unless reimbursement.pending?
+    return unless reimbursement&.pending?
 
     Rails.logger.debug "WorkOrder#update_reimbursement_status_on_create: 更新报销单 ##{reimbursement.id} 状态，从 #{reimbursement.status} 到 processing"
 
-    reimbursement.start_processing
-
-    Rails.logger.debug "WorkOrder#update_reimbursement_status_on_create: 报销单状态更新后: #{reimbursement.status}"
+    begin
+      reimbursement.start_processing
+      Rails.logger.debug "WorkOrder#update_reimbursement_status_on_create: 报销单状态更新后: #{reimbursement.status}"
+    rescue => e
+      Rails.logger.error "WorkOrder#update_reimbursement_status_on_create: 更新报销单状态失败: #{e.message}"
+      # 不要让回调失败导致整个事务失败
+      Rails.logger.debug "WorkOrder#update_reimbursement_status_on_create: 继续执行，不中断事务"
+    end
   end
 
   def express_receipt_work_order?

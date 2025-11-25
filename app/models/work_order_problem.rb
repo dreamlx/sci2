@@ -29,7 +29,7 @@ class WorkOrderProblem < ApplicationRecord
       work_order: work_order,
       operation_type: WorkOrderOperation::OPERATION_TYPE_ADD_PROBLEM,
       details: "添加问题: #{problem_type.display_name}",
-      admin_user_id: Current.admin_user&.id
+      admin_user_id: work_order&.creator&.id
     )
   end
 

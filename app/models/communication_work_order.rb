@@ -19,6 +19,11 @@ class CommunicationWorkOrder < WorkOrder
   validates :audit_comment, presence: true, length: { minimum: 10, message: '沟通内容至少需要10个字符' }
   validates :communication_method, presence: true
 
+  # 沟通工单即使已完成也应该可以编辑（用于添加/修改沟通内容）
+  def editable?
+    true  # 沟通工单始终可编辑，用于记录沟通详情
+  end
+
   # 移除费用相关验证和关联
   # 移除: validate :has_problem_types
   # 移除: has_many :communication_records
