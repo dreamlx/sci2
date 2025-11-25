@@ -1,0 +1,489 @@
+InheritedResources loaded: 
+Run options: exclude {performance_benchmark: true}
+.......................................FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+
+Failures:
+
+  1) WorkOrderProblemCommand#initialize accepts optional attributes
+     Failure/Error: expect(command.suggested_action).to eq('Fix the issue')
+
+     NoMethodError:
+       undefined method 'suggested_action' for an instance of WorkOrderProblemCommand
+     # ./spec/commands/work_order_problem_command_spec.rb:35:in 'block (3 levels) in <top (required)>'
+     # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  2) WorkOrderProblemCommand#call with valid attributes creates a work order problem successfully
+     Failure/Error: expect(result).to be_success
+       expected false to respond to `success?`
+     # ./spec/commands/work_order_problem_command_spec.rb:46:in 'block (4 levels) in <top (required)>'
+     # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  3) WorkOrderProblemCommand#call with valid attributes returns success message
+     Failure/Error: expect(result.message).to include('successfully created')
+
+     NoMethodError:
+       undefined method 'message' for false
+     # ./spec/commands/work_order_problem_command_spec.rb:59:in 'block (4 levels) in <top (required)>'
+     # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  4) WorkOrderProblemCommand#call with invalid work order returns failure with work order error
+     Failure/Error: expect(result).not_to be_success
+       expected false to respond to `success?`
+     # ./spec/commands/work_order_problem_command_spec.rb:72:in 'block (4 levels) in <top (required)>'
+     # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  5) WorkOrderProblemCommand#call with invalid problem type returns failure with problem type error
+     Failure/Error: expect(result).not_to be_success
+       expected false to respond to `success?`
+     # ./spec/commands/work_order_problem_command_spec.rb:86:in 'block (4 levels) in <top (required)>'
+     # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  6) WorkOrderProblemCommand#call with missing description returns failure with description error
+     Failure/Error: expect(result).not_to be_success
+       expected false to respond to `success?`
+     # ./spec/commands/work_order_problem_command_spec.rb:100:in 'block (4 levels) in <top (required)>'
+     # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  7) WorkOrderProblemCommand#call with invalid severity returns failure with severity error
+     Failure/Error: expect(result).not_to be_success
+       expected false to respond to `success?`
+     # ./spec/commands/work_order_problem_command_spec.rb:114:in 'block (4 levels) in <top (required)>'
+     # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  8) WorkOrderProblemCommand#call with invalid admin user returns failure with admin user error
+     Failure/Error: @admin_user = AdminUser.find(admin_user_id) if admin_user_id.present?
+
+     ActiveRecord::RecordNotFound:
+       Couldn't find AdminUser with 'id'=99999
+     # ./app/commands/work_order_problem_command.rb:26:in 'WorkOrderProblemCommand#initialize'
+     # ./spec/commands/work_order_problem_command_spec.rb:125:in 'Class#new'
+     # ./spec/commands/work_order_problem_command_spec.rb:125:in 'block (4 levels) in <top (required)>'
+     # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  9) WorkOrderProblemCommand#call when work order is closed returns failure with closed status error
+     Failure/Error: expect(result).not_to be_success
+       expected false to respond to `success?`
+     # ./spec/commands/work_order_problem_command_spec.rb:142:in 'block (4 levels) in <top (required)>'
+     # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  10) WorkOrderProblemCommand#call when database save fails returns failure with database error
+      Failure/Error: expect(result).not_to be_success
+        expected false to respond to `success?`
+      # ./spec/commands/work_order_problem_command_spec.rb:157:in 'block (4 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  11) WorkOrderProblemCommand#valid_severities returns array of valid severities
+      Failure/Error: severities = described_class.new(valid_attributes).send(:valid_severities)
+
+      NoMethodError:
+        undefined method 'valid_severities' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:165:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  12) WorkOrderProblemCommand#validate_work_order returns true for valid work order
+      Failure/Error: expect(command.send(:validate_work_order)).to be true
+
+      NoMethodError:
+        undefined method 'validate_work_order' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:174:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  13) WorkOrderProblemCommand#validate_work_order returns false for non-existent work order
+      Failure/Error: expect(command.send(:validate_work_order)).to be false
+
+      NoMethodError:
+        undefined method 'validate_work_order' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:179:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  14) WorkOrderProblemCommand#validate_work_order returns false for nil work order id
+      Failure/Error: expect(command.send(:validate_work_order)).to be false
+
+      NoMethodError:
+        undefined method 'validate_work_order' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:184:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  15) WorkOrderProblemCommand#validate_problem_type returns true for valid problem type
+      Failure/Error: expect(command.send(:validate_problem_type)).to be true
+
+      NoMethodError:
+        undefined method 'validate_problem_type' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:192:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  16) WorkOrderProblemCommand#validate_problem_type returns false for non-existent problem type
+      Failure/Error: expect(command.send(:validate_problem_type)).to be false
+
+      NoMethodError:
+        undefined method 'validate_problem_type' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:197:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  17) WorkOrderProblemCommand#validate_problem_type returns false for nil problem type id
+      Failure/Error: expect(command.send(:validate_problem_type)).to be false
+
+      NoMethodError:
+        undefined method 'validate_problem_type' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:202:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  18) WorkOrderProblemCommand#validate_admin_user returns true for valid admin user
+      Failure/Error: expect(command.send(:validate_admin_user)).to be true
+
+      NoMethodError:
+        undefined method 'validate_admin_user' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:210:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  19) WorkOrderProblemCommand#validate_admin_user returns false for non-existent admin user
+      Failure/Error: expect(command.send(:validate_admin_user)).to be false
+
+      NoMethodError:
+        undefined method 'validate_admin_user' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:215:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  20) WorkOrderProblemCommand#validate_admin_user returns false for nil admin user id
+      Failure/Error: expect(command.send(:validate_admin_user)).to be false
+
+      NoMethodError:
+        undefined method 'validate_admin_user' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:220:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  21) WorkOrderProblemCommand#validate_description returns true for valid description
+      Failure/Error: expect(command.send(:validate_description)).to be true
+
+      NoMethodError:
+        undefined method 'validate_description' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:228:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  22) WorkOrderProblemCommand#validate_description returns false for empty description
+      Failure/Error: expect(command.send(:validate_description)).to be false
+
+      NoMethodError:
+        undefined method 'validate_description' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:233:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  23) WorkOrderProblemCommand#validate_description returns false for nil description
+      Failure/Error: expect(command.send(:validate_description)).to be false
+
+      NoMethodError:
+        undefined method 'validate_description' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:238:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  24) WorkOrderProblemCommand#validate_description returns false for description that is too short
+      Failure/Error: expect(command.send(:validate_description)).to be false
+
+      NoMethodError:
+        undefined method 'validate_description' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:243:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  25) WorkOrderProblemCommand#validate_severity returns true for valid severities
+      Failure/Error: expect(command.send(:validate_severity)).to be true
+
+      NoMethodError:
+        undefined method 'validate_severity' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:253:in 'block (4 levels) in <top (required)>'
+      # ./spec/commands/work_order_problem_command_spec.rb:251:in 'Array#each'
+      # ./spec/commands/work_order_problem_command_spec.rb:251:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  26) WorkOrderProblemCommand#validate_severity returns false for invalid severity
+      Failure/Error: expect(command.send(:validate_severity)).to be false
+
+      NoMethodError:
+        undefined method 'validate_severity' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:259:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  27) WorkOrderProblemCommand#validate_severity returns false for nil severity
+      Failure/Error: expect(command.send(:validate_severity)).to be false
+
+      NoMethodError:
+        undefined method 'validate_severity' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:264:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  28) WorkOrderProblemCommand#validate_work_order_status returns true for open work order
+      Failure/Error: expect(command.send(:validate_work_order_status)).to be true
+
+      NoMethodError:
+        undefined method 'validate_work_order_status' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:272:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  29) WorkOrderProblemCommand#validate_work_order_status returns false for closed work order
+      Failure/Error: expect(command.send(:validate_work_order_status)).to be false
+
+      NoMethodError:
+        undefined method 'validate_work_order_status' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:277:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  30) WorkOrderProblemCommand#validate_work_order_status returns false for cancelled work order
+      Failure/Error: expect(command.send(:validate_work_order_status)).to be false
+
+      NoMethodError:
+        undefined method 'validate_work_order_status' for an instance of WorkOrderProblemCommand
+      # ./spec/commands/work_order_problem_command_spec.rb:282:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  31) WorkOrderProblemCommand error handling handles validation errors gracefully
+      Failure/Error: expect(result).not_to be_success
+        expected false to respond to `success?`
+      # ./spec/commands/work_order_problem_command_spec.rb:291:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  32) WorkOrderProblemCommand error handling handles unexpected errors gracefully
+      Failure/Error: expect(result).not_to be_success
+        expected false to respond to `success?`
+      # ./spec/commands/work_order_problem_command_spec.rb:302:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  33) WorkOrderProblemCommand integration with work order status updates work order status when critical problem is added
+      Failure/Error: expect(result).to be_success
+        expected false to respond to `success?`
+      # ./spec/commands/work_order_problem_command_spec.rb:313:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  34) WorkOrderProblemCommand integration with work order status does not change work order status for low severity problems
+      Failure/Error: expect(result).to be_success
+        expected false to respond to `success?`
+      # ./spec/commands/work_order_problem_command_spec.rb:323:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+Finished in 1.28 seconds (files took 1.3 seconds to load)
+73 examples, 34 failures
+
+Failed examples:
+
+rspec ./spec/commands/work_order_problem_command_spec.rb:29 # WorkOrderProblemCommand#initialize accepts optional attributes
+rspec ./spec/commands/work_order_problem_command_spec.rb:42 # WorkOrderProblemCommand#call with valid attributes creates a work order problem successfully
+rspec ./spec/commands/work_order_problem_command_spec.rb:55 # WorkOrderProblemCommand#call with valid attributes returns success message
+rspec ./spec/commands/work_order_problem_command_spec.rb:68 # WorkOrderProblemCommand#call with invalid work order returns failure with work order error
+rspec ./spec/commands/work_order_problem_command_spec.rb:82 # WorkOrderProblemCommand#call with invalid problem type returns failure with problem type error
+rspec ./spec/commands/work_order_problem_command_spec.rb:96 # WorkOrderProblemCommand#call with missing description returns failure with description error
+rspec ./spec/commands/work_order_problem_command_spec.rb:110 # WorkOrderProblemCommand#call with invalid severity returns failure with severity error
+rspec ./spec/commands/work_order_problem_command_spec.rb:124 # WorkOrderProblemCommand#call with invalid admin user returns failure with admin user error
+rspec ./spec/commands/work_order_problem_command_spec.rb:138 # WorkOrderProblemCommand#call when work order is closed returns failure with closed status error
+rspec ./spec/commands/work_order_problem_command_spec.rb:153 # WorkOrderProblemCommand#call when database save fails returns failure with database error
+rspec ./spec/commands/work_order_problem_command_spec.rb:164 # WorkOrderProblemCommand#valid_severities returns array of valid severities
+rspec ./spec/commands/work_order_problem_command_spec.rb:173 # WorkOrderProblemCommand#validate_work_order returns true for valid work order
+rspec ./spec/commands/work_order_problem_command_spec.rb:177 # WorkOrderProblemCommand#validate_work_order returns false for non-existent work order
+rspec ./spec/commands/work_order_problem_command_spec.rb:182 # WorkOrderProblemCommand#validate_work_order returns false for nil work order id
+rspec ./spec/commands/work_order_problem_command_spec.rb:191 # WorkOrderProblemCommand#validate_problem_type returns true for valid problem type
+rspec ./spec/commands/work_order_problem_command_spec.rb:195 # WorkOrderProblemCommand#validate_problem_type returns false for non-existent problem type
+rspec ./spec/commands/work_order_problem_command_spec.rb:200 # WorkOrderProblemCommand#validate_problem_type returns false for nil problem type id
+rspec ./spec/commands/work_order_problem_command_spec.rb:209 # WorkOrderProblemCommand#validate_admin_user returns true for valid admin user
+rspec ./spec/commands/work_order_problem_command_spec.rb:213 # WorkOrderProblemCommand#validate_admin_user returns false for non-existent admin user
+rspec ./spec/commands/work_order_problem_command_spec.rb:218 # WorkOrderProblemCommand#validate_admin_user returns false for nil admin user id
+rspec ./spec/commands/work_order_problem_command_spec.rb:227 # WorkOrderProblemCommand#validate_description returns true for valid description
+rspec ./spec/commands/work_order_problem_command_spec.rb:231 # WorkOrderProblemCommand#validate_description returns false for empty description
+rspec ./spec/commands/work_order_problem_command_spec.rb:236 # WorkOrderProblemCommand#validate_description returns false for nil description
+rspec ./spec/commands/work_order_problem_command_spec.rb:241 # WorkOrderProblemCommand#validate_description returns false for description that is too short
+rspec ./spec/commands/work_order_problem_command_spec.rb:250 # WorkOrderProblemCommand#validate_severity returns true for valid severities
+rspec ./spec/commands/work_order_problem_command_spec.rb:257 # WorkOrderProblemCommand#validate_severity returns false for invalid severity
+rspec ./spec/commands/work_order_problem_command_spec.rb:262 # WorkOrderProblemCommand#validate_severity returns false for nil severity
+rspec ./spec/commands/work_order_problem_command_spec.rb:271 # WorkOrderProblemCommand#validate_work_order_status returns true for open work order
+rspec ./spec/commands/work_order_problem_command_spec.rb:275 # WorkOrderProblemCommand#validate_work_order_status returns false for closed work order
+rspec ./spec/commands/work_order_problem_command_spec.rb:280 # WorkOrderProblemCommand#validate_work_order_status returns false for cancelled work order
+rspec ./spec/commands/work_order_problem_command_spec.rb:287 # WorkOrderProblemCommand error handling handles validation errors gracefully
+rspec ./spec/commands/work_order_problem_command_spec.rb:296 # WorkOrderProblemCommand error handling handles unexpected errors gracefully
+rspec ./spec/commands/work_order_problem_command_spec.rb:308 # WorkOrderProblemCommand integration with work order status updates work order status when critical problem is added
+rspec ./spec/commands/work_order_problem_command_spec.rb:317 # WorkOrderProblemCommand integration with work order status does not change work order status for low severity problems
+
+
+=== Coverage Performance Summary ===
+Total Files: 106
+Total Lines: 9334
+Covered Lines: 1132
+Coverage Percentage: 12.13%
+
+=== Files Needing Attention ===
+/Users/dreamlinx/Dropbox/Projects/NetBeansProjects/think-bridge/sci2/app/services/fee_detail_group_service.rb: 0.0% ([]/53 lines)
+/Users/dreamlinx/Dropbox/Projects/NetBeansProjects/think-bridge/sci2/app/services/express_receipt_work_order_service.rb: 0.0% ([]/26 lines)
+/Users/dreamlinx/Dropbox/Projects/NetBeansProjects/think-bridge/sci2/app/services/express_receipt_import_service.rb: 0.0% ([]/215 lines)
+/Users/dreamlinx/Dropbox/Projects/NetBeansProjects/think-bridge/sci2/app/services/concerns/date_parsing_helper.rb: 0.0% ([]/28 lines)
+/Users/dreamlinx/Dropbox/Projects/NetBeansProjects/think-bridge/sci2/app/services/communication_work_order_service.rb: 0.0% ([]/17 lines)
+
+⚠️  WARNING: Coverage below 85% threshold
+Consider adding tests for uncovered business logic
+Coverage report generated for RSpec to /Users/dreamlinx/Dropbox/Projects/NetBeansProjects/think-bridge/sci2/coverage.
+Line Coverage: 12.13% (1132 / 9334)
+Stopped processing SimpleCov as a previous error not related to SimpleCov has been detected
