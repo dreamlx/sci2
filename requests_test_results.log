@@ -1,0 +1,1117 @@
+InheritedResources loaded: 
+Run options: exclude {performance_benchmark: true}
+.FF.FFFFFFFFFFF..FFFF..FFF..F.F*.....FFF....FFF.FFFFF
+
+Pending: (Failures listed here are expected and do not affect your suite's status)
+
+  1) CSV Export Character Encoding Excel Export Encoding Tests generates Excel files with proper encoding
+     # Excel export requires RubyXL gem
+     # ./spec/requests/admin/csv_export_encoding_spec.rb:213
+
+Failures:
+
+  1) Admin::AuditWorkOrders POST /admin/audit_work_orders 创建新的审核工单
+     Failure/Error:
+       end.to change(AuditWorkOrder, :count).by(1)
+                                            .and change(FeeDetailSelection, :count).by(2)
+
+     NameError:
+       uninitialized constant FeeDetailSelection
+     # ./spec/requests/admin/audit_work_orders_spec.rb:33:in 'block (3 levels) in <top (required)>'
+     # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  2) Admin::AuditWorkOrders PUT /admin/audit_work_orders/:id 更新审核工单
+     Failure/Error: expect(audit_work_order.remark).to eq('Updated Remark')
+
+     NoMethodError:
+       undefined method 'remark' for an instance of AuditWorkOrder
+     # ./spec/requests/admin/audit_work_orders_spec.rb:53:in 'block (3 levels) in <top (required)>'
+     # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  3) Admin::AuditWorkOrders PUT /admin/audit_work_orders/:id/start_processing 更新工单状态为 processing
+     Failure/Error: put start_processing_admin_audit_work_order_path(audit_work_order)
+
+     NoMethodError:
+       undefined method 'start_processing_admin_audit_work_order_path' for #<RSpec::ExampleGroups::AdminAuditWorkOrders::PUTAdminAuditWorkOrdersIdStartProcessing:0x00000001377f2320>
+     # ./spec/requests/admin/audit_work_orders_spec.rb:73:in 'block (3 levels) in <top (required)>'
+     # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  4) Admin::AuditWorkOrders PUT /admin/audit_work_orders/:id/start_processing 处理服务调用失败
+     Failure/Error: put start_processing_admin_audit_work_order_path(audit_work_order)
+
+     NoMethodError:
+       undefined method 'start_processing_admin_audit_work_order_path' for #<RSpec::ExampleGroups::AdminAuditWorkOrders::PUTAdminAuditWorkOrdersIdStartProcessing:0x0000000133a57308>
+     # ./spec/requests/admin/audit_work_orders_spec.rb:86:in 'block (3 levels) in <top (required)>'
+     # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  5) Admin::AuditWorkOrders GET /admin/audit_work_orders/:id/approve 返回成功响应
+     Failure/Error: <td><%= work_order.problem_description %></td>
+
+     ActionView::Template::Error:
+       undefined method 'problem_description' for an instance of AuditWorkOrder
+     # ./app/views/admin/shared/_work_order_approve_or_reject.html.erb:28:in '_app_views_admin_shared__work_order_approve_or_reject_html_erb__4471960326077093467_25952'
+     # ./app/views/admin/audit_work_orders/approve.html.erb:1:in '_app_views_admin_audit_work_orders_approve_html_erb__2254020346514553148_25944'
+     # ./app/admin/audit_work_orders.rb:218:in 'block (2 levels) in <top (required)>'
+     # ./spec/requests/admin/audit_work_orders_spec.rb:98:in 'block (3 levels) in <top (required)>'
+     # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+     # ------------------
+     # --- Caused by: ---
+     # NoMethodError:
+     #   undefined method 'problem_description' for an instance of AuditWorkOrder
+     #   ./app/views/admin/shared/_work_order_approve_or_reject.html.erb:28:in '_app_views_admin_shared__work_order_approve_or_reject_html_erb__4471960326077093467_25952'
+
+  6) Admin::AuditWorkOrders GET /admin/audit_work_orders/:id/reject 返回成功响应
+     Failure/Error: <td><%= work_order.problem_description %></td>
+
+     ActionView::Template::Error:
+       undefined method 'problem_description' for an instance of AuditWorkOrder
+     # ./app/views/admin/shared/_work_order_approve_or_reject.html.erb:28:in '_app_views_admin_shared__work_order_approve_or_reject_html_erb__4471960326077093467_25952'
+     # ./app/views/admin/audit_work_orders/reject.html.erb:1:in '_app_views_admin_audit_work_orders_reject_html_erb___3353112359647935869_26064'
+     # ./app/admin/audit_work_orders.rb:247:in 'block (2 levels) in <top (required)>'
+     # ./spec/requests/admin/audit_work_orders_spec.rb:108:in 'block (3 levels) in <top (required)>'
+     # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+     # ------------------
+     # --- Caused by: ---
+     # NoMethodError:
+     #   undefined method 'problem_description' for an instance of AuditWorkOrder
+     #   ./app/views/admin/shared/_work_order_approve_or_reject.html.erb:28:in '_app_views_admin_shared__work_order_approve_or_reject_html_erb__4471960326077093467_25952'
+
+  7) Admin::AuditWorkOrders POST /admin/audit_work_orders/:id/do_approve 处理服务调用失败
+     Failure/Error: <td><%= work_order.problem_description %></td>
+
+     ActionView::Template::Error:
+       undefined method 'problem_description' for an instance of AuditWorkOrder
+     # ./app/views/admin/shared/_work_order_approve_or_reject.html.erb:28:in '_app_views_admin_shared__work_order_approve_or_reject_html_erb__4471960326077093467_25952'
+     # ./app/views/admin/audit_work_orders/approve.html.erb:1:in '_app_views_admin_audit_work_orders_approve_html_erb__2254020346514553148_25944'
+     # ./app/admin/audit_work_orders.rb:237:in 'block (2 levels) in <top (required)>'
+     # ./spec/requests/admin/audit_work_orders_spec.rb:160:in 'block (3 levels) in <top (required)>'
+     # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+     # ------------------
+     # --- Caused by: ---
+     # NoMethodError:
+     #   undefined method 'problem_description' for an instance of AuditWorkOrder
+     #   ./app/views/admin/shared/_work_order_approve_or_reject.html.erb:28:in '_app_views_admin_shared__work_order_approve_or_reject_html_erb__4471960326077093467_25952'
+
+  8) Admin::AuditWorkOrders POST /admin/audit_work_orders/:id/do_approve 从processing状态审核 审核通过工单
+     Failure/Error: <td><%= work_order.problem_description %></td>
+
+     ActionView::Template::Error:
+       undefined method 'problem_description' for an instance of AuditWorkOrder
+     # ./app/views/admin/shared/_work_order_approve_or_reject.html.erb:28:in '_app_views_admin_shared__work_order_approve_or_reject_html_erb__4471960326077093467_25952'
+     # ./app/views/admin/audit_work_orders/approve.html.erb:1:in '_app_views_admin_audit_work_orders_approve_html_erb__2254020346514553148_25944'
+     # ./app/admin/audit_work_orders.rb:237:in 'block (2 levels) in <top (required)>'
+     # ./spec/requests/admin/audit_work_orders_spec.rb:125:in 'block (4 levels) in <top (required)>'
+     # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+     # ------------------
+     # --- Caused by: ---
+     # NoMethodError:
+     #   undefined method 'problem_description' for an instance of AuditWorkOrder
+     #   ./app/views/admin/shared/_work_order_approve_or_reject.html.erb:28:in '_app_views_admin_shared__work_order_approve_or_reject_html_erb__4471960326077093467_25952'
+
+  9) Admin::AuditWorkOrders POST /admin/audit_work_orders/:id/do_approve 从pending状态直接审核 审核通过工单
+     Failure/Error: <td><%= work_order.problem_description %></td>
+
+     ActionView::Template::Error:
+       undefined method 'problem_description' for an instance of AuditWorkOrder
+     # ./app/views/admin/shared/_work_order_approve_or_reject.html.erb:28:in '_app_views_admin_shared__work_order_approve_or_reject_html_erb__4471960326077093467_25952'
+     # ./app/views/admin/audit_work_orders/approve.html.erb:1:in '_app_views_admin_audit_work_orders_approve_html_erb__2254020346514553148_25944'
+     # ./app/admin/audit_work_orders.rb:237:in 'block (2 levels) in <top (required)>'
+     # ./spec/requests/admin/audit_work_orders_spec.rb:141:in 'block (4 levels) in <top (required)>'
+     # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+     # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+     # ------------------
+     # --- Caused by: ---
+     # NoMethodError:
+     #   undefined method 'problem_description' for an instance of AuditWorkOrder
+     #   ./app/views/admin/shared/_work_order_approve_or_reject.html.erb:28:in '_app_views_admin_shared__work_order_approve_or_reject_html_erb__4471960326077093467_25952'
+
+  10) Admin::AuditWorkOrders POST /admin/audit_work_orders/:id/do_reject 审核拒绝工单
+      Failure/Error: <td><%= work_order.problem_description %></td>
+
+      ActionView::Template::Error:
+        undefined method 'problem_description' for an instance of AuditWorkOrder
+      # ./app/views/admin/shared/_work_order_approve_or_reject.html.erb:28:in '_app_views_admin_shared__work_order_approve_or_reject_html_erb__4471960326077093467_25952'
+      # ./app/views/admin/audit_work_orders/reject.html.erb:1:in '_app_views_admin_audit_work_orders_reject_html_erb___3353112359647935869_26064'
+      # ./app/admin/audit_work_orders.rb:266:in 'block (2 levels) in <top (required)>'
+      # ./spec/requests/admin/audit_work_orders_spec.rb:178:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+      # ------------------
+      # --- Caused by: ---
+      # NoMethodError:
+      #   undefined method 'problem_description' for an instance of AuditWorkOrder
+      #   ./app/views/admin/shared/_work_order_approve_or_reject.html.erb:28:in '_app_views_admin_shared__work_order_approve_or_reject_html_erb__4471960326077093467_25952'
+
+  11) Admin::AuditWorkOrders POST /admin/audit_work_orders/:id/do_reject 处理服务调用失败
+      Failure/Error: <td><%= work_order.problem_description %></td>
+
+      ActionView::Template::Error:
+        undefined method 'problem_description' for an instance of AuditWorkOrder
+      # ./app/views/admin/shared/_work_order_approve_or_reject.html.erb:28:in '_app_views_admin_shared__work_order_approve_or_reject_html_erb__4471960326077093467_25952'
+      # ./app/views/admin/audit_work_orders/reject.html.erb:1:in '_app_views_admin_audit_work_orders_reject_html_erb___3353112359647935869_26064'
+      # ./app/admin/audit_work_orders.rb:266:in 'block (2 levels) in <top (required)>'
+      # ./spec/requests/admin/audit_work_orders_spec.rb:196:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+      # ------------------
+      # --- Caused by: ---
+      # NoMethodError:
+      #   undefined method 'problem_description' for an instance of AuditWorkOrder
+      #   ./app/views/admin/shared/_work_order_approve_or_reject.html.erb:28:in '_app_views_admin_shared__work_order_approve_or_reject_html_erb__4471960326077093467_25952'
+
+  12) Admin::AuditWorkOrders POST /admin/audit_work_orders/:id/do_verify_fee_detail 更新费用明细验证状态
+      Failure/Error: let!(:fee_detail_selection) { create(:fee_detail_selection, work_order: audit_work_order, fee_detail: fee_detail) }
+
+      NameError:
+        uninitialized constant FeeDetailSelection
+      # ./spec/requests/admin/audit_work_orders_spec.rb:205:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  13) Admin::AuditWorkOrders POST /admin/audit_work_orders/:id/do_verify_fee_detail 处理服务调用失败
+      Failure/Error: let!(:fee_detail_selection) { create(:fee_detail_selection, work_order: audit_work_order, fee_detail: fee_detail) }
+
+      NameError:
+        uninitialized constant FeeDetailSelection
+      # ./spec/requests/admin/audit_work_orders_spec.rb:205:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  14) Admin::CommunicationWorkOrders POST /admin/communication_work_orders creates a new CommunicationWorkOrder
+      Failure/Error:
+        end.to change(CommunicationWorkOrder, :count).by(1)
+                                                     .and change(FeeDetailSelection, :count).by(1)
+
+      NameError:
+        uninitialized constant FeeDetailSelection
+      # ./spec/requests/admin/communication_work_orders_spec.rb:45:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  15) Admin::CommunicationWorkOrders PUT /admin/communication_work_orders/:id/approve approves the communication work order
+      Failure/Error:
+        post do_approve_admin_communication_work_order_path(communication_work_order),
+             params: { communication_work_order: { resolution_summary: '测试通过理由' } }
+
+      NoMethodError:
+        undefined method 'do_approve_admin_communication_work_order_path' for #<RSpec::ExampleGroups::AdminCommunicationWorkOrders::PUTAdminCommunicationWorkOrdersIdApprove:0x0000000137dde158>
+      # ./spec/requests/admin/communication_work_orders_spec.rb:69:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  16) Admin::CommunicationWorkOrders POST /admin/communication_work_orders/:id/reject rejects the communication work order
+      Failure/Error:
+        post do_reject_admin_communication_work_order_path(communication_work_order),
+             params: { communication_work_order: { resolution_summary: '测试拒绝理由' } }
+
+      NoMethodError:
+        undefined method 'do_reject_admin_communication_work_order_path' for #<RSpec::ExampleGroups::AdminCommunicationWorkOrders::POSTAdminCommunicationWorkOrdersIdReject:0x0000000137c1e0c0>
+      # ./spec/requests/admin/communication_work_orders_spec.rb:86:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  17) Admin::CommunicationWorkOrders POST /admin/communication_work_orders/:id/verify_fee_detail verifies the associated fee detail
+      Failure/Error: create(:fee_detail_selection, work_order: work_order, fee_detail: fee_detail_to_verify)
+
+      NameError:
+        uninitialized constant FeeDetailSelection
+      # ./spec/requests/admin/communication_work_orders_spec.rb:103:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  18) CSV Export Character Encoding CSV Export Encoding Tests when exporting CSV with Chinese characters handles invalid UTF-8 sequences gracefully
+      Failure/Error:
+        create(:reimbursement,
+               invoice_number: 'INV-2023-特殊字符',
+               document_name: "测试单\u0000包含\u0001控制字符",
+               applicant: "李四\u0080\u009F")
+
+      ArgumentError:
+        string contains null byte
+      # ./spec/requests/admin/csv_export_encoding_spec.rb:49:in 'block (4 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  19) CSV Export Character Encoding CSV Export Encoding Tests when exporting CSV with Chinese characters preserves Chinese characters in CSV content
+      Failure/Error: raise MalformedCSVError.new(message, @lineno)
+
+      CSV::MalformedCSVError:
+        Illegal quoting in line 1.
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:1090:in 'CSV::Parser#parse_quotable_robust'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:1020:in 'block in CSV::Parser#parse_quotable_loose'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:65:in 'block in CSV::Parser::Scanner#each_line'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:62:in 'String#each_line'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:62:in 'CSV::Parser::Scanner#each_line'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:976:in 'CSV::Parser#parse_quotable_loose'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:425:in 'CSV::Parser#parse'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/bin/rspec:in 'Enumerator#each'
+      # 
+      #   Showing full backtrace because every line was filtered out.
+      #   See docs for RSpec::Configuration#backtrace_exclusion_patterns and
+      #   RSpec::Configuration#backtrace_inclusion_patterns for more information.
+
+  20) CSV Export Character Encoding CSV Export Encoding Tests when comparing different export formats provides consistent data between CSV and Excel exports
+      Failure/Error: raise MalformedCSVError.new(message, @lineno)
+
+      CSV::MalformedCSVError:
+        Illegal quoting in line 1.
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:1090:in 'CSV::Parser#parse_quotable_robust'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:1020:in 'block in CSV::Parser#parse_quotable_loose'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:65:in 'block in CSV::Parser::Scanner#each_line'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:62:in 'String#each_line'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:62:in 'CSV::Parser::Scanner#each_line'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:976:in 'CSV::Parser#parse_quotable_loose'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:425:in 'CSV::Parser#parse'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/bin/rspec:in 'Enumerator#each'
+      # 
+      #   Showing full backtrace because every line was filtered out.
+      #   See docs for RSpec::Configuration#backtrace_exclusion_patterns and
+      #   RSpec::Configuration#backtrace_inclusion_patterns for more information.
+
+  21) CSV Export Character Encoding CSV Export Encoding Tests when testing edge cases handles empty Chinese strings correctly
+      Failure/Error: raise MalformedCSVError.new(message, @lineno)
+
+      CSV::MalformedCSVError:
+        Illegal quoting in line 1.
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:1090:in 'CSV::Parser#parse_quotable_robust'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:1020:in 'block in CSV::Parser#parse_quotable_loose'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:65:in 'block in CSV::Parser::Scanner#each_line'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:62:in 'String#each_line'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:62:in 'CSV::Parser::Scanner#each_line'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:976:in 'CSV::Parser#parse_quotable_loose'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:425:in 'CSV::Parser#parse'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/bin/rspec:in 'Enumerator#each'
+      # 
+      #   Showing full backtrace because every line was filtered out.
+      #   See docs for RSpec::Configuration#backtrace_exclusion_patterns and
+      #   RSpec::Configuration#backtrace_inclusion_patterns for more information.
+
+  22) CSV Export Character Encoding CSV Export Encoding Tests when testing edge cases handles mixed Chinese and English content
+      Failure/Error: raise MalformedCSVError.new(message, @lineno)
+
+      CSV::MalformedCSVError:
+        Illegal quoting in line 1.
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:1090:in 'CSV::Parser#parse_quotable_robust'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:1020:in 'block in CSV::Parser#parse_quotable_loose'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:65:in 'block in CSV::Parser::Scanner#each_line'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:62:in 'String#each_line'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:62:in 'CSV::Parser::Scanner#each_line'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:976:in 'CSV::Parser#parse_quotable_loose'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/lib/ruby/gems/3.4.0/gems/csv-3.3.4/lib/csv/parser.rb:425:in 'CSV::Parser#parse'
+      # /Users/dreamlinx/.rbenv/versions/3.4.2/bin/rspec:in 'Enumerator#each'
+      # 
+      #   Showing full backtrace because every line was filtered out.
+      #   See docs for RSpec::Configuration#backtrace_exclusion_patterns and
+      #   RSpec::Configuration#backtrace_inclusion_patterns for more information.
+
+  23) Admin::ExpressReceiptWorkOrders POST /admin/express_receipt_work_orders/import 处理没有文件的情况
+      Failure/Error: expect(response).to redirect_to(new_import_admin_express_receipt_work_orders_path)
+
+        Expected response to be a redirect to <http://www.example.com/admin/express_receipt_work_orders/new_import> but was a redirect to <http://www.example.com/admin/dashboard>.
+        Expected "http://www.example.com/admin/express_receipt_work_orders/new_import" to be === "http://www.example.com/admin/dashboard".
+      # ./spec/requests/admin/express_receipt_work_orders_spec.rb:67:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  24) Admin::ExpressReceiptWorkOrders POST /admin/express_receipt_work_orders/import 处理有效的CSV文件
+      Failure/Error: expect(response).to redirect_to(admin_express_receipt_work_orders_path)
+
+        Expected response to be a redirect to <http://www.example.com/admin/express_receipt_work_orders> but was a redirect to <http://www.example.com/admin/dashboard>.
+        Expected "http://www.example.com/admin/express_receipt_work_orders" to be === "http://www.example.com/admin/dashboard".
+      # ./spec/requests/admin/express_receipt_work_orders_spec.rb:91:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  25) Admin::ExpressReceiptWorkOrders POST /admin/express_receipt_work_orders/import 处理导入服务失败
+      Failure/Error: expect(response).to redirect_to(new_import_admin_express_receipt_work_orders_path)
+
+        Expected response to be a redirect to <http://www.example.com/admin/express_receipt_work_orders/new_import> but was a redirect to <http://www.example.com/admin/dashboard>.
+        Expected "http://www.example.com/admin/express_receipt_work_orders/new_import" to be === "http://www.example.com/admin/dashboard".
+      # ./spec/requests/admin/express_receipt_work_orders_spec.rb:116:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  26) Admin::Reimbursements PUT /admin/reimbursements/:id/start_processing 更新报销单状态为 processing
+      Failure/Error: put start_processing_admin_reimbursement_path(reimbursement)
+
+      NoMethodError:
+        undefined method 'start_processing_admin_reimbursement_path' for #<RSpec::ExampleGroups::AdminReimbursements::PUTAdminReimbursementsIdStartProcessing:0x0000000137737fe8>
+      # ./spec/requests/admin/reimbursements_spec.rb:49:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  27) Admin::Reimbursements PUT /admin/reimbursements/:id/mark_waiting_completion 更新报销单状态为 waiting_completion
+      Failure/Error: put mark_waiting_completion_admin_reimbursement_path(reimbursement_processing)
+
+      NoMethodError:
+        undefined method 'mark_waiting_completion_admin_reimbursement_path' for #<RSpec::ExampleGroups::AdminReimbursements::PUTAdminReimbursementsIdMarkWaitingCompletion:0x000000013767df80>
+      # ./spec/requests/admin/reimbursements_spec.rb:63:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  28) Admin::Reimbursements PUT /admin/reimbursements/:id/close 更新报销单状态为 closed
+      Failure/Error: let!(:reimbursement_waiting) { create(:reimbursement, :waiting_completion) }
+
+      KeyError:
+        Trait not registered: "waiting_completion"
+      # ./spec/requests/admin/reimbursements_spec.rb:73:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+      # ------------------
+      # --- Caused by: ---
+      # KeyError:
+      #   key not found: "waiting_completion"
+      #   ./spec/requests/admin/reimbursements_spec.rb:73:in 'block (3 levels) in <top (required)>'
+
+  29) Admin::Reimbursements POST /admin/reimbursements/import 调用导入服务并重定向
+      Failure/Error: expect(response.body).to include('导入成功: 1 创建, 0 更新.')
+
+        expected "<!DOCTYPE html><html lang=\"zh-CN\">\n  <head>\n    <title>报销单 | SCI2工单系统</title>\n<link rel=\"style...tps://activeadmin.info\">Active Admin</a> 3.3.0</p>\n      </div>\n    </div>\n  </body>\n</html>\n" to include "导入成功: 1 创建, 0 更新."
+        Diff:
+        @@ -1 +1,520 @@
+        -导入成功: 1 创建, 0 更新.
+        +<!DOCTYPE html><html lang="zh-CN">
+        +  <head>
+        +    <title>报销单 | SCI2工单系统</title>
+        +<link rel="stylesheet" href="/assets/active_admin.css" media="all" /><link rel="stylesheet" href="/assets/active_admin_dashboard.css" /><link rel="stylesheet" href="/assets/active_admin_custom.css" /><link rel="stylesheet" href="/assets/custom_tooltip.css" /><link rel="stylesheet" href="/assets/active_admin_permissions.css" /><script src="/assets/active_admin.js"></script><script src="/assets/audit_work_order_form.js"></script><script src="/assets/communication_work_order_form.js"></script><script src="/assets/active_admin_custom.js"></script>  </head>
+        +  <body class="index admin_reimbursements active_admin logged_in admin_namespace" data-default-select="select2">
+        +    <div id="wrapper">
+        +      <div class="header" id="header">
+        +        <h1 class="site_title" id="site_title">SCI2工单系统</h1>
+        +        <ul class="header-item tabs" id="tabs">
+        +          <li class="menu_item" id="dashboard"><a href="/admin/dashboard">控制面板</a></li>
+        +          <li class="menu_item current" id="reimbursements"><a href="/admin/reimbursements">报销单管理</a></li>
+        +          <li class="menu_item has_nested" id="工单管理">
+        +<a href="#">工单管理</a>            <ul class="menu">
+        +              <li class="menu_item" id="express_receipt_work_orders"><a href="/admin/express_receipt_work_orders">快递收单工单</a></li>
+        +              <li class="menu_item" id="audit_work_orders"><a href="/admin/audit_work_orders">审核工单</a></li>
+        +              <li class="menu_item" id="communication_work_orders"><a href="/admin/communication_work_orders">沟通工单</a></li>
+        +            </ul>
+        +          </li>
+        +          <li class="menu_item" id="operation_statistics"><a href="/admin/operation_statistics">操作统计</a></li>
+        +          <li class="menu_item has_nested" id="数据管理">
+        +<a href="#">数据管理</a>            <ul class="menu">
+        +              <li class="menu_item" id="fee_details"><a href="/admin/fee_details">费用明细</a></li>
+        +              <li class="menu_item" id="operation_histories"><a href="/admin/operation_histories">操作历史</a></li>
+        +              <li class="menu_item" id="imports"><a href="/admin/imports">数据导入</a></li>
+        +            </ul>
+        +          </li>
+        +          <li class="menu_item" id="admin_users"><a href="/admin/admin_users">管理员用户</a></li>
+        +          <li class="menu_item has_nested" id="系统设置">
+        +<a href="#">系统设置</a>            <ul class="menu">
+        +              <li class="menu_item" id="fee_types"><a href="/admin/fee_types">费用类型</a></li>
+        +              <li class="menu_item" id="problem_types"><a href="/admin/problem_types">问题类型</a></li>
+        +            </ul>
+        +          </li>
+        +        </ul>
+        +        <ul class="header-item tabs" id="utility_nav">
+        +          <li class="menu_item" id="current_user"><a href="/admin/admin_users/78">管理员用户 #78</a></li>
+        +          <li class="menu_item" id="logout"><a data-method="get" href="/admin/logout">退出</a></li>
+        +        </ul>
+        +      </div>
+        +      <div class="title_bar" id="title_bar">
+        +        <div id="titlebar_left">
+        +          <span class="breadcrumb">
+        +<a href="/admin">Admin</a>            <span class="breadcrumb_sep">/</span>
+        +          </span>
+        +          <h2 id="page_title">报销单</h2>
+        +        </div>
+        +        <div id="titlebar_right">
+        +          <div class="action_items">
+        +            <span class="action_item"><a href="/admin/reimbursements/new">新建 报销单</a></span>
+        +            <span class="action_item"><a href="/admin/reimbursements/new_import">导入报销单</a></span>
+        +            <span class="action_item"><a href="/admin/imports/operation_histories">导入操作历史</a></span>
+        +          </div>
+        +        </div>
+        +      </div>
+        +      <div class="flashes">
+        +        <div class="flash flash_notice">🎉 报销单导入成功完成！ 📊 处理结果: 10条新增, 0条更新</div>
+        +      </div>
+        +      <div id="active_admin_content" class="with_sidebar">
+        +        <div id="main_content_wrapper">
+        +          <div id="main_content">
+        +<form id="collection_selection" action="/admin/reimbursements/batch_action" accept-charset="UTF-8" method="post">              <input name="batch_action" id="batch_action" type="hidden"/>
+        +              <input name="batch_action_inputs" id="batch_action_inputs" type="hidden"/>
+        +              <div class="table_tools">
+        +                  <div class="batch_actions_selector dropdown_menu">
+        +                    <a class="disabled dropdown_menu_button" href="#">批量操作</a>
+        +                    <div class="dropdown_menu_list_wrapper">
+        +                      <ul class=" dropdown_menu_list">
+        +                        <li><a class="batch_action" data-action="assign_to" data-confirm="你确定要这样做吗？" data-inputs="{&quot;assignee&quot;:[[&quot;test_admin_user_78@example.com&quot;,78]],&quot;notes&quot;:&quot;text&quot;}" href="#">Assign To 被选中</a></li>
+        +                        <li><a class="batch_action" data-action="destroy" data-confirm="你确定要删除这些 报销单 吗？" data-inputs="null" href="#">删除 被选中</a></li>
+        +                      </ul>
+        +                    </div>
+        +                  </div>
+        +                <div class="scopes">
+        +                  <ul class="table_tools_segmented_control scope-default-group">
+        +                    <li class="scope all selected">
+        +                      <a href="/admin/reimbursements?scope=all" class="table_tools_button">所有</a>
+        +                    </li>
+        +                    <li class="scope assigned_to_me">
+        +                      <a href="/admin/reimbursements?scope=assigned_to_me" class="table_tools_button">Assigned To Me</a>
+        +                    </li>
+        +                    <li class="scope ">
+        +                      <a href="/admin/reimbursements?scope=" class="table_tools_button">有新通知</a>
+        +                    </li>
+        +                    <li class="scope pending">
+        +                      <a href="/admin/reimbursements?scope=pending" class="table_tools_button">Pending</a>
+        +                    </li>
+        +                    <li class="scope processing">
+        +                      <a href="/admin/reimbursements?scope=processing" class="table_tools_button">Processing</a>
+        +                    </li>
+        +                    <li class="scope closed">
+        +                      <a href="/admin/reimbursements?scope=closed" class="table_tools_button">Closed</a>
+        +                    </li>
+        +                    <li class="scope unassigned">
+        +                      <a href="/admin/reimbursements?scope=unassigned" class="table_tools_button">Unassigned</a>
+        +                    </li>
+        +                  </ul>
+        +                </div>
+        +              </div>
+        +              <div class="paginated_collection">
+        +                <div class="paginated_collection_contents">
+        +                  <div class="index_content">
+        +                    <div class="index_as_table">
+        +                      <table border="0" cellspacing="0" cellpadding="0" id="index_table_reimbursements" class="index_table index" paginator="true">
+        +                        <thead>
+        +                          <tr>
+        +                            <th class="col col-selectable">
+        +                              <div class="resource_selection_toggle_cell">
+        +                                <label>
+        +                                  <input type="checkbox" id="collection_selection_toggle_all" name="collection_selection_toggle_all" class="toggle_all"/>
+        +                                </label>
+        +                              </div>
+        +                            </th>
+        +                            <th class="sortable col col-invoice_number"><a href="/admin/reimbursements?order=invoice_number_desc">报销单单号</a></th>
+        +                            <th class="sortable col col-erp_flexible_field_2"><a href="/admin/reimbursements?order=erp_flexible_field_2_desc">弹性字段2</a></th>
+        +                            <th class="sortable col col-document_name"><a href="/admin/reimbursements?order=document_name_desc">单据名称</a></th>
+        +                            <th class="sortable col col-applicant"><a href="/admin/reimbursements?order=applicant_desc">申请人名称</a></th>
+        +                            <th class="sortable col col-applicant_id"><a href="/admin/reimbursements?order=applicant_id_desc">申请人工号</a></th>
+        +                            <th class="sortable col col-company"><a href="/admin/reimbursements?order=company_desc">申请人公司</a></th>
+        +                            <th class="sortable col col-department"><a href="/admin/reimbursements?order=department_desc">申请人部门</a></th>
+        +                            <th class="sortable col col-amount"><a href="/admin/reimbursements?order=amount_desc">报销金额</a></th>
+        +                            <th class="sortable col col-receipt_status"><a href="/admin/reimbursements?order=receipt_status_desc">收单状态</a></th>
+        +                            <th class="sortable col col-receipt_date"><a href="/admin/reimbursements?order=receipt_date_desc">收单日期</a></th>
+        +                            <th class="sortable col col-external_status"><a href="/admin/reimbursements?order=external_status_desc">报销单状态</a></th>
+        +                            <th class="sortable col col-approval_date"><a href="/admin/reimbursements?order=approval_date_desc">报销单审核通过日期</a></th>
+        +                            <th class="col col-">内部状态</th>
+        +                            <th class="col col-current_assignee">Current Assignee</th>
+        +                            <th class="sortable col col-"><a href="/admin/reimbursements?order=has_updates_desc">通知状态</a></th>
+        +                            <th class="col col-actions"></th>
+        +                          </tr>
+        +                        </thead>
+        +                        <tbody>
+        +                          <tr class="odd" id="reimbursement_132">
+        +                            <td class="col col-selectable">
+        +                              <div class="resource_selection_cell">
+        +                                <input type="checkbox" id="batch_action_item_132" value="132" class="collection_selection" name="collection_selection[]"/>
+        +                              </div>
+        +                            </td>
+        +                            <td class="col col-invoice_number">R2025000063</td>
+        +                            <td class="col col-erp_flexible_field_2"></td>
+        +                            <td class="col col-document_name">测试报销单</td>
+        +                            <td class="col col-applicant">测试用户</td>
+        +                            <td class="col col-applicant_id">TEST001</td>
+        +                            <td class="col col-company">测试公司</td>
+        +                            <td class="col col-department">测试部门</td>
+        +                            <td class="col col-amount">500.0</td>
+        +                            <td class="col col-receipt_status">未收单</td>
+        +                            <td class="col col-receipt_date">0</td>
+        +                            <td class="col col-external_status">审批中</td>
+        +                            <td class="col col-approval_date">-</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag pending">Pending</span>
+        +                            </td>
+        +                            <td class="col col-current_assignee">未分配</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag 无更新 completed">无更新</span>
+        +                            </td>
+        +                            <td class="col col-actions">
+        +                              <div class="table_actions"><a class="member_link" href="/admin/reimbursements/132">查看</a></div>
+        +                            </td>
+        +                          </tr>
+        +                          <tr class="even" id="reimbursement_133">
+        +                            <td class="col col-selectable">
+        +                              <div class="resource_selection_cell">
+        +                                <input type="checkbox" id="batch_action_item_133" value="133" class="collection_selection" name="collection_selection[]"/>
+        +                              </div>
+        +                            </td>
+        +                            <td class="col col-invoice_number">R2025001</td>
+        +                            <td class="col col-erp_flexible_field_2"></td>
+        +                            <td class="col col-document_name">报销单1</td>
+        +                            <td class="col col-applicant">申请人1</td>
+        +                            <td class="col col-applicant_id">E001</td>
+        +                            <td class="col col-company">科技有限公司</td>
+        +                            <td class="col col-department">部门1</td>
+        +                            <td class="col col-amount">150.0</td>
+        +                            <td class="col col-receipt_status">未收单</td>
+        +                            <td class="col col-receipt_date">0</td>
+        +                            <td class="col col-external_status">待审批</td>
+        +                            <td class="col col-approval_date">-</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag pending">Pending</span>
+        +                            </td>
+        +                            <td class="col col-current_assignee">未分配</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag 无更新 completed">无更新</span>
+        +                            </td>
+        +                            <td class="col col-actions">
+        +                              <div class="table_actions"><a class="member_link" href="/admin/reimbursements/133">查看</a></div>
+        +                            </td>
+        +                          </tr>
+        +                          <tr class="odd" id="reimbursement_134">
+        +                            <td class="col col-selectable">
+        +                              <div class="resource_selection_cell">
+        +                                <input type="checkbox" id="batch_action_item_134" value="134" class="collection_selection" name="collection_selection[]"/>
+        +                              </div>
+        +                            </td>
+        +                            <td class="col col-invoice_number">R2025002</td>
+        +                            <td class="col col-erp_flexible_field_2"></td>
+        +                            <td class="col col-document_name">报销单2</td>
+        +                            <td class="col col-applicant">申请人2</td>
+        +                            <td class="col col-applicant_id">E002</td>
+        +                            <td class="col col-company">科技有限公司</td>
+        +                            <td class="col col-department">部门2</td>
+        +                            <td class="col col-amount">200.0</td>
+        +                            <td class="col col-receipt_status">未收单</td>
+        +                            <td class="col col-receipt_date">0</td>
+        +                            <td class="col col-external_status">待审批</td>
+        +                            <td class="col col-approval_date">-</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag pending">Pending</span>
+        +                            </td>
+        +                            <td class="col col-current_assignee">未分配</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag 无更新 completed">无更新</span>
+        +                            </td>
+        +                            <td class="col col-actions">
+        +                              <div class="table_actions"><a class="member_link" href="/admin/reimbursements/134">查看</a></div>
+        +                            </td>
+        +                          </tr>
+        +                          <tr class="even" id="reimbursement_135">
+        +                            <td class="col col-selectable">
+        +                              <div class="resource_selection_cell">
+        +                                <input type="checkbox" id="batch_action_item_135" value="135" class="collection_selection" name="collection_selection[]"/>
+        +                              </div>
+        +                            </td>
+        +                            <td class="col col-invoice_number">R2025003</td>
+        +                            <td class="col col-erp_flexible_field_2"></td>
+        +                            <td class="col col-document_name">报销单3</td>
+        +                            <td class="col col-applicant">申请人3</td>
+        +                            <td class="col col-applicant_id">E003</td>
+        +                            <td class="col col-company">科技有限公司</td>
+        +                            <td class="col col-department">部门3</td>
+        +                            <td class="col col-amount">250.0</td>
+        +                            <td class="col col-receipt_status">未收单</td>
+        +                            <td class="col col-receipt_date">0</td>
+        +                            <td class="col col-external_status">待审批</td>
+        +                            <td class="col col-approval_date">-</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag pending">Pending</span>
+        +                            </td>
+        +                            <td class="col col-current_assignee">未分配</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag 无更新 completed">无更新</span>
+        +                            </td>
+        +                            <td class="col col-actions">
+        +                              <div class="table_actions"><a class="member_link" href="/admin/reimbursements/135">查看</a></div>
+        +                            </td>
+        +                          </tr>
+        +                          <tr class="odd" id="reimbursement_136">
+        +                            <td class="col col-selectable">
+        +                              <div class="resource_selection_cell">
+        +                                <input type="checkbox" id="batch_action_item_136" value="136" class="collection_selection" name="collection_selection[]"/>
+        +                              </div>
+        +                            </td>
+        +                            <td class="col col-invoice_number">R2025004</td>
+        +                            <td class="col col-erp_flexible_field_2"></td>
+        +                            <td class="col col-document_name">报销单4</td>
+        +                            <td class="col col-applicant">申请人4</td>
+        +                            <td class="col col-applicant_id">E004</td>
+        +                            <td class="col col-company">科技有限公司</td>
+        +                            <td class="col col-department">部门4</td>
+        +                            <td class="col col-amount">300.0</td>
+        +                            <td class="col col-receipt_status">未收单</td>
+        +                            <td class="col col-receipt_date">0</td>
+        +                            <td class="col col-external_status">待审批</td>
+        +                            <td class="col col-approval_date">-</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag pending">Pending</span>
+        +                            </td>
+        +                            <td class="col col-current_assignee">未分配</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag 无更新 completed">无更新</span>
+        +                            </td>
+        +                            <td class="col col-actions">
+        +                              <div class="table_actions"><a class="member_link" href="/admin/reimbursements/136">查看</a></div>
+        +                            </td>
+        +                          </tr>
+        +                          <tr class="even" id="reimbursement_137">
+        +                            <td class="col col-selectable">
+        +                              <div class="resource_selection_cell">
+        +                                <input type="checkbox" id="batch_action_item_137" value="137" class="collection_selection" name="collection_selection[]"/>
+        +                              </div>
+        +                            </td>
+        +                            <td class="col col-invoice_number">R2025005</td>
+        +                            <td class="col col-erp_flexible_field_2"></td>
+        +                            <td class="col col-document_name">报销单5</td>
+        +                            <td class="col col-applicant">申请人5</td>
+        +                            <td class="col col-applicant_id">E005</td>
+        +                            <td class="col col-company">科技有限公司</td>
+        +                            <td class="col col-department">部门5</td>
+        +                            <td class="col col-amount">350.0</td>
+        +                            <td class="col col-receipt_status">未收单</td>
+        +                            <td class="col col-receipt_date">0</td>
+        +                            <td class="col col-external_status">待审批</td>
+        +                            <td class="col col-approval_date">-</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag pending">Pending</span>
+        +                            </td>
+        +                            <td class="col col-current_assignee">未分配</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag 无更新 completed">无更新</span>
+        +                            </td>
+        +                            <td class="col col-actions">
+        +                              <div class="table_actions"><a class="member_link" href="/admin/reimbursements/137">查看</a></div>
+        +                            </td>
+        +                          </tr>
+        +                          <tr class="odd" id="reimbursement_138">
+        +                            <td class="col col-selectable">
+        +                              <div class="resource_selection_cell">
+        +                                <input type="checkbox" id="batch_action_item_138" value="138" class="collection_selection" name="collection_selection[]"/>
+        +                              </div>
+        +                            </td>
+        +                            <td class="col col-invoice_number">R2025006</td>
+        +                            <td class="col col-erp_flexible_field_2"></td>
+        +                            <td class="col col-document_name">报销单6</td>
+        +                            <td class="col col-applicant">申请人6</td>
+        +                            <td class="col col-applicant_id">E006</td>
+        +                            <td class="col col-company">科技有限公司</td>
+        +                            <td class="col col-department">部门6</td>
+        +                            <td class="col col-amount">400.0</td>
+        +                            <td class="col col-receipt_status">未收单</td>
+        +                            <td class="col col-receipt_date">0</td>
+        +                            <td class="col col-external_status">待审批</td>
+        +                            <td class="col col-approval_date">-</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag pending">Pending</span>
+        +                            </td>
+        +                            <td class="col col-current_assignee">未分配</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag 无更新 completed">无更新</span>
+        +                            </td>
+        +                            <td class="col col-actions">
+        +                              <div class="table_actions"><a class="member_link" href="/admin/reimbursements/138">查看</a></div>
+        +                            </td>
+        +                          </tr>
+        +                          <tr class="even" id="reimbursement_139">
+        +                            <td class="col col-selectable">
+        +                              <div class="resource_selection_cell">
+        +                                <input type="checkbox" id="batch_action_item_139" value="139" class="collection_selection" name="collection_selection[]"/>
+        +                              </div>
+        +                            </td>
+        +                            <td class="col col-invoice_number">R2025007</td>
+        +                            <td class="col col-erp_flexible_field_2"></td>
+        +                            <td class="col col-document_name">报销单7</td>
+        +                            <td class="col col-applicant">申请人7</td>
+        +                            <td class="col col-applicant_id">E007</td>
+        +                            <td class="col col-company">科技有限公司</td>
+        +                            <td class="col col-department">部门7</td>
+        +                            <td class="col col-amount">450.0</td>
+        +                            <td class="col col-receipt_status">未收单</td>
+        +                            <td class="col col-receipt_date">0</td>
+        +                            <td class="col col-external_status">待审批</td>
+        +                            <td class="col col-approval_date">-</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag pending">Pending</span>
+        +                            </td>
+        +                            <td class="col col-current_assignee">未分配</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag 无更新 completed">无更新</span>
+        +                            </td>
+        +                            <td class="col col-actions">
+        +                              <div class="table_actions"><a class="member_link" href="/admin/reimbursements/139">查看</a></div>
+        +                            </td>
+        +                          </tr>
+        +                          <tr class="odd" id="reimbursement_140">
+        +                            <td class="col col-selectable">
+        +                              <div class="resource_selection_cell">
+        +                                <input type="checkbox" id="batch_action_item_140" value="140" class="collection_selection" name="collection_selection[]"/>
+        +                              </div>
+        +                            </td>
+        +                            <td class="col col-invoice_number">R2025008</td>
+        +                            <td class="col col-erp_flexible_field_2"></td>
+        +                            <td class="col col-document_name">报销单8</td>
+        +                            <td class="col col-applicant">申请人8</td>
+        +                            <td class="col col-applicant_id">E008</td>
+        +                            <td class="col col-company">科技有限公司</td>
+        +                            <td class="col col-department">部门8</td>
+        +                            <td class="col col-amount">500.0</td>
+        +                            <td class="col col-receipt_status">未收单</td>
+        +                            <td class="col col-receipt_date">0</td>
+        +                            <td class="col col-external_status">待审批</td>
+        +                            <td class="col col-approval_date">-</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag pending">Pending</span>
+        +                            </td>
+        +                            <td class="col col-current_assignee">未分配</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag 无更新 completed">无更新</span>
+        +                            </td>
+        +                            <td class="col col-actions">
+        +                              <div class="table_actions"><a class="member_link" href="/admin/reimbursements/140">查看</a></div>
+        +                            </td>
+        +                          </tr>
+        +                          <tr class="even" id="reimbursement_141">
+        +                            <td class="col col-selectable">
+        +                              <div class="resource_selection_cell">
+        +                                <input type="checkbox" id="batch_action_item_141" value="141" class="collection_selection" name="collection_selection[]"/>
+        +                              </div>
+        +                            </td>
+        +                            <td class="col col-invoice_number">R2025009</td>
+        +                            <td class="col col-erp_flexible_field_2"></td>
+        +                            <td class="col col-document_name">报销单9</td>
+        +                            <td class="col col-applicant">申请人9</td>
+        +                            <td class="col col-applicant_id">E009</td>
+        +                            <td class="col col-company">科技有限公司</td>
+        +                            <td class="col col-department">部门9</td>
+        +                            <td class="col col-amount">550.0</td>
+        +                            <td class="col col-receipt_status">未收单</td>
+        +                            <td class="col col-receipt_date">0</td>
+        +                            <td class="col col-external_status">待审批</td>
+        +                            <td class="col col-approval_date">-</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag pending">Pending</span>
+        +                            </td>
+        +                            <td class="col col-current_assignee">未分配</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag 无更新 completed">无更新</span>
+        +                            </td>
+        +                            <td class="col col-actions">
+        +                              <div class="table_actions"><a class="member_link" href="/admin/reimbursements/141">查看</a></div>
+        +                            </td>
+        +                          </tr>
+        +                          <tr class="odd" id="reimbursement_142">
+        +                            <td class="col col-selectable">
+        +                              <div class="resource_selection_cell">
+        +                                <input type="checkbox" id="batch_action_item_142" value="142" class="collection_selection" name="collection_selection[]"/>
+        +                              </div>
+        +                            </td>
+        +                            <td class="col col-invoice_number">R2025010</td>
+        +                            <td class="col col-erp_flexible_field_2"></td>
+        +                            <td class="col col-document_name">报销单10</td>
+        +                            <td class="col col-applicant">申请人10</td>
+        +                            <td class="col col-applicant_id">E010</td>
+        +                            <td class="col col-company">科技有限公司</td>
+        +                            <td class="col col-department">部门10</td>
+        +                            <td class="col col-amount">600.0</td>
+        +                            <td class="col col-receipt_status">未收单</td>
+        +                            <td class="col col-receipt_date">0</td>
+        +                            <td class="col col-external_status">待审批</td>
+        +                            <td class="col col-approval_date">-</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag pending">Pending</span>
+        +                            </td>
+        +                            <td class="col col-current_assignee">未分配</td>
+        +                            <td class="col col-">
+        +                              <span class="status_tag 无更新 completed">无更新</span>
+        +                            </td>
+        +                            <td class="col col-actions">
+        +                              <div class="table_actions"><a class="member_link" href="/admin/reimbursements/142">查看</a></div>
+        +                            </td>
+        +                          </tr>
+        +                        </tbody>
+        +                        <div class="role_notice_panel">
+        +                          <div class="role_info">
+        +                            <span class="role_badge">当前角色: 超级管理员</span>
+        +                          </div>
+        +                        </div>
+        +                      </table>
+        +                    </div>
+        +                  </div>
+        +                </div>
+        +                <div id="index_footer">
+        +                  <div class="pagination_information">显示 <b>所有 11</b> 报销单</div>
+        +                  <div class="download_links">
+        +                    <span>下载:</span>
+        +                    <a href="/admin/reimbursements.csv">CSV</a>
+        +                    <a href="/admin/reimbursements.xml">XML</a>
+        +                    <a href="/admin/reimbursements.json">JSON</a>
+        +                  </div>
+        +                </div>
+        +              </div>
+        +</form>          </div>
+        +        </div>
+        +        <div class="sidebar" id="sidebar">
+        +          <div class="sidebar_section panel" id="filters_sidebar_section">
+        +            <h3>过滤条件</h3>
+        +            <div class="panel_contents"><form class="filter_form" id="new_q" action="/admin/reimbursements" accept-charset="UTF-8" method="get"><div class="string input optional stringish filter_form_field filter_string select_and_search" id="q_invoice_number_input"><label for="q_invoice_number" class="label">报销单单号</label><select name="" id=""><option selected="selected" value="invoice_number_cont">包含</option>
+        +<option value="invoice_number_eq">等于</option>
+        +<option value="invoice_number_start">始于</option>
+        +<option value="invoice_number_end">止于</option></select><input id="q_invoice_number" type="text" name="q[invoice_number_cont]" /></div><div class="string input optional stringish filter_form_field filter_string select_and_search" id="q_applicant_input"><label for="q_applicant" class="label">申请人名称</label><select name="" id=""><option selected="selected" value="applicant_cont">包含</option>
+        +<option value="applicant_eq">等于</option>
+        +<option value="applicant_start">始于</option>
+        +<option value="applicant_end">止于</option></select><input id="q_applicant" type="text" name="q[applicant_cont]" /></div><div class="string input optional stringish filter_form_field filter_string select_and_search" id="q_company_input"><label for="q_company" class="label">公司</label><select name="" id=""><option selected="selected" value="company_cont">包含</option>
+        +<option value="company_eq">等于</option>
+        +<option value="company_start">始于</option>
+        +<option value="company_end">止于</option></select><input id="q_company" type="text" name="q[company_cont]" /></div><div class="string input optional stringish filter_form_field filter_string select_and_search" id="q_department_input"><label for="q_department" class="label">部门</label><select name="" id=""><option selected="selected" value="department_cont">包含</option>
+        +<option value="department_eq">等于</option>
+        +<option value="department_start">始于</option>
+        +<option value="department_end">止于</option></select><input id="q_department" type="text" name="q[department_cont]" /></div><div class="select input optional filter_form_field filter_select" id="q_status_input"><label for="q_status" class="label">内部状态</label><select name="q[status_eq]" id="q_status"><option value="">任何</option>
+        +<option value="pending">待处理</option>
+        +<option value="processing">处理中</option>
+        +<option value="closed">已关闭</option></select></div><div class="select input optional filter_form_field filter_select" id="q_erp_current_approval_node_input"><label for="q_erp_current_approval_node" class="label">当前审批节点</label><select name="q[erp_current_approval_node_eq]" id="q_erp_current_approval_node"><option value="">任何</option>
+        +</select></div><div class="select input optional filter_form_field filter_select" id="q_erp_current_approver_input"><label for="q_erp_current_approver" class="label">当前审批人</label><select name="q[erp_current_approver_eq]" id="q_erp_current_approver"><option value="">任何</option>
+        +</select></div><div class="select input optional filter_form_field filter_select" id="q_external_status_input"><label for="q_external_status" class="label">外部状态</label><select name="q[external_status_eq]" id="q_external_status"><option value="">任何</option>
+        +<option value="审批中">审批中</option>
+        +<option value="已付款">已付款</option>
+        +<option value="待付款">待付款</option>
+        +<option value="待审核">待审核</option></select></div><div class="select input optional filter_form_field filter_select" id="q_receipt_status_input"><label for="q_receipt_status" class="label">收单状态</label><select name="q[receipt_status_eq]" id="q_receipt_status"><option value="">任何</option>
+        +<option value="pending">pending</option>
+        +<option value="received">received</option></select></div><div class="boolean input optional filter_form_field filter_boolean" id="q_is_electronic_input"><label for="q_is_electronic" class="label">是否电子单据</label><select name="q[is_electronic_eq]" id="q_is_electronic"><option value="">任何</option>
+        +<option value="true">YES</option>
+        +<option value="false">NO</option></select></div><div class="string input optional stringish filter_form_field filter_string select_and_search" id="q_document_tags_input"><label for="q_document_tags" class="label">单据标签</label><select name="" id=""><option selected="selected" value="document_tags_cont">包含</option>
+        +<option value="document_tags_eq">等于</option>
+        +<option value="document_tags_start">始于</option>
+        +<option value="document_tags_end">止于</option></select><input id="q_document_tags" type="text" name="q[document_tags_cont]" /></div><div class="date_range input optional stringish filter_form_field filter_date_range" id="q_created_at_input"><label class="label">创建时间</label>
+        +<input placeholder="起" value="" class="datepicker" autocomplete="off" type="text" name="q[created_at_gteq]" id="q_created_at_gteq" />
+        +<input placeholder="止" value="" class="datepicker" autocomplete="off" type="text" name="q[created_at_lteq]" id="q_created_at_lteq" /></div><div class="date_range input optional stringish filter_form_field filter_date_range" id="q_approval_date_input"><label class="label">报销单审核通过日期</label>
+        +<input placeholder="起" value="" class="datepicker" autocomplete="off" type="text" name="q[approval_date_gteq]" id="q_approval_date_gteq" />
+        +<input placeholder="止" value="" class="datepicker" autocomplete="off" type="text" name="q[approval_date_lteq]" id="q_approval_date_lteq" /></div><div class="select input optional filter_form_field filter_select" id="q_current_assignee_id_input"><label for="q_current_assignee_id" class="label">Current Assignee</label><select name="q[current_assignee_id_eq]" id="q_current_assignee_id"><option value="">任何</option>
+        +<option value="78">test_admin_user_78@example.com</option></select></div><div class="boolean input optional filter_form_field filter_boolean" id="q_with_unread_updates_input"><label for="q_with_unread_updates" class="label">有新通知</label><select name="q[with_unread_updates]" id="q_with_unread_updates"><option value="">任何</option>
+        +<option value="true">YES</option>
+        +<option value="false">NO</option></select></div><div class="buttons"><input type="submit" name="commit" value="过滤" data-disable-with="过滤" /><a class="clear_filters_btn" href="#">清除过滤条件</a><input type="hidden" name="order" id="hidden_active_admin_order" value="has_updates_desc,last_update_at_desc" autocomplete="off" /></div></form></div>
+        +          </div>
+        +        </div>
+        +      </div>
+        +      <div class="footer" id="footer">
+        +        <p>Powered by <a href="https://activeadmin.info">Active Admin</a> 3.3.0</p>
+        +      </div>
+        +    </div>
+        +  </body>
+        +</html>
+      # ./spec/requests/admin/reimbursements_spec.rb:104:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  30) Admin::Reimbursements POST /admin/reimbursements/import 处理导入服务失败
+      Failure/Error: expect(response).to redirect_to(new_import_admin_reimbursements_path)
+
+        Expected response to be a redirect to <http://www.example.com/admin/reimbursements/new_import> but was a redirect to <http://www.example.com/admin/reimbursements>.
+        Expected "http://www.example.com/admin/reimbursements/new_import" to be === "http://www.example.com/admin/reimbursements".
+      # ./spec/requests/admin/reimbursements_spec.rb:114:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  31) Admin::Statistics GET /admin/statistics/reimbursement_status_counts 返回报销单状态统计数据
+      Failure/Error: create(:reimbursement, status: 'waiting_completion')
+
+      ActiveRecord::RecordInvalid:
+        验证失败: 内部状态不包含于列表中, 内部状态是无效的
+      # ./spec/requests/admin/statistics_spec.rb:15:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+  32) Admin::Statistics GET /admin/statistics/work_order_status_counts 返回工单状态统计数据
+      Failure/Error: let!(:communication_needs) { create(:communication_work_order, :needs_communication, status: 'processing') }
+
+      KeyError:
+        Trait not registered: "needs_communication"
+      # ./spec/requests/admin/statistics_spec.rb:38:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+      # ------------------
+      # --- Caused by: ---
+      # KeyError:
+      #   key not found: "needs_communication"
+      #   ./spec/requests/admin/statistics_spec.rb:38:in 'block (3 levels) in <top (required)>'
+
+  33) Admin::Statistics GET /admin/statistics/fee_detail_verification_counts 返回费用明细验证状态统计数据
+      Failure/Error: expect(response).to be_successful
+        expected `#<ActionDispatch::TestResponse:0x0000000137939620 @mon_data=#<Monitor:0x0000000137bda0c8>, @mon_data_...Request GET "http://www.example.com/admin/statistics/fee_detail_verification_counts" for 127.0.0.1>>.successful?` to be truthy, got false
+      # ./spec/requests/admin/statistics_spec.rb:74:in 'block (3 levels) in <top (required)>'
+      # ./spec/rails_helper.rb:153:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:52:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:20:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/performance_helper.rb:19:in 'block (2 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:22:in 'block (3 levels) in <top (required)>'
+      # ./spec/support/database_cleaner.rb:21:in 'block (2 levels) in <top (required)>'
+
+Finished in 5.57 seconds (files took 1.46 seconds to load)
+53 examples, 33 failures, 1 pending
+
+Failed examples:
+
+rspec ./spec/requests/admin/audit_work_orders_spec.rb:24 # Admin::AuditWorkOrders POST /admin/audit_work_orders 创建新的审核工单
+rspec ./spec/requests/admin/audit_work_orders_spec.rb:48 # Admin::AuditWorkOrders PUT /admin/audit_work_orders/:id 更新审核工单
+rspec ./spec/requests/admin/audit_work_orders_spec.rb:67 # Admin::AuditWorkOrders PUT /admin/audit_work_orders/:id/start_processing 更新工单状态为 processing
+rspec ./spec/requests/admin/audit_work_orders_spec.rb:79 # Admin::AuditWorkOrders PUT /admin/audit_work_orders/:id/start_processing 处理服务调用失败
+rspec ./spec/requests/admin/audit_work_orders_spec.rb:94 # Admin::AuditWorkOrders GET /admin/audit_work_orders/:id/approve 返回成功响应
+rspec ./spec/requests/admin/audit_work_orders_spec.rb:104 # Admin::AuditWorkOrders GET /admin/audit_work_orders/:id/reject 返回成功响应
+rspec ./spec/requests/admin/audit_work_orders_spec.rb:150 # Admin::AuditWorkOrders POST /admin/audit_work_orders/:id/do_approve 处理服务调用失败
+rspec ./spec/requests/admin/audit_work_orders_spec.rb:119 # Admin::AuditWorkOrders POST /admin/audit_work_orders/:id/do_approve 从processing状态审核 审核通过工单
+rspec ./spec/requests/admin/audit_work_orders_spec.rb:135 # Admin::AuditWorkOrders POST /admin/audit_work_orders/:id/do_approve 从pending状态直接审核 审核通过工单
+rspec ./spec/requests/admin/audit_work_orders_spec.rb:169 # Admin::AuditWorkOrders POST /admin/audit_work_orders/:id/do_reject 审核拒绝工单
+rspec ./spec/requests/admin/audit_work_orders_spec.rb:186 # Admin::AuditWorkOrders POST /admin/audit_work_orders/:id/do_reject 处理服务调用失败
+rspec ./spec/requests/admin/audit_work_orders_spec.rb:207 # Admin::AuditWorkOrders POST /admin/audit_work_orders/:id/do_verify_fee_detail 更新费用明细验证状态
+rspec ./spec/requests/admin/audit_work_orders_spec.rb:223 # Admin::AuditWorkOrders POST /admin/audit_work_orders/:id/do_verify_fee_detail 处理服务调用失败
+rspec ./spec/requests/admin/communication_work_orders_spec.rb:41 # Admin::CommunicationWorkOrders POST /admin/communication_work_orders creates a new CommunicationWorkOrder
+rspec ./spec/requests/admin/communication_work_orders_spec.rb:63 # Admin::CommunicationWorkOrders PUT /admin/communication_work_orders/:id/approve approves the communication work order
+rspec ./spec/requests/admin/communication_work_orders_spec.rb:81 # Admin::CommunicationWorkOrders POST /admin/communication_work_orders/:id/reject rejects the communication work order
+rspec ./spec/requests/admin/communication_work_orders_spec.rb:107 # Admin::CommunicationWorkOrders POST /admin/communication_work_orders/:id/verify_fee_detail verifies the associated fee detail
+rspec ./spec/requests/admin/csv_export_encoding_spec.rb:47 # CSV Export Character Encoding CSV Export Encoding Tests when exporting CSV with Chinese characters handles invalid UTF-8 sequences gracefully
+rspec ./spec/requests/admin/csv_export_encoding_spec.rb:61 # CSV Export Character Encoding CSV Export Encoding Tests when exporting CSV with Chinese characters preserves Chinese characters in CSV content
+rspec ./spec/requests/admin/csv_export_encoding_spec.rb:80 # CSV Export Character Encoding CSV Export Encoding Tests when comparing different export formats provides consistent data between CSV and Excel exports
+rspec ./spec/requests/admin/csv_export_encoding_spec.rb:155 # CSV Export Character Encoding CSV Export Encoding Tests when testing edge cases handles empty Chinese strings correctly
+rspec ./spec/requests/admin/csv_export_encoding_spec.rb:188 # CSV Export Character Encoding CSV Export Encoding Tests when testing edge cases handles mixed Chinese and English content
+rspec ./spec/requests/admin/express_receipt_work_orders_spec.rb:65 # Admin::ExpressReceiptWorkOrders POST /admin/express_receipt_work_orders/import 处理没有文件的情况
+rspec ./spec/requests/admin/express_receipt_work_orders_spec.rb:72 # Admin::ExpressReceiptWorkOrders POST /admin/express_receipt_work_orders/import 处理有效的CSV文件
+rspec ./spec/requests/admin/express_receipt_work_orders_spec.rb:99 # Admin::ExpressReceiptWorkOrders POST /admin/express_receipt_work_orders/import 处理导入服务失败
+rspec ./spec/requests/admin/reimbursements_spec.rb:48 # Admin::Reimbursements PUT /admin/reimbursements/:id/start_processing 更新报销单状态为 processing
+rspec ./spec/requests/admin/reimbursements_spec.rb:60 # Admin::Reimbursements PUT /admin/reimbursements/:id/mark_waiting_completion 更新报销单状态为 waiting_completion
+rspec ./spec/requests/admin/reimbursements_spec.rb:74 # Admin::Reimbursements PUT /admin/reimbursements/:id/close 更新报销单状态为 closed
+rspec ./spec/requests/admin/reimbursements_spec.rb:94 # Admin::Reimbursements POST /admin/reimbursements/import 调用导入服务并重定向
+rspec ./spec/requests/admin/reimbursements_spec.rb:107 # Admin::Reimbursements POST /admin/reimbursements/import 处理导入服务失败
+rspec ./spec/requests/admin/statistics_spec.rb:13 # Admin::Statistics GET /admin/statistics/reimbursement_status_counts 返回报销单状态统计数据
+rspec ./spec/requests/admin/statistics_spec.rb:40 # Admin::Statistics GET /admin/statistics/work_order_status_counts 返回工单状态统计数据
+rspec ./spec/requests/admin/statistics_spec.rb:72 # Admin::Statistics GET /admin/statistics/fee_detail_verification_counts 返回费用明细验证状态统计数据
+
+
+=== Coverage Performance Summary ===
+Total Files: 106
+Total Lines: 8992
+Covered Lines: 1800
+Coverage Percentage: 20.02%
+
+=== Files Needing Attention ===
+/Users/dreamlinx/Dropbox/Projects/NetBeansProjects/think-bridge/sci2/app/repositories/work_order_repository.rb: 0.0% ([]/110 lines)
+/Users/dreamlinx/Dropbox/Projects/NetBeansProjects/think-bridge/sci2/app/services/express_receipt_work_order_service.rb: 0.0% ([]/26 lines)
+/Users/dreamlinx/Dropbox/Projects/NetBeansProjects/think-bridge/sci2/app/services/fee_detail_group_service.rb: 0.0% ([]/53 lines)
+/Users/dreamlinx/Dropbox/Projects/NetBeansProjects/think-bridge/sci2/app/services/fee_detail_import_service.rb: 0.0% ([]/158 lines)
+/Users/dreamlinx/Dropbox/Projects/NetBeansProjects/think-bridge/sci2/app/services/fee_detail_status_service.rb: 0.0% ([]/62 lines)
+
+⚠️  WARNING: Coverage below 85% threshold
+Consider adding tests for uncovered business logic
+Coverage report generated for RSpec to /Users/dreamlinx/Dropbox/Projects/NetBeansProjects/think-bridge/sci2/coverage.
+Line Coverage: 20.02% (1800 / 8992)
+Stopped processing SimpleCov as a previous error not related to SimpleCov has been detected
