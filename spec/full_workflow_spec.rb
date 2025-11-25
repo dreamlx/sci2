@@ -120,7 +120,7 @@ RSpec.describe 'Full Workflow Integration Test', type: :model do
       result = nil
       # Express receipts create work orders
       expect do
-        result = ExpressReceiptImportService.new(express_receipt_file,
+        result = UnifiedExpressReceiptImportService.new(express_receipt_file,
                                                  admin_user).import(express_receipt_spreadsheet)
         puts "Express Receipt Import Result: #{result.inspect}"
       end.to change(ExpressReceiptWorkOrder, :count).by(5)

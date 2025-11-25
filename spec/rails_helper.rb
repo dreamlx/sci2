@@ -75,9 +75,10 @@ RSpec.configure do |config|
     # Ensure webdrivers are properly cached
     Webdrivers.cache_time = 86_400 # 24 hours cache
 
-    # Set ChromeDriver version to avoid version mismatch issues
-    # Use a stable version that works with most Chrome installations
-    Webdrivers::Chromedriver.required_version = '114.0.5735.90'
+    # Use system ChromeDriver if available to avoid download issues
+    if system('which chromedriver > /dev/null 2>&1')
+      Webdrivers::Chromedriver.required_version = :system
+    end
   end
 
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures
@@ -123,32 +124,8 @@ RSpec.configure do |config|
 
   # Performance optimization settings with improved test isolation
   config.before(:suite) do
-    # Configure DatabaseCleaner for better test isolation
-    DatabaseCleaner.clean_with(:truncation)
-
     # Pre-warm factories for better performance
     FactoryBot.lint if ENV['LINT_FACTORIES']
-  end
-
-  config.before(:each) do
-    # Use transaction for most tests for speed
-    DatabaseCleaner.strategy = :transaction
-  end
-
-  config.before(:each, type: :system) do
-    # Use truncation for system tests to handle JavaScript properly
-    DatabaseCleaner.strategy = :truncation
-  end
-
-  config.before(:each, js: true) do
-    # Use truncation for JavaScript tests
-    DatabaseCleaner.strategy = :truncation
-  end
-
-  config.around(:each) do |example|
-    DatabaseCleaner.cleaning do
-      example.run
-    end
   end
 
   # Additional cleanup for Repository tests - simplified approach
@@ -158,11 +135,9 @@ RSpec.configure do |config|
     WorkOrderOperation.delete_all if defined?(WorkOrderOperation)
   end
 
-  # Parallel testing for faster execution
-  if ENV['PARALLEL_WORKERS']
-    require 'parallel_tests'
-    config.parallelize(workers: :number_of_processors)
-  end
+  # Disable parallel testing to avoid SQLite locking issues
+  # Parallel testing with SQLite can cause database locking errors
+  # config.parallelize(workers: :number_of_processors) if ENV['PARALLEL_WORKERS']
 
   # Performance monitoring
   config.around(:each) do |example|

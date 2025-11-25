@@ -48,7 +48,7 @@ RSpec.describe 'Full Workflow Integration', type: :model do
 
     # 导入快递收单
     uploaded_file = Rack::Test::UploadedFile.new(express_receipts_csv_path, 'text/csv')
-    import_result = ExpressReceiptImportService.new(uploaded_file, admin_user).import
+    import_result = UnifiedExpressReceiptImportService.new(uploaded_file, admin_user).import
     puts "Express Receipt import failed: #{import_result[:errors].join(', ')}" unless import_result[:success]
     if import_result[:unmatched].to_i > 0
       puts "Express Receipt unmatched records: #{import_result[:unmatched_details].inspect}"
@@ -275,8 +275,8 @@ RSpec.describe 'Full Workflow Integration', type: :model do
     comm_wo_approve.save! # 状态变为 approved
 
     expect(comm_wo_approve.reload.status).to eq('approved')
-    expect(reimbursement6.fee_details.reload.pluck(:verification_status).uniq).to eq(['verified'])
-    expect(reimbursement6.reload.status).to eq('waiting_completion')
+    expect(reimbursement6.fee_details.reload.pluck(:verification_status).uniq).to eq(['verified']) # 状态变为 verified
+    expect(reimbursement6.reload.status).to eq('waiting_completion') # 报销单状态变为 waiting_completion
     puts '报销单 R2025006 审核拒绝后沟通通过流程验证通过。'
     puts '--- 第四阶段：混合处理场景完成 ---'
 
@@ -668,8 +668,8 @@ RSpec.describe 'Full Workflow Integration', type: :model do
     comm_wo_approve.save! # 状态变为 approved
 
     expect(comm_wo_approve.reload.status).to eq('approved')
-    expect(reimbursement6.fee_details.reload.pluck(:verification_status).uniq).to eq(['verified'])
-    expect(reimbursement6.reload.status).to eq('waiting_completion')
+    expect(reimbursement6.fee_details.reload.pluck(:verification_status).uniq).to eq(['verified']) # 状态变为 verified
+    expect(reimbursement6.reload.status).to eq('waiting_completion') # 报销单状态变为 waiting_completion
     puts '报销单 R2025006 审核拒绝后沟通通过流程验证通过。'
   end
 
