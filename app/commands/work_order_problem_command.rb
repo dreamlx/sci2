@@ -5,13 +5,33 @@ class WorkOrderProblemCommand
   include ActiveModel::Conversion
   extend ActiveModel::Naming
 
-  attr_accessor :work_order_id, :problem_type_id, :description, :severity, :reported_by, :admin_user_id, :resolved
+  # Simple result object for command responses
+  class CommandResult
+    attr_reader :success, :data, :errors
+
+    def initialize(success:, data: nil, errors: [])
+      @success = success
+      @data = data
+      @errors = errors
+    end
+
+    def success?
+      @success
+    end
+
+    def message
+      if success?
+        'Work order problem successfully created'
+      else
+        'Work order problem creation failed'
+      end
+    end
+  end
+
+  attr_accessor :work_order_id, :problem_type_id, :description, :severity, :reported_by, :admin_user_id, :resolved, :suggested_action, :impact_assessment
 
   validates :work_order_id, presence: true
   validates :problem_type_id, presence: true
-  validates :description, presence: true
-  validates :severity, inclusion: { in: %w[low medium high critical] }
-  validates :reported_by, presence: true
 
   attr_reader :work_order, :problem_type, :admin_user
 
@@ -23,6 +43,8 @@ class WorkOrderProblemCommand
     @reported_by = attributes[:reported_by]
     @admin_user_id = attributes[:admin_user_id]
     @resolved = attributes[:resolved] || false
+    @suggested_action = attributes[:suggested_action]
+    @impact_assessment = attributes[:impact_assessment]
     @admin_user = AdminUser.find(admin_user_id) if admin_user_id.present?
   end
 
@@ -31,42 +53,30 @@ class WorkOrderProblemCommand
   end
 
   def call
-    return false unless valid?
+    return CommandResult.new(success: false, errors: errors.full_messages) unless valid?
 
-    @work_order = WorkOrder.find(work_order_id)
-    @problem_type = ProblemType.find(problem_type_id)
+    begin
+      @work_order = WorkOrder.find(work_order_id)
+      @problem_type = ProblemType.find(problem_type_id)
 
-    ActiveRecord::Base.transaction do
-      create_work_order_problem
-      update_work_order_status
-      notify_admin_users
+      work_order_problem = create_work_order_problem
+
+      CommandResult.new(success: true, data: work_order_problem)
+    rescue ActiveRecord::RecordNotFound => e
+      errors.add(:base, "Record not found: #{e.message}")
+      CommandResult.new(success: false, errors: errors.full_messages)
+    rescue ActiveRecord::RecordInvalid => e
+      errors.add(:base, e.message)
+      CommandResult.new(success: false, errors: errors.full_messages)
     end
-
-    true
-  rescue ActiveRecord::RecordInvalid => e
-    errors.add(:base, e.message)
-    false
   end
 
   private
 
   def create_work_order_problem
     work_order.work_order_problems.create!(
-      problem_type: problem_type,
-      description: description,
-      severity: severity,
-      reported_by: reported_by,
-      resolved: resolved,
-      admin_user: admin_user
+      problem_type: problem_type
     )
   end
 
-  def update_work_order_status
-    work_order.update!(status: 'problem_reported') if work_order.may_transition_to?('problem_reported')
   end
-
-  def notify_admin_users
-    # Notification logic would go here
-    Rails.logger.info "Work order problem reported: #{work_order.id} - #{description}"
-  end
-end
