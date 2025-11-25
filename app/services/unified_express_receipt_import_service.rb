@@ -8,7 +8,8 @@ class UnifiedExpressReceiptImportService < BaseImportService
     document_number: %w[单据编号 单号 报销单号],
     operation_notes: %w[操作意见 备注 说明],
     received_at: %w[操作时间 操作日期 收单时间 收单日期],
-    filling_id: ['Filling ID', '填充ID', '记录ID']
+    filling_id: ['Filling ID', '填充ID', '记录ID'],
+    tracking_number: %w[快递单号 快递单号 快递号]
   }.freeze
 
   def import(test_spreadsheet = nil)
@@ -37,13 +38,15 @@ class UnifiedExpressReceiptImportService < BaseImportService
   private
 
   def validate_required_fields(headers)
-    required_fields = %w[快递单号]
-    missing_fields = required_fields.select { |field| !headers.include?(field) }
+    # 快递单号不是必需的列，可以从操作意见中提取
+    # 但至少需要单据编号或操作意见中的一个来提取信息
+    required_fields = %w[单据编号 操作意见]
+    available_fields = headers & required_fields
 
-    if missing_fields.any?
+    if available_fields.empty?
       {
         success: false,
-        errors: ["缺少必需字段: #{missing_fields.join(', ')}。请确保文件包含以下列: #{required_fields.join(', ')}"]
+        errors: ["缺少必需字段。请确保文件包含以下列之一: #{required_fields.join(', ')}"]
       }
     else
       { success: true }
@@ -51,51 +54,59 @@ class UnifiedExpressReceiptImportService < BaseImportService
   end
 
   def import_express_receipt(row_data, row_number)
-    begin
-      # 1. 提取快递单号和单据编号
-      document_number = extract_field_value(row_data, :document_number)
-      tracking_number = extract_receipt_number(row_data, row_number)
-      return if document_number.nil? || tracking_number.nil?
+    # 1. 提取快递单号和单据编号
+    document_number = extract_field_value(row_data, :document_number)
+    tracking_number = extract_receipt_number(row_data, row_number)
+    return if document_number.nil? || tracking_number.nil?
 
-      # 2. 查找报销单
-      reimbursement = find_reimbursement(document_number)
+    # 2. 查找报销单
+    reimbursement = find_reimbursement(document_number)
 
-      if reimbursement
-        # 3. 重复记录检查
-        if check_duplicate_record(reimbursement, tracking_number)
-          @skipped_count += 1
-          Rails.logger.info "跳过重复记录: 报销单#{document_number}, 快递单号#{tracking_number}"
-          return
-        end
-
-        if create_or_update_express_receipt(reimbursement, tracking_number, row_data, row_number)
-          @created_count += 1
-        end
-      else
-        handle_unmatched_receipt(tracking_number, row_data, row_number)
+    if reimbursement
+      # 3. 重复记录检查
+      if check_duplicate_record(reimbursement, tracking_number)
         @skipped_count += 1
+        Rails.logger.info "跳过重复记录: 报销单#{document_number}, 快递单号#{tracking_number}"
+        return
       end
 
-    rescue => e
-      handle_error(e, message: "处理第#{row_number}行数据时出错", reraise: false)
+      @created_count += 1 if create_or_update_express_receipt(reimbursement, tracking_number, row_data, row_number)
+    else
+      handle_unmatched_receipt(tracking_number, row_data, row_number)
+      @skipped_count += 1
     end
+  rescue StandardError => e
+    handle_error(e, message: "处理第#{row_number}行数据时出错", reraise: false)
   end
 
   def extract_receipt_number(row_data, row_number)
-    # 尝试直接从快递单号字段获取
-    receipt_number = row_data['快递单号']&.to_s&.strip
+    # 首先尝试直接从快递单号字段获取
+    receipt_number = extract_field_value(row_data, :tracking_number)
 
     if receipt_number.blank?
-      # 尝试从其他可能包含快递单号的字段中提取
-      row_data.each do |field_name, field_value|
-        next if field_value.blank?
+      # 如果没有直接的快递单号字段，尝试从操作意见中提取（与main分支逻辑一致）
+      operation_notes = extract_field_value(row_data, :operation_notes)
 
-        match = field_value.to_s.match(TRACKING_NUMBER_REGEX)
+      if operation_notes.present?
+        match = operation_notes.to_s.match(TRACKING_NUMBER_REGEX)
         if match
           receipt_number = match[1]
-          Rails.logger.info "从字段 '#{field_name}' 提取到快递单号: #{receipt_number}"
-          break
+          Rails.logger.info "从操作意见中提取到快递单号: #{receipt_number}"
         end
+      end
+    end
+
+    # 如果还是没有找到，尝试从其他可能包含快递单号的字段中提取
+    if receipt_number.blank?
+      row_data.each do |field_name, field_value|
+        next if field_value.blank? || %w[快递单号 操作意见].include?(field_name)
+
+        match = field_value.to_s.match(TRACKING_NUMBER_REGEX)
+        next unless match
+
+        receipt_number = match[1]
+        Rails.logger.info "从字段 '#{field_name}' 提取到快递单号: #{receipt_number}"
+        break
       end
     end
 
@@ -128,10 +139,10 @@ class UnifiedExpressReceiptImportService < BaseImportService
     # 查找或创建快递收单工单
     filling_id = extract_field_value(row_data, :filling_id)
     work_order = if filling_id.present?
-                  ExpressReceiptWorkOrder.find_or_initialize_by(filling_id: filling_id)
-                else
-                  ExpressReceiptWorkOrder.new
-                end
+                   ExpressReceiptWorkOrder.find_or_initialize_by(filling_id: filling_id)
+                 else
+                   ExpressReceiptWorkOrder.new
+                 end
 
     received_at = parse_date_field_enhanced(extract_field_value(row_data, :received_at), row_number)
 
@@ -155,7 +166,7 @@ class UnifiedExpressReceiptImportService < BaseImportService
 
       # 更新报销单状态和通知重置
       update_reimbursement_status(reimbursement, received_at)
-      
+
       true
     end
   rescue StateMachines::InvalidTransition => e
@@ -173,10 +184,10 @@ class UnifiedExpressReceiptImportService < BaseImportService
     reimbursement.mark_as_received(received_at) if received_at
 
     # 重置通知状态
-    if reimbursement.last_viewed_express_receipts_at.present?
-      reimbursement.update_column(:last_viewed_express_receipts_at, nil)
-      Rails.logger.debug "重置报销单 ##{reimbursement.id} 的通知状态"
-    end
+    return unless reimbursement.last_viewed_express_receipts_at.present?
+
+    reimbursement.update_column(:last_viewed_express_receipts_at, nil)
+    Rails.logger.debug "重置报销单 ##{reimbursement.id} 的通知状态"
   end
 
   def parse_date_field(date_string)
@@ -185,8 +196,8 @@ class UnifiedExpressReceiptImportService < BaseImportService
     begin
       # 尝试多种日期格式
       Date.parse(date_string) ||
-      Time.parse(date_string) ||
-      DateTime.parse(date_string)
+        Time.parse(date_string) ||
+        DateTime.parse(date_string)
     rescue ArgumentError
       Rails.logger.warn "无法解析日期格式: #{date_string}"
       nil
@@ -197,16 +208,14 @@ class UnifiedExpressReceiptImportService < BaseImportService
     return nil if date_string.blank?
 
     # 如果已经是时间对象，直接返回
-    if date_string.is_a?(Date) || date_string.is_a?(DateTime) || date_string.is_a?(Time)
-      return date_string
-    end
+    return date_string if date_string.is_a?(Date) || date_string.is_a?(DateTime) || date_string.is_a?(Time)
 
     date_str = date_string.to_s.strip
     return nil if date_str.blank?
 
     # 检查Excel序列号格式并拒绝
     if date_str.match?(/^\d+(\.\d+)?$/)
-      Rails.logger.warn "拒绝Excel序列号格式的时间字符串: '#{date_str}'#{row_number ? " (第#{row_number}行)" : ''}"
+      Rails.logger.warn "拒绝Excel序列号格式的时间字符串: '#{date_str}'#{" (第#{row_number}行)" if row_number}"
       return nil
     end
 
@@ -230,17 +239,19 @@ class UnifiedExpressReceiptImportService < BaseImportService
 
       common_formats.each do |format|
         parsed_time = DateTime.strptime(date_str, format)
-        Rails.logger.debug "成功解析时间 '#{date_str}' 使用格式 '#{format}'#{row_number ? " (第#{row_number}行)" : ''} => #{parsed_time}"
+        Rails.logger.debug "成功解析时间 '#{date_str}' 使用格式 '#{format}'#{if row_number
+                                                                     " (第#{row_number}行)"
+                                                                   end} => #{parsed_time}"
         return parsed_time
       rescue ArgumentError
         # 继续尝试下一种格式
       end
 
       # 所有格式都尝试失败
-      Rails.logger.warn "无法解析时间字符串: '#{date_str}'#{row_number ? " (第#{row_number}行)" : ''}"
+      Rails.logger.warn "无法解析时间字符串: '#{date_str}'#{" (第#{row_number}行)" if row_number}"
       nil
     rescue StandardError => e
-      Rails.logger.error "时间解析异常: '#{date_str}'#{row_number ? " (第#{row_number}行)" : ''} - #{e.message}"
+      Rails.logger.error "时间解析异常: '#{date_str}'#{" (第#{row_number}行)" if row_number} - #{e.message}"
       nil
     end
   end
