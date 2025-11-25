@@ -1,7 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe 'Admin::Reimbursements', type: :feature do
-  let!(:admin_user) { create(:admin_user) }
+  let!(:admin_user) { create(:admin_user, :super_admin) }
   let!(:reimbursement) { create(:reimbursement) }
 
   before do
