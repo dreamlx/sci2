@@ -1,7 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe '表单字段一致性', type: :feature do
-  let!(:admin_user) { create(:admin_user) }
+  let!(:admin_user) { create(:admin_user, :super_admin) }
   let!(:reimbursement) { create(:reimbursement) }
 
   before do

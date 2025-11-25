@@ -1,7 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe 'Form Partials', type: :feature do
-  let!(:admin_user) { create(:admin_user) }
+  let!(:admin_user) { create(:admin_user, :super_admin) }
   let!(:reimbursement) { create(:reimbursement) }
   let!(:fee_detail) { create(:fee_detail, document_number: reimbursement.invoice_number) }
 

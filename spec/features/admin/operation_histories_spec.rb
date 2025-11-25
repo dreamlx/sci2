@@ -1,7 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe '操作历史管理', type: :feature do
-  let!(:admin_user) { create(:admin_user) }
+  let!(:admin_user) { create(:admin_user, :super_admin) }
   let!(:reimbursement) { create(:reimbursement) }
   let!(:operation_history) { create(:operation_history, document_number: reimbursement.invoice_number) }
 

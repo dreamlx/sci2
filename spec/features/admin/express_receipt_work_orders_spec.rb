@@ -1,7 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe '快递收单工单管理', type: :feature do
-  let!(:admin_user) { create(:admin_user) }
+  let!(:admin_user) { create(:admin_user, :super_admin) }
   let!(:reimbursement) { create(:reimbursement) }
   let!(:express_receipt_work_order) { create(:express_receipt_work_order, reimbursement: reimbursement) }
 

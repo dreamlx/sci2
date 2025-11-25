@@ -3,7 +3,7 @@
 require 'rails_helper'
 
 RSpec.describe 'Reimbursement Completion', type: :feature do
-  let(:admin_user) { create(:admin_user) }
+  let(:admin_user) { create(:admin_user, :super_admin) }
 
   before do
     login_as(admin_user, scope: :admin_user)
