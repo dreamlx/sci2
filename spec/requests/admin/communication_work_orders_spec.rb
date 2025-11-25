@@ -33,7 +33,7 @@ RSpec.describe 'Admin::CommunicationWorkOrders', type: :request do
           problem_description: '发票信息不完整',
           remark: '测试备注',
           processing_opinion: '需要补充材料',
-          fee_detail_ids: [fee_detail.id]
+          submitted_fee_detail_ids: [fee_detail.id]
         }
       }
     end
@@ -42,15 +42,14 @@ RSpec.describe 'Admin::CommunicationWorkOrders', type: :request do
       expect do
         post admin_communication_work_orders_path, params: valid_params
       end.to change(CommunicationWorkOrder, :count).by(1)
-                                                   .and change(FeeDetailSelection, :count).by(1)
+                                                   .and change(WorkOrderFeeDetail, :count).by(1)
 
       created_work_order = CommunicationWorkOrder.last
       expect(response).to redirect_to(admin_communication_work_order_path(created_work_order))
 
-      # 验证FeeDetailSelection记录
-      expect(FeeDetailSelection.where(
+      # 验证WorkOrderFeeDetail记录
+      expect(WorkOrderFeeDetail.where(
         work_order_id: created_work_order.id,
-        work_order_type: 'CommunicationWorkOrder',
         fee_detail_id: fee_detail.id
       ).exists?).to be true
 

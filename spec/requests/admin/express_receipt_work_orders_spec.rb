@@ -81,9 +81,9 @@ RSpec.describe 'Admin::ExpressReceiptWorkOrders', type: :request do
       file = fixture_file_upload(csv_path, 'text/csv')
 
       # 模拟导入服务成功
-      service_double = instance_double(ExpressReceiptImportService,
+      service_double = instance_double(UnifiedExpressReceiptImportService,
                                        import: { success: true, created: 1, skipped: 0, unmatched: 0, errors: 0 })
-      expect(ExpressReceiptImportService).to receive(:new).with(instance_of(ActionDispatch::Http::UploadedFile),
+      expect(UnifiedExpressReceiptImportService).to receive(:new).with(instance_of(ActionDispatch::Http::UploadedFile),
                                                                 admin_user).and_return(service_double)
 
       post import_admin_express_receipt_work_orders_path, params: { file: file }
@@ -108,8 +108,8 @@ RSpec.describe 'Admin::ExpressReceiptWorkOrders', type: :request do
       file = fixture_file_upload(csv_path, 'text/csv')
 
       # 模拟导入服务失败
-      service_double = instance_double(ExpressReceiptImportService, import: { success: false, errors: ['导入错误'] })
-      allow(ExpressReceiptImportService).to receive(:new).with(instance_of(ActionDispatch::Http::UploadedFile),
+      service_double = instance_double(UnifiedExpressReceiptImportService, import: { success: false, errors: ['导入错误'] })
+      allow(UnifiedExpressReceiptImportService).to receive(:new).with(instance_of(ActionDispatch::Http::UploadedFile),
                                                                admin_user).and_return(service_double)
 
       post import_admin_express_receipt_work_orders_path, params: { file: file }

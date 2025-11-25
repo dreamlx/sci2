@@ -24,22 +24,21 @@ RSpec.describe 'Admin::AuditWorkOrders', type: :request do
     it '创建新的审核工单' do
       audit_work_order_params = attributes_for(:audit_work_order,
                                                reimbursement_id: reimbursement.id,
-                                               fee_detail_ids: [fee_detail1.id, fee_detail2.id],
+                                               submitted_fee_detail_ids: [fee_detail1.id, fee_detail2.id],
                                                problem_type: '发票问题',
                                                remark: '测试备注')
       expect do
         post admin_audit_work_orders_path, params: { audit_work_order: audit_work_order_params }
       end.to change(AuditWorkOrder, :count).by(1)
-                                           .and change(FeeDetailSelection, :count).by(2)
+                                           .and change(WorkOrderFeeDetail, :count).by(2)
 
       expect(response).to redirect_to(admin_audit_work_order_path(AuditWorkOrder.last))
       expect(AuditWorkOrder.last.problem_type).to eq('发票问题')
 
-      # 验证FeeDetailSelection记录
+      # 验证WorkOrderFeeDetail记录
       created_work_order = AuditWorkOrder.last
-      expect(FeeDetailSelection.where(
-        work_order_id: created_work_order.id,
-        work_order_type: 'AuditWorkOrder'
+      expect(WorkOrderFeeDetail.where(
+        work_order_id: created_work_order.id
       ).count).to eq(2)
     end
   end
