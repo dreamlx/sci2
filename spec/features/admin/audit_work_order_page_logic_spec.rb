@@ -1,7 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe '审核工单页面逻辑', type: :feature, js: true do
-  let(:admin_user) { create(:admin_user) }
+  let(:admin_user) { create(:admin_user, :super_admin) }
 
   let(:reimbursement) do
     create(:reimbursement,
@@ -29,17 +29,15 @@ RSpec.describe '审核工单页面逻辑', type: :feature, js: true do
 
   let!(:fee_type1) do
     create(:fee_type,
-           code: 'FT001',
-           title: '会议讲课费',
-           meeting_type: '个人',
+           name: '会议讲课费',
+           meeting_type_code: 'personal',
            active: true)
   end
 
   let!(:fee_type2) do
     create(:fee_type,
-           code: 'FT002',
-           title: '差旅费',
-           meeting_type: '个人',
+           name: '差旅费',
+           meeting_type_code: 'personal',
            active: true)
   end
 
@@ -80,8 +78,11 @@ RSpec.describe '审核工单页面逻辑', type: :feature, js: true do
 
   describe '费用明细选择' do
     it '选择费用明细后显示费用类型标签' do
-      # 选择费用明细
-      check "fee_detail_#{fee_detail1.id}"
+      # 选择费用明细 - 使用精确的ID选择器
+      find("input[id='fee_detail_#{fee_detail1.id}']").set(true)
+
+      # 等待JavaScript执行
+      sleep 0.5
 
       # 验证费用类型标签显示
       within '.fee-type-tags-container' do
@@ -91,8 +92,8 @@ RSpec.describe '审核工单页面逻辑', type: :feature, js: true do
 
     it '选择多个费用明细时按费用类型分组显示' do
       # 选择多个费用明细
-      check "fee_detail_#{fee_detail1.id}"
-      check "fee_detail_#{fee_detail2.id}"
+      find("input[id='fee_detail_#{fee_detail1.id}']").set(true)
+      find("input[id='fee_detail_#{fee_detail2.id}']").set(true)
 
       # 验证费用类型标签显示
       within '.fee-type-tags-container' do
@@ -106,7 +107,7 @@ RSpec.describe '审核工单页面逻辑', type: :feature, js: true do
     context "处理意见为'可以通过'" do
       it '显示费用类型标签但不显示问题类型选择区域' do
         # 选择费用明细
-        check "fee_detail_#{fee_detail1.id}"
+        find("input[id='fee_detail_#{fee_detail1.id}']").set(true)
 
         # 选择处理意见
         select '可以通过', from: 'audit_work_order_processing_opinion'
@@ -124,7 +125,7 @@ RSpec.describe '审核工单页面逻辑', type: :feature, js: true do
     context "处理意见为'无法通过'" do
       it '显示费用类型标签和相关问题类型选择区域' do
         # 选择费用明细
-        check "fee_detail_#{fee_detail1.id}"
+        find("input[id='fee_detail_#{fee_detail1.id}']").set(true)
 
         # 选择处理意见
         select '无法通过', from: 'audit_work_order_processing_opinion'
@@ -147,8 +148,8 @@ RSpec.describe '审核工单页面逻辑', type: :feature, js: true do
 
       it '选择多个费用类型时显示所有相关问题类型' do
         # 选择多个费用明细
-        check "fee_detail_#{fee_detail1.id}"
-        check "fee_detail_#{fee_detail2.id}"
+        find("input[id='fee_detail_#{fee_detail1.id}']").set(true)
+        find("input[id='fee_detail_#{fee_detail2.id}']").set(true)
 
         # 选择处理意见
         select '无法通过', from: 'audit_work_order_processing_opinion'
@@ -165,7 +166,7 @@ RSpec.describe '审核工单页面逻辑', type: :feature, js: true do
     context '其他处理意见' do
       it '不显示费用类型标签和问题类型选择区域' do
         # 选择费用明细
-        check "fee_detail_#{fee_detail1.id}"
+        find("input[id='fee_detail_#{fee_detail1.id}']").set(true)
 
         # 选择其他处理意见
         select '需要沟通', from: 'audit_work_order_processing_opinion'
@@ -199,7 +200,7 @@ RSpec.describe '审核工单页面逻辑', type: :feature, js: true do
 
       it '不需要选择问题类型' do
         # 选择费用明细
-        check "fee_detail_#{fee_detail1.id}"
+        find("input[id='fee_detail_#{fee_detail1.id}']").set(true)
 
         # 选择处理意见
         select '可以通过', from: 'audit_work_order_processing_opinion'
@@ -234,7 +235,7 @@ RSpec.describe '审核工单页面逻辑', type: :feature, js: true do
 
       it '必须选择至少一个问题类型' do
         # 选择费用明细
-        check "fee_detail_#{fee_detail1.id}"
+        find("input[id='fee_detail_#{fee_detail1.id}']").set(true)
 
         # 选择处理意见
         select '无法通过', from: 'audit_work_order_processing_opinion'
@@ -251,7 +252,7 @@ RSpec.describe '审核工单页面逻辑', type: :feature, js: true do
 
       it '选择问题类型后可以成功创建' do
         # 选择费用明细
-        check "fee_detail_#{fee_detail1.id}"
+        find("input[id='fee_detail_#{fee_detail1.id}']").set(true)
 
         # 选择处理意见
         select '无法通过', from: 'audit_work_order_processing_opinion'
@@ -276,7 +277,7 @@ RSpec.describe '审核工单页面逻辑', type: :feature, js: true do
   describe '费用明细状态变化' do
     it '创建通过的审核工单后费用明细状态变为verified' do
       # 选择费用明细
-      check "fee_detail_#{fee_detail1.id}"
+      find("input[id='fee_detail_#{fee_detail1.id}']").set(true)
 
       # 选择处理意见
       select '可以通过', from: 'audit_work_order_processing_opinion'
@@ -296,7 +297,7 @@ RSpec.describe '审核工单页面逻辑', type: :feature, js: true do
 
     it '创建拒绝的审核工单后费用明细状态变为problematic' do
       # 选择费用明细
-      check "fee_detail_#{fee_detail1.id}"
+      find("input[id='fee_detail_#{fee_detail1.id}']").set(true)
 
       # 选择处理意见
       select '无法通过', from: 'audit_work_order_processing_opinion'
@@ -321,7 +322,7 @@ RSpec.describe '审核工单页面逻辑', type: :feature, js: true do
 
     it '最新工单决定费用明细状态' do
       # 先创建拒绝的工单
-      check "fee_detail_#{fee_detail1.id}"
+      find("input[id='fee_detail_#{fee_detail1.id}']").set(true)
       select '无法通过', from: 'audit_work_order_processing_opinion'
       fill_in 'audit_work_order_audit_comment', with: '审核不通过'
       within '.problem-type-checkboxes' do
@@ -334,7 +335,7 @@ RSpec.describe '审核工单页面逻辑', type: :feature, js: true do
 
       # 再创建通过的工单
       visit new_admin_audit_work_order_path(reimbursement_id: reimbursement.id)
-      check "fee_detail_#{fee_detail1.id}"
+      find("input[id='fee_detail_#{fee_detail1.id}']").set(true)
       select '可以通过', from: 'audit_work_order_processing_opinion'
       fill_in 'audit_work_order_audit_comment', with: '审核通过'
       click_button '创建审核工单'

@@ -1,7 +1,7 @@
 require 'rails_helper'
 
 RSpec.describe '自定义视图', type: :feature do
-  let!(:admin_user) { create(:admin_user) }
+  let!(:admin_user) { create(:admin_user, :super_admin) }
   let!(:reimbursement) { create(:reimbursement) }
   let!(:audit_work_order) { create(:audit_work_order, reimbursement: reimbursement, status: 'processing') }
   let!(:communication_work_order) do
