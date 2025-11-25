@@ -31,6 +31,10 @@ RSpec.describe ServiceRegistry do
       def initialize(file, admin_user); end
     end)
 
+    stub_const('UnifiedExpressReceiptImportService', Class.new do
+      def initialize(file, admin_user); end
+    end)
+
     stub_const('FeeDetailImportService', Class.new do
       def initialize(file, admin_user); end
     end)
@@ -119,9 +123,9 @@ RSpec.describe ServiceRegistry do
       expect(service).to be_a(ReimbursementImportService)
     end
 
-    it 'returns ExpressReceiptImportService from express_receipt_import_service' do
+    it 'returns UnifiedExpressReceiptImportService from express_receipt_import_service' do
       service = described_class.express_receipt_import_service(file, admin_user)
-      expect(service).to be_a(ExpressReceiptImportService)
+      expect(service).to be_a(UnifiedExpressReceiptImportService)
     end
 
     it 'returns FeeDetailImportService from fee_detail_import_service' do

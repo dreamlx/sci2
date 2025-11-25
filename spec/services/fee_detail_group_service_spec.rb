@@ -64,6 +64,7 @@ RSpec.describe FeeDetailGroupService, type: :service do
   let!(:fee_detail1) do
     FeeDetail.create!(
       document_number: reimbursement.invoice_number,
+      external_fee_id: 'FEE001',
       fee_type: '月度交通费（销售/SMO/CO）',
       amount: 100.0,
       fee_date: Date.today,
@@ -74,6 +75,7 @@ RSpec.describe FeeDetailGroupService, type: :service do
   let!(:fee_detail2) do
     FeeDetail.create!(
       document_number: reimbursement.invoice_number,
+      external_fee_id: 'FEE002',
       fee_type: '月度交通费（销售/SMO/CO）',
       amount: 200.0,
       fee_date: Date.today,
@@ -84,6 +86,7 @@ RSpec.describe FeeDetailGroupService, type: :service do
   let!(:fee_detail3) do
     FeeDetail.create!(
       document_number: reimbursement.invoice_number,
+      external_fee_id: 'FEE003',
       fee_type: '办公费',
       amount: 300.0,
       fee_date: Date.today,
