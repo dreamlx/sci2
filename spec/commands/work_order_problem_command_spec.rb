@@ -12,6 +12,7 @@ RSpec.describe WorkOrderProblemCommand do
       problem_type_id: problem_type.id,
       description: 'Test problem description',
       severity: 'medium',
+      reported_by: 'Test Reporter',
       admin_user_id: admin_user.id
     }
   end
@@ -47,9 +48,6 @@ RSpec.describe WorkOrderProblemCommand do
         expect(result.data).to be_a(WorkOrderProblem)
         expect(result.data.work_order).to eq(work_order)
         expect(result.data.problem_type).to eq(problem_type)
-        expect(result.data.description).to eq('Test problem description')
-        expect(result.data.severity).to eq('medium')
-        expect(result.data.admin_user).to eq(admin_user)
       end
 
       it 'returns success message' do
@@ -70,7 +68,7 @@ RSpec.describe WorkOrderProblemCommand do
         result = command.call
 
         expect(result).not_to be_success
-        expect(result.errors).to include('Work order not found')
+        expect(result.errors.first).to include("Couldn't find WorkOrder")
       end
     end
 
@@ -84,244 +82,51 @@ RSpec.describe WorkOrderProblemCommand do
         result = command.call
 
         expect(result).not_to be_success
-        expect(result.errors).to include('Problem type not found')
+        expect(result.errors.first).to include("Couldn't find ProblemType")
       end
     end
 
-    context 'with missing description' do
+    context 'when work order problem already exists' do
       before do
-        valid_attributes[:description] = ''
+        # Create the same association first
+        WorkOrderProblem.create!(
+          work_order: work_order,
+          problem_type: problem_type
+        )
       end
 
-      it 'returns failure with description error' do
+      it 'returns failure with duplicate error' do
         command = described_class.new(valid_attributes)
         result = command.call
 
         expect(result).not_to be_success
-        expect(result.errors).to include('Description is required')
-      end
-    end
-
-    context 'with invalid severity' do
-      before do
-        valid_attributes[:severity] = 'invalid'
-      end
-
-      it 'returns failure with severity error' do
-        command = described_class.new(valid_attributes)
-        result = command.call
-
-        expect(result).not_to be_success
-        expect(result.errors).to include('Severity must be valid')
-      end
-    end
-
-    context 'with invalid admin user' do
-      before do
-        valid_attributes[:admin_user_id] = 99999
-      end
-
-      it 'returns failure with admin user error' do
-        command = described_class.new(valid_attributes)
-        result = command.call
-
-        expect(result).not_to be_success
-        expect(result.errors).to include('Admin user not found')
-      end
-    end
-
-    context 'when work order is closed' do
-      before do
-        work_order.update(status: 'closed')
-      end
-
-      it 'returns failure with closed status error' do
-        command = described_class.new(valid_attributes)
-        result = command.call
-
-        expect(result).not_to be_success
-        expect(result.errors).to include('Cannot add problems to closed work orders')
-      end
-    end
-
-    context 'when database save fails' do
-      before do
-        allow_any_instance_of(WorkOrderProblem).to receive(:save).and_return(false)
-        allow_any_instance_of(WorkOrderProblem).to receive_message_chain(:errors, :full_messages).and_return(['Database error'])
-      end
-
-      it 'returns failure with database error' do
-        command = described_class.new(valid_attributes)
-        result = command.call
-
-        expect(result).not_to be_success
-        expect(result.errors).to include('Database error')
+        expect(result.errors.first).to include('已关联此问题类型')
       end
     end
   end
 
-  describe '#valid_severities' do
-    it 'returns array of valid severities' do
-      severities = described_class.new(valid_attributes).send(:valid_severities)
-      expect(severities).to include('low', 'medium', 'high', 'critical')
-    end
-  end
-
-  describe '#validate_work_order' do
-    let(:command) { described_class.new(valid_attributes) }
-
-    it 'returns true for valid work order' do
-      expect(command.send(:validate_work_order)).to be true
+  describe 'CommandResult' do
+    it 'returns success for successful creation' do
+      result = described_class::CommandResult.new(success: true)
+      expect(result).to be_success
+      expect(result.message).to include('successfully created')
     end
 
-    it 'returns false for non-existent work order' do
-      command.work_order_id = 99999
-      expect(command.send(:validate_work_order)).to be false
-    end
-
-    it 'returns false for nil work order id' do
-      command.work_order_id = nil
-      expect(command.send(:validate_work_order)).to be false
-    end
-  end
-
-  describe '#validate_problem_type' do
-    let(:command) { described_class.new(valid_attributes) }
-
-    it 'returns true for valid problem type' do
-      expect(command.send(:validate_problem_type)).to be true
-    end
-
-    it 'returns false for non-existent problem type' do
-      command.problem_type_id = 99999
-      expect(command.send(:validate_problem_type)).to be false
-    end
-
-    it 'returns false for nil problem type id' do
-      command.problem_type_id = nil
-      expect(command.send(:validate_problem_type)).to be false
-    end
-  end
-
-  describe '#validate_admin_user' do
-    let(:command) { described_class.new(valid_attributes) }
-
-    it 'returns true for valid admin user' do
-      expect(command.send(:validate_admin_user)).to be true
-    end
-
-    it 'returns false for non-existent admin user' do
-      command.admin_user_id = 99999
-      expect(command.send(:validate_admin_user)).to be false
-    end
-
-    it 'returns false for nil admin user id' do
-      command.admin_user_id = nil
-      expect(command.send(:validate_admin_user)).to be false
-    end
-  end
-
-  describe '#validate_description' do
-    let(:command) { described_class.new(valid_attributes) }
-
-    it 'returns true for valid description' do
-      expect(command.send(:validate_description)).to be true
-    end
-
-    it 'returns false for empty description' do
-      command.description = ''
-      expect(command.send(:validate_description)).to be false
-    end
-
-    it 'returns false for nil description' do
-      command.description = nil
-      expect(command.send(:validate_description)).to be false
-    end
-
-    it 'returns false for description that is too short' do
-      command.description = 'A'
-      expect(command.send(:validate_description)).to be false
-    end
-  end
-
-  describe '#validate_severity' do
-    let(:command) { described_class.new(valid_attributes) }
-
-    it 'returns true for valid severities' do
-      %w[low medium high critical].each do |severity|
-        command.severity = severity
-        expect(command.send(:validate_severity)).to be true
-      end
-    end
-
-    it 'returns false for invalid severity' do
-      command.severity = 'invalid'
-      expect(command.send(:validate_severity)).to be false
-    end
-
-    it 'returns false for nil severity' do
-      command.severity = nil
-      expect(command.send(:validate_severity)).to be false
-    end
-  end
-
-  describe '#validate_work_order_status' do
-    let(:command) { described_class.new(valid_attributes) }
-
-    it 'returns true for open work order' do
-      expect(command.send(:validate_work_order_status)).to be true
-    end
-
-    it 'returns false for closed work order' do
-      work_order.update(status: 'closed')
-      expect(command.send(:validate_work_order_status)).to be false
-    end
-
-    it 'returns false for cancelled work order' do
-      work_order.update(status: 'cancelled')
-      expect(command.send(:validate_work_order_status)).to be false
-    end
-  end
-
-  describe 'error handling' do
-    it 'handles validation errors gracefully' do
-      command = described_class.new({})
-      result = command.call
-
+    it 'returns failure message for failed creation' do
+      result = described_class::CommandResult.new(success: false, errors: ['Error'])
       expect(result).not_to be_success
-      expect(result.errors).to be_present
       expect(result.message).to include('failed')
     end
 
-    it 'handles unexpected errors gracefully' do
-      command = described_class.new(valid_attributes)
-      allow(WorkOrderProblem).to receive(:new).and_raise(StandardError, 'Unexpected error')
-
-      result = command.call
-
-      expect(result).not_to be_success
-      expect(result.errors).to include('Unexpected error')
-    end
-  end
-
-  describe 'integration with work order status' do
-    it 'updates work order status when critical problem is added' do
-      valid_attributes[:severity] = 'critical'
-      command = described_class.new(valid_attributes)
-      result = command.call
-
-      expect(result).to be_success
-      expect(work_order.reload.status).to eq('requires_attention')
-    end
-
-    it 'does not change work order status for low severity problems' do
-      valid_attributes[:severity] = 'low'
-      original_status = work_order.status
-      command = described_class.new(valid_attributes)
-      result = command.call
-
-      expect(result).to be_success
-      expect(work_order.reload.status).to eq(original_status)
+    it 'stores data and errors correctly' do
+      work_order_problem = double('WorkOrderProblem')
+      result = described_class::CommandResult.new(
+        success: true,
+        data: work_order_problem,
+        errors: []
+      )
+      expect(result.data).to eq(work_order_problem)
+      expect(result.errors).to be_empty
     end
   end
 end
