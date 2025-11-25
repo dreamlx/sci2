@@ -61,6 +61,13 @@ class UnifiedExpressReceiptImportService < BaseImportService
       reimbursement = find_reimbursement(document_number)
 
       if reimbursement
+        # 3. 重复记录检查
+        if check_duplicate_record(reimbursement, tracking_number)
+          @skipped_count += 1
+          Rails.logger.info "跳过重复记录: 报销单#{document_number}, 快递单号#{tracking_number}"
+          return
+        end
+
         if create_or_update_express_receipt(reimbursement, tracking_number, row_data, row_number)
           @created_count += 1
         end
@@ -113,6 +120,10 @@ class UnifiedExpressReceiptImportService < BaseImportService
     nil
   end
 
+  def check_duplicate_record(reimbursement, tracking_number)
+    ExpressReceiptWorkOrder.exists?(reimbursement_id: reimbursement.id, tracking_number: tracking_number)
+  end
+
   def create_or_update_express_receipt(reimbursement, tracking_number, row_data, row_number)
     # 查找或创建快递收单工单
     filling_id = extract_field_value(row_data, :filling_id)
@@ -122,25 +133,50 @@ class UnifiedExpressReceiptImportService < BaseImportService
                   ExpressReceiptWorkOrder.new
                 end
 
-    # 设置字段值
-    work_order.assign_attributes(
-      reimbursement: reimbursement,
-      tracking_number: tracking_number,
-      operation_notes: extract_field_value(row_data, :operation_notes),
-      received_at: parse_date_field(extract_field_value(row_data, :received_at)),
-      filling_id: filling_id,
-      status: 'pending',
-      creator: @current_admin_user,
-      data_source: row_data.to_json
-    )
+    received_at = parse_date_field_enhanced(extract_field_value(row_data, :received_at), row_number)
 
-    unless work_order.save
-      @errors << "第#{row_number}行: 保存快递收单工单失败 - #{work_order.errors.full_messages.join(', ')}"
-      @error_count += 1
-      return false
+    # 使用事务保护数据一致性
+    ActiveRecord::Base.transaction do
+      # 设置字段值 - 修复字段映射错误，与原版保持一致
+      work_order.assign_attributes(
+        reimbursement: reimbursement,
+        tracking_number: tracking_number,
+        received_at: received_at,
+        filling_id: filling_id,
+        status: 'completed', # 与原版保持一致
+        created_by: @current_admin_user.id # 修复字段名错误
+      )
+
+      unless work_order.save
+        @errors << "第#{row_number}行: 保存快递收单工单失败 - #{work_order.errors.full_messages.join(', ')}"
+        @error_count += 1
+        return false
+      end
+
+      # 更新报销单状态和通知重置
+      update_reimbursement_status(reimbursement, received_at)
+      
+      true
     end
+  rescue StateMachines::InvalidTransition => e
+    @errors << "第#{row_number}行: 更新报销单状态失败 - #{e.message}"
+    @error_count += 1
+    false
+  rescue StandardError => e
+    @errors << "第#{row_number}行: 事务处理失败 - #{e.message}"
+    @error_count += 1
+    false
+  end
 
-    true
+  def update_reimbursement_status(reimbursement, received_at)
+    # 更新报销单收单状态
+    reimbursement.mark_as_received(received_at) if received_at
+
+    # 重置通知状态
+    if reimbursement.last_viewed_express_receipts_at.present?
+      reimbursement.update_column(:last_viewed_express_receipts_at, nil)
+      Rails.logger.debug "重置报销单 ##{reimbursement.id} 的通知状态"
+    end
   end
 
   def parse_date_field(date_string)
@@ -153,6 +189,58 @@ class UnifiedExpressReceiptImportService < BaseImportService
       DateTime.parse(date_string)
     rescue ArgumentError
       Rails.logger.warn "无法解析日期格式: #{date_string}"
+      nil
+    end
+  end
+
+  def parse_date_field_enhanced(date_string, row_number = nil)
+    return nil if date_string.blank?
+
+    # 如果已经是时间对象，直接返回
+    if date_string.is_a?(Date) || date_string.is_a?(DateTime) || date_string.is_a?(Time)
+      return date_string
+    end
+
+    date_str = date_string.to_s.strip
+    return nil if date_str.blank?
+
+    # 检查Excel序列号格式并拒绝
+    if date_str.match?(/^\d+(\.\d+)?$/)
+      Rails.logger.warn "拒绝Excel序列号格式的时间字符串: '#{date_str}'#{row_number ? " (第#{row_number}行)" : ''}"
+      return nil
+    end
+
+    begin
+      # 尝试标准解析
+      DateTime.parse(date_str)
+    rescue ArgumentError
+      # 尝试常见格式
+      common_formats = [
+        '%Y-%m-%d %H:%M:%S',    # 2025-01-01 10:00:00
+        '%Y/%m/%d %H:%M:%S',    # 2025/01/01 10:00:00
+        '%Y-%m-%d %H:%M',       # 2025-01-01 10:00
+        '%Y/%m/%d %H:%M',       # 2025/01/01 10:00
+        '%Y-%m-%d',             # 2025-01-01
+        '%Y/%m/%d',             # 2025/01/01
+        '%d/%m/%Y %H:%M:%S',    # 01/01/2025 10:00:00
+        '%m/%d/%Y %H:%M:%S',    # 01/01/2025 10:00:00
+        '%d-%m-%Y %H:%M:%S',    # 01-01-2025 10:00:00
+        '%m-%d-%Y %H:%M:%S'     # 01-01-2025 10:00:00
+      ]
+
+      common_formats.each do |format|
+        parsed_time = DateTime.strptime(date_str, format)
+        Rails.logger.debug "成功解析时间 '#{date_str}' 使用格式 '#{format}'#{row_number ? " (第#{row_number}行)" : ''} => #{parsed_time}"
+        return parsed_time
+      rescue ArgumentError
+        # 继续尝试下一种格式
+      end
+
+      # 所有格式都尝试失败
+      Rails.logger.warn "无法解析时间字符串: '#{date_str}'#{row_number ? " (第#{row_number}行)" : ''}"
+      nil
+    rescue StandardError => e
+      Rails.logger.error "时间解析异常: '#{date_str}'#{row_number ? " (第#{row_number}行)" : ''} - #{e.message}"
       nil
     end
   end

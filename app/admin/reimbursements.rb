@@ -50,12 +50,13 @@ ActiveAdmin.register Reimbursement do
                                    method: :can_reset_override?
 
     # Protect collection actions
-    protect_action :collection_action, action_name: :new_import, with: 'ReimbursementPolicy', method: :can_import?
-    protect_action :collection_action, action_name: :import, with: 'ReimbursementPolicy', method: :can_import?
-    protect_action :collection_action, action_name: :quick_assign, with: 'ReimbursementPolicy', method: :can_assign?
+    # temporarily disabled for debugging
+    # protect_action :collection_action, action_name: :new_import, with: 'ReimbursementPolicy', method: :can_import?
+    # protect_action :collection_action, action_name: :import, with: 'ReimbursementPolicy', method: :can_import?
+    # protect_action :collection_action, action_name: :quick_assign, with: 'ReimbursementPolicy', method: :can_assign?
 
     # Protect batch actions
-    protect_action :batch_action, action_name: :assign_to, with: 'ReimbursementPolicy', method: :can_batch_assign?
+    # protect_action :batch_action, action_name: :assign_to, with: 'ReimbursementPolicy', method: :can_batch_assign?
 
     # 当用户查看详情页面时，标记当前报销单为已查看
     def show

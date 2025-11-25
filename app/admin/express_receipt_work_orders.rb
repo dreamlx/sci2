@@ -67,7 +67,7 @@ ActiveAdmin.register ExpressReceiptWorkOrder do
       return
     end
 
-    service = ExpressReceiptImportService.new(params[:file], current_admin_user)
+    service = UnifiedExpressReceiptImportService.new(params[:file], current_admin_user)
     result = service.import
 
     if result[:success]

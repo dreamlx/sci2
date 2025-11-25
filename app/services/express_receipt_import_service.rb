@@ -1,4 +1,15 @@
 # app/services/express_receipt_import_service.rb
+# DEPRECATED: 此服务已被 UnifiedExpressReceiptImportService 替代
+# 计划废弃日期: 2025-11-30
+# 迁移指南: 请使用 UnifiedExpressReceiptImportService
+# 废弃原因: 功能重复，统一架构维护
+#
+# ⚠️  重要提醒:
+# - 此服务将在未来版本中完全移除
+# - 新项目请直接使用 UnifiedExpressReceiptImportService
+# - 现有调用请尽快迁移到统一版本
+# - 如有迁移问题，请查看 development plan 文档
+#
 class ExpressReceiptImportService
   TRACKING_NUMBER_REGEX = /快递单号[：:]\s*(\w+)/i # 提取快递单号的正则表达式
 

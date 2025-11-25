@@ -35,8 +35,12 @@ ActiveAdmin.register AuditWorkOrder do
         resource.submitted_fee_detail_ids = params[:audit_work_order][:submitted_fee_detail_ids] # Changed from :fee_detail_ids
         # 检查设置后的值
         Rails.logger.debug "AuditWorkOrder build_new_resource: 设置后 submitted_fee_detail_ids 为 #{resource.submitted_fee_detail_ids.inspect}"
-      else
-        Rails.logger.debug 'AuditWorkOrder build_new_resource: 没有 submitted_fee_detail_ids 参数'
+      end
+
+      # 设置 remark 和 problem_description 虚拟属性
+      if params[:audit_work_order]
+        resource.remark = params[:audit_work_order][:remark] if params[:audit_work_order][:remark]
+        resource.problem_description = params[:audit_work_order][:problem_description] if params[:audit_work_order][:problem_description]
       end
       resource
     end
@@ -67,6 +71,10 @@ ActiveAdmin.register AuditWorkOrder do
       if _audit_work_order_params[:problem_type_ids].present?
         @audit_work_order.problem_type_ids = _audit_work_order_params[:problem_type_ids]
       end
+
+      # 设置 remark 和 problem_description 虚拟属性
+      @audit_work_order.remark = _audit_work_order_params[:remark] if _audit_work_order_params[:remark]
+      @audit_work_order.problem_description = _audit_work_order_params[:problem_description] if _audit_work_order_params[:problem_description]
 
       if @audit_work_order.save
         redirect_to admin_audit_work_order_path(@audit_work_order), notice: '审核工单已成功创建'
@@ -106,6 +114,14 @@ ActiveAdmin.register AuditWorkOrder do
 
       # 设置问题类型IDs
       @audit_work_order.problem_type_ids = update_params[:problem_type_ids] if update_params[:problem_type_ids].present?
+
+      # 设置 remark 和 problem_description 虚拟属性
+      if update_params[:remark]
+        @audit_work_order.remark = update_params[:remark]
+      end
+      if update_params[:problem_description]
+        @audit_work_order.problem_description = update_params[:problem_description]
+      end
 
       # Use the centrally defined audit_work_order_params method for strong parameters
       # The service update method should ideally only take attributes for the model itself, not the fee IDs which are handled by callback

@@ -50,7 +50,7 @@ class ServiceRegistry
 
     # 便捷方法：获取快递收单导入服务
     def express_receipt_import_service(file, current_admin_user = Current.admin_user)
-      get_service(ExpressReceiptImportService, file, current_admin_user)
+      get_service(UnifiedExpressReceiptImportService, file, current_admin_user)
     end
 
     # 便捷方法：获取费用明细导入服务
