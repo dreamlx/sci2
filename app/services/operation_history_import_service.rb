@@ -25,7 +25,13 @@ class OperationHistoryImportService
   private
 
   def perform_import(test_spreadsheet = nil)
-    file_path = @file.respond_to?(:tempfile) ? @file.tempfile.to_path.to_s : @file.path
+    file_path = if @file.respond_to?(:tempfile)
+                  @file.tempfile.to_path.to_s
+                elsif @file.respond_to?(:path)
+                  @file.path
+                else
+                  @file.to_s # 如果是字符串，直接使用
+                end
     extension = File.extname(file_path).delete('.').downcase.to_sym
     spreadsheet = test_spreadsheet || Roo::Spreadsheet.open(file_path, extension: extension)
     # Handle both Excel and CSV files
@@ -86,25 +92,20 @@ class OperationHistoryImportService
     operation_time = parse_datetime(operation_time_str)
     Rails.logger.info "Parsed operation_time: #{operation_time}"
 
-    # 重复检查 (Req 14)
+    # 重复检查 (Req 14) - 改进版本
     if operation_time
-      Rails.logger.info "Checking for duplicates for Doc: #{document_number}, Type: #{operation_type}, Operator: #{operator}"
-      # Query for potential duplicates based on other attributes
-      potential_duplicates = OperationHistory.where(
+      Rails.logger.info "Checking for duplicates for Doc: #{document_number}, Type: #{operation_type}, Operator: #{operator}, Time: #{operation_time}"
+
+      # 使用更严格的查询条件检查重复
+      existing_history = OperationHistory.find_by(
         document_number: document_number,
         operation_type: operation_type,
-        operator: operator
+        operator: operator,
+        operation_time: operation_time
       )
-      Rails.logger.info "Found #{potential_duplicates.count} potential duplicates."
 
-      # Check if any potential duplicate has exactly the same operation_time
-      is_duplicate = potential_duplicates.any? do |existing_history|
-        result = existing_history.operation_time.present? && existing_history.operation_time == operation_time
-        Rails.logger.info "Checking duplicate: existing_time=#{existing_history.operation_time}, current_time=#{operation_time}, is_duplicate=#{result}"
-        result # 精确匹配，不使用时间窗口
-      end
-
-      if is_duplicate
+      if existing_history
+        Rails.logger.info "Found exact duplicate: #{existing_history.id}"
         @skipped_count += 1
         return # 跳过重复记录
       end
@@ -118,7 +119,22 @@ class OperationHistoryImportService
       operator: operator,
       notes: notes,
       form_type: row['表单类型'],
-      operation_node: row['操作节点']
+      operation_node: row['操作节点'],
+
+      # 映射所有CSV字段到数据库字段
+      applicant: row['申请人'],
+      employee_id: row['员工工号'],
+      employee_company: row['员工公司'],
+      employee_department: row['员工部门'],
+      employee_department_path: row['员工部门路径'],
+      document_company: row['员工单据公司'],
+      document_department: row['员工单据部门'],
+      document_department_path: row['员工单据部门路径'],
+      submitter: row['提交人'],
+      document_name: row['单据名称'],
+      currency: row['币种'],
+      amount: row['金额'].to_d,
+      created_date: parse_datetime(row['创建日期'])
     )
 
     if operation_history.save
@@ -128,9 +144,7 @@ class OperationHistoryImportService
       assign_auditor_from_operation_history(operation_history, reimbursement)
 
       # 自动更新报销单状态：如果操作类型是"审批"且操作意见包含"审批通过"，尝试关闭报销单
-      if operation_type == '审批' && notes&.include?('审批通过')
-        attempt_to_close_reimbursement(reimbursement)
-      end
+      attempt_to_close_reimbursement(reimbursement) if operation_type == '审批' && notes&.include?('审批通过')
     else
       @error_count += 1
       @errors << "行 #{row_number} (单号: #{document_number}): #{operation_history.errors.full_messages.join(', ')}"
@@ -153,9 +167,9 @@ class OperationHistoryImportService
     if reimbursement.can_be_closed?
       reimbursement.close!
       @updated_reimbursement_count += 1
-      Rails.logger.info "  报销单 #{reimbursement.invoice_number} 已自动关闭"
+      Rails.logger.info "  报销单 #{reimbursement.invoice_number || 'N/A'} 已自动关闭"
     else
-      Rails.logger.debug "  报销单 #{reimbursement.invoice_number} 不满足关闭条件：状态=#{reimbursement.status}, fee_details_verified=#{reimbursement.all_fee_details_verified?}"
+      Rails.logger.debug "  报销单 #{reimbursement.invoice_number || 'N/A'} 不满足关闭条件：状态=#{reimbursement.status}, fee_details_verified=#{reimbursement.all_fee_details_verified?}"
     end
   end
 
@@ -170,7 +184,7 @@ class OperationHistoryImportService
     operator = operation_history.operator
     return unless operator.present?
 
-    auditor = AdminUser.find_by_name_substring(operator)
+    auditor = AdminUserRepository.find_by_name_substring(operator)
 
     if auditor
       # 创建分配记录
