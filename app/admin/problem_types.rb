@@ -8,6 +8,7 @@ ActiveAdmin.register ProblemType do
   filter :title
   filter :fee_type
   filter :active
+  filter :legacy_problem_code, label: 'Legacy Problem Code'
 
   # 批量操作
   batch_action :activate do |ids|

@@ -68,3 +68,36 @@ docs/user_data/*.xlsx
 # SQLite临时文件
 db/*.sqlite3-shm
 db/*.sqlite3-wal
+
+# 临时文件和开发文件（已整理到temp目录）
+temp/
+temp/debug/
+temp/test/
+temp/logs/
+temp/reports/
+temp/backup/
+temp/scripts/
+
+# 覆盖率报告
+coverage/
+
+# AI相关临时文件
+.claude/
+.serena/
+
+# 调试和测试脚本
+debug_*.rb
+test_*.rb
+test_*.log
+commands_test_results.log
+requests_test_results.log
+services_test_results.log
+
+# 代码质量报告
+rubocop_*.json
+
+# 启动脚本
+start_*.sh
+
+# 备份文件
+*.bak
