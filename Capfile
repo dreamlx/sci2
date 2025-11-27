@@ -12,7 +12,7 @@ require 'capistrano/scm/git'
 install_plugin Capistrano::SCM::Git
 
 # Load RVM integration.
-require 'capistrano/rvm'
+# require 'capistrano/rvm'  # 禁用RVM插件，使用系统RVM
 
 # Load Bundler integration.
 require 'capistrano/bundler'
