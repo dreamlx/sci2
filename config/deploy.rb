@@ -194,7 +194,6 @@ namespace :deploy do
   desc 'Upload config files'
   task :upload_config_files do
     on roles(:app) do
-      upload! 'config/database.yml', "#{shared_path}/config/database.yml"
       upload! 'config/master.key', "#{shared_path}/config/master.key"
       upload! 'config/puma.rb', "#{shared_path}/config/puma.rb"
     end
