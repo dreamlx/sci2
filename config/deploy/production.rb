@@ -67,23 +67,12 @@ set :puma_bind, 'tcp://0.0.0.0:3000'
 set :bundle_binstubs, nil
 set :bundle_gemfile, nil
 
+# 允许安装所有gems（包括test组）
+set :bundle_without, []
+
 # 部署后任务
 after 'deploy:finished', :restart_puma do
   on roles(:app) do
     execute :sudo, :systemctl, :reload, :nginx
   end
-end
-
-# 修复bundle安装权限问题
-namespace :deploy do
-  desc 'Fix bundle permissions'
-  task :fix_bundle_permissions do
-    on roles(:app) do
-      # 设置正确的权限
-      execute :sudo, :chown, '-R', 'deploy:deploy', fetch(:deploy_to)
-      execute :sudo, :chmod, '-R', '755', "#{fetch(:deploy_to)}/shared/bundle"
-    end
-  end
-
-  after 'bundler:install', :fix_bundle_permissions
 end
