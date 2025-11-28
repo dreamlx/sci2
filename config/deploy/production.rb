@@ -68,7 +68,7 @@ set :bundle_binstubs, nil
 set :bundle_gemfile, nil
 
 # 允许安装所有gems（包括test组）
-set :bundle_without, []
+set :bundle_without, nil
 
 # 部署后任务
 after 'deploy:finished', :restart_puma do
