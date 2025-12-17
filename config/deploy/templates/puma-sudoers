@@ -1,0 +1,19 @@
+# Sudoers file for Capistrano Puma deployment
+# Install with: sudo cp puma-sudoers /etc/sudoers.d/puma-deploy && sudo chmod 440 /etc/sudoers.d/puma-deploy
+
+# Allow deploy user to manage puma-sci2 service without password
+deploy ALL=(ALL) NOPASSWD: /bin/systemctl start puma-sci2
+deploy ALL=(ALL) NOPASSWD: /bin/systemctl stop puma-sci2
+deploy ALL=(ALL) NOPASSWD: /bin/systemctl restart puma-sci2
+deploy ALL=(ALL) NOPASSWD: /bin/systemctl reload puma-sci2
+deploy ALL=(ALL) NOPASSWD: /bin/systemctl status puma-sci2
+deploy ALL=(ALL) NOPASSWD: /bin/systemctl is-active puma-sci2
+deploy ALL=(ALL) NOPASSWD: /bin/systemctl daemon-reload
+deploy ALL=(ALL) NOPASSWD: /bin/systemctl enable puma-sci2
+deploy ALL=(ALL) NOPASSWD: /bin/systemctl list-unit-files puma-sci2.service
+deploy ALL=(ALL) NOPASSWD: /bin/mv /tmp/puma-sci2.service /etc/systemd/system/puma-sci2.service
+deploy ALL=(ALL) NOPASSWD: /bin/chmod 644 /etc/systemd/system/puma-sci2.service
+deploy ALL=(ALL) NOPASSWD: /bin/journalctl -u puma-sci2 *
+
+# Allow reload of nginx (if needed)
+deploy ALL=(ALL) NOPASSWD: /bin/systemctl reload nginx

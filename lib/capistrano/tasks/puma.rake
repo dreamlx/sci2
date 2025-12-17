@@ -1,169 +1,275 @@
 # lib/capistrano/tasks/puma.rake
+# Puma management via systemd
+
 namespace :puma do
-  desc 'Check port availability'
-  task :check_port do
-    on roles(:app) do
-      info 'Checking if port 3000 is available...'
-      port_check = capture("netstat -tuln | grep ':3000 ' || echo 'PORT_FREE'")
-      if port_check.include?('PORT_FREE')
-        info '✓ Port 3000 is available'
-      else
-        warn '⚠ Port 3000 is occupied:'
-        info port_check
-
-        # Find processes using port 3000
-        processes = capture("lsof -ti:3000 || echo 'NO_PROCESSES'")
-        info "Processes using port 3000: #{processes}" unless processes.include?('NO_PROCESSES')
-      end
-    end
+  # systemd 服务名称
+  def puma_service_name
+    "puma-#{fetch(:application)}"
   end
 
-  desc 'Force kill processes on port 3000'
-  task :force_kill_port do
+  desc 'Setup systemd service for Puma'
+  task :setup_systemd do
     on roles(:app) do
-      info 'Force killing any processes on port 3000...'
-      execute 'lsof -ti:3000 | xargs -r kill -9 || true'
-      sleep 2
-      info 'Port cleanup completed'
-    end
-  end
+      info "Setting up systemd service: #{puma_service_name}"
 
-  desc 'Stop Puma gracefully with fallback'
-  task :stop do
-    on roles(:app) do
-      info 'Stopping Puma server...'
+      # 生成服务文件内容
+      template_path = File.expand_path('../../deploy/templates/puma.service.erb', __dir__)
 
-      # Step 1: Try graceful shutdown via PID file
-      if test("[ -f #{shared_path}/tmp/pids/puma.pid ]")
-        pid = capture("cat #{shared_path}/tmp/pids/puma.pid")
-        info "Found Puma PID: #{pid}"
-
-        # Try graceful shutdown
-        execute "kill -QUIT #{pid} || true"
-        sleep 3
-
-        # Check if process still exists
-        if test("kill -0 #{pid} 2>/dev/null")
-          warn 'Graceful shutdown failed, trying TERM signal...'
-          execute "kill -TERM #{pid} || true"
-          sleep 2
-
-          # Final check and force kill if needed
-          if test("kill -0 #{pid} 2>/dev/null")
-            warn 'TERM signal failed, force killing...'
-            execute "kill -9 #{pid} || true"
-          end
-        end
-
-        # Remove PID file
-        execute "rm -f #{shared_path}/tmp/pids/puma.pid"
+      if File.exist?(template_path)
+        template = ERB.new(File.read(template_path))
+        service_content = template.result(binding)
       else
-        info 'No PID file found'
+        # 内联模板作为后备
+        service_content = <<~SERVICE
+          [Unit]
+          Description=Puma HTTP Server for #{fetch(:application)}
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=#{fetch(:puma_user, host.user)}
+          WorkingDirectory=#{current_path}
+          Environment=RAILS_ENV=#{fetch(:rails_env)}
+          Environment=PATH=/usr/local/rvm/gems/ruby-#{fetch(:rvm_ruby_version)}/bin:/usr/local/rvm/gems/ruby-#{fetch(:rvm_ruby_version)}@global/bin:/usr/local/rvm/rubies/ruby-#{fetch(:rvm_ruby_version)}/bin:/usr/local/rvm/bin:/usr/bin:/bin
+          Environment=GEM_HOME=/usr/local/rvm/gems/ruby-#{fetch(:rvm_ruby_version)}
+          Environment=GEM_PATH=/usr/local/rvm/gems/ruby-#{fetch(:rvm_ruby_version)}:/usr/local/rvm/gems/ruby-#{fetch(:rvm_ruby_version)}@global
+
+          ExecStart=/usr/local/rvm/bin/rvm #{fetch(:rvm_ruby_version)} do bundle exec puma -C #{shared_path}/config/puma.rb
+          ExecReload=/bin/kill -USR1 $MAINPID
+          PIDFile=#{shared_path}/tmp/pids/puma.pid
+
+          Restart=always
+          RestartSec=5
+          StandardOutput=append:#{shared_path}/log/puma.stdout.log
+          StandardError=append:#{shared_path}/log/puma.stderr.log
+
+          [Install]
+          WantedBy=multi-user.target
+        SERVICE
       end
 
-      # Step 2: Clean up any remaining processes on port 3000
-      invoke 'puma:force_kill_port'
+      # 上传服务文件到临时位置
+      upload! StringIO.new(service_content), "/tmp/#{puma_service_name}.service"
 
-      # Step 3: Verify port is free
-      invoke 'puma:check_port'
+      # 移动到 systemd 目录（需要 sudo）
+      execute :sudo, :mv, "/tmp/#{puma_service_name}.service", "/etc/systemd/system/#{puma_service_name}.service"
+      execute :sudo, :chmod, '644', "/etc/systemd/system/#{puma_service_name}.service"
+
+      # 重新加载 systemd 并启用服务
+      execute :sudo, :systemctl, 'daemon-reload'
+      execute :sudo, :systemctl, :enable, puma_service_name
+
+      info "✓ systemd service #{puma_service_name} installed and enabled"
     end
   end
 
-  desc 'Start Puma with port verification'
+  desc 'Start Puma via systemd'
   task :start do
     on roles(:app) do
+      info "Starting #{puma_service_name}..."
+      execute :sudo, :systemctl, :start, puma_service_name
+
+      sleep 3
+      status = capture(:sudo, :systemctl, 'is-active', puma_service_name, raise_on_non_zero_exit: false)
+      if status.strip == 'active'
+        info "✓ #{puma_service_name} started successfully"
+      else
+        error "✗ Failed to start #{puma_service_name}"
+        error capture(:sudo, :journalctl, '-u', puma_service_name, '-n', '20', '--no-pager')
+      end
+    end
+  end
+
+  desc 'Stop Puma via systemd'
+  task :stop do
+    on roles(:app) do
+      info "Stopping #{puma_service_name}..."
+      execute :sudo, :systemctl, :stop, puma_service_name
+
+      sleep 2
+      status = capture(:sudo, :systemctl, 'is-active', puma_service_name, raise_on_non_zero_exit: false)
+      if status.strip == 'inactive' || status.strip == 'failed'
+        info "✓ #{puma_service_name} stopped"
+      else
+        warn "⚠ #{puma_service_name} may still be running: #{status}"
+      end
+    end
+  end
+
+  desc 'Restart Puma via systemd'
+  task :restart do
+    on roles(:app) do
+      info "Restarting #{puma_service_name}..."
+      execute :sudo, :systemctl, :restart, puma_service_name
+
+      sleep 3
+      status = capture(:sudo, :systemctl, 'is-active', puma_service_name, raise_on_non_zero_exit: false)
+      if status.strip == 'active'
+        info "✓ #{puma_service_name} restarted successfully"
+
+        # 验证端口绑定
+        port_check = capture("netstat -tuln | grep ':3000 ' || echo 'PORT_NOT_BOUND'")
+        if port_check.include?('PORT_NOT_BOUND')
+          warn '⚠ Port 3000 is not bound yet, waiting...'
+          sleep 3
+          port_check = capture("netstat -tuln | grep ':3000 ' || echo 'PORT_NOT_BOUND'")
+        end
+
+        if port_check.include?('PORT_NOT_BOUND')
+          error '✗ Port 3000 is still not bound!'
+        else
+          info '✓ Port 3000 is properly bound'
+        end
+      else
+        error "✗ Failed to restart #{puma_service_name}"
+        error capture(:sudo, :journalctl, '-u', puma_service_name, '-n', '20', '--no-pager')
+      end
+    end
+  end
+
+  desc 'Reload Puma (graceful restart) via systemd'
+  task :reload do
+    on roles(:app) do
+      info "Reloading #{puma_service_name}..."
+      execute :sudo, :systemctl, :reload, puma_service_name
+      info "✓ Reload signal sent to #{puma_service_name}"
+    end
+  end
+
+  desc 'Show Puma status via systemd'
+  task :status do
+    on roles(:app) do
+      info "=== #{puma_service_name} Status ==="
+
+      # systemd 状态
+      status_output = capture(:sudo, :systemctl, :status, puma_service_name, '--no-pager', raise_on_non_zero_exit: false)
+      info status_output
+
+      # 端口状态
+      port_check = capture("netstat -tuln | grep ':3000 ' || echo 'PORT_NOT_BOUND'")
+      if port_check.include?('PORT_NOT_BOUND')
+        warn '✗ Port 3000 is not bound'
+      else
+        info "✓ Port binding: #{port_check.strip}"
+      end
+
+      info '=== End Status ==='
+    end
+  end
+
+  desc 'Show Puma logs'
+  task :logs do
+    on roles(:app) do
+      info "=== #{puma_service_name} Recent Logs ==="
+      logs = capture(:sudo, :journalctl, '-u', puma_service_name, '-n', '50', '--no-pager')
+      info logs
+      info '=== End Logs ==='
+    end
+  end
+
+  desc 'Check if systemd service is installed'
+  task :check_systemd do
+    on roles(:app) do
+      if test(:sudo, :systemctl, 'list-unit-files', "#{puma_service_name}.service", '|', 'grep', '-q', puma_service_name)
+        info "✓ systemd service #{puma_service_name} is installed"
+        true
+      else
+        warn "✗ systemd service #{puma_service_name} is NOT installed"
+        warn 'Run: cap production puma:setup_systemd'
+        false
+      end
+    end
+  end
+
+  # ========== 后备方案：无 systemd 的 nohup 启动 ==========
+
+  desc 'Start Puma without systemd (fallback)'
+  task :start_nohup do
+    on roles(:app), pty: false do
       within current_path do
         with rails_env: fetch(:rails_env) do
-          # Ensure port is available before starting
-          invoke 'puma:check_port'
+          info 'Starting Puma server via nohup (fallback mode)...'
 
-          info 'Starting Puma server in background...'
-          execute '/usr/local/rvm/bin/rvm',
-                  "3.4.2 do bundle exec puma -C config/puma.rb --pidfile #{shared_path}/tmp/pids/puma.pid --redirect-stdout #{shared_path}/log/puma.stdout.log --redirect-stderr #{shared_path}/log/puma.stderr.log", in: :background
+          # 先停止已有进程
+          invoke 'puma:stop_nohup'
+          sleep 2
 
-          # Wait and verify startup
-          sleep 5
+          # 创建启动脚本
+          start_script = "#{shared_path}/tmp/start_puma.sh"
+          script_content = <<~SCRIPT
+            #!/bin/bash
+            cd #{current_path}
+            export RAILS_ENV=#{fetch(:rails_env)}
+            /usr/local/rvm/bin/rvm #{fetch(:rvm_ruby_version)} do bundle exec puma \\
+              -C #{shared_path}/config/puma.rb \\
+              --pidfile #{shared_path}/tmp/pids/puma.pid \\
+              >> #{shared_path}/log/puma.stdout.log \\
+              2>> #{shared_path}/log/puma.stderr.log &
+          SCRIPT
+          upload! StringIO.new(script_content), start_script
+          execute "chmod +x #{start_script}"
+          execute "nohup #{start_script} > /dev/null 2>&1 &"
 
-          if test("[ -f #{shared_path}/tmp/pids/puma.pid ]")
-            pid = capture("cat #{shared_path}/tmp/pids/puma.pid")
-            if test("kill -0 #{pid} 2>/dev/null")
-              info "✓ Puma server started successfully (PID: #{pid})"
-
-              # Verify port is bound
-              sleep 2
-              port_check = capture("netstat -tuln | grep ':3000 ' || echo 'PORT_NOT_BOUND'")
-              if port_check.include?('PORT_NOT_BOUND')
-                error '✗ Puma started but port 3000 is not bound!'
-              else
-                info '✓ Port 3000 is properly bound'
+          # 等待启动
+          max_wait = 30
+          waited = 0
+          while waited < max_wait
+            sleep 2
+            waited += 2
+            if test("[ -f #{shared_path}/tmp/pids/puma.pid ]")
+              pid = capture("cat #{shared_path}/tmp/pids/puma.pid").strip
+              if test("kill -0 #{pid} 2>/dev/null")
+                info "✓ Puma started (PID: #{pid})"
+                break
               end
+            end
+            info "Waiting for Puma to start... (#{waited}s)"
+          end
+
+          # 验证
+          if test("[ -f #{shared_path}/tmp/pids/puma.pid ]")
+            pid = capture("cat #{shared_path}/tmp/pids/puma.pid").strip
+            if test("kill -0 #{pid} 2>/dev/null")
+              info "✓ Puma is running (PID: #{pid})"
             else
-              error '✗ Puma process not running after start'
+              error '✗ Puma process not running'
             end
           else
             error '✗ PID file not created'
           end
-
-          info 'Check server status with: cap production server:check_puma'
         end
       end
     end
   end
 
-  desc 'Restart Puma with enhanced error handling'
-  task :restart do
+  desc 'Stop Puma without systemd (fallback)'
+  task :stop_nohup do
     on roles(:app) do
-      info 'Restarting Puma server with enhanced error handling...'
+      info 'Stopping Puma (fallback mode)...'
 
-      # Enhanced stop with verification
-      invoke 'puma:stop'
-
-      # Additional wait time for complete cleanup
-      info 'Waiting for complete cleanup...'
-      sleep 3
-
-      # Final port verification before start
-      invoke 'puma:check_port'
-
-      # Start with verification
-      invoke 'puma:start'
-
-      info '✓ Puma server restart completed successfully'
-    end
-  end
-
-  desc 'Show Puma status and diagnostics'
-  task :status do
-    on roles(:app) do
-      info '=== Puma Status Diagnostics ==='
-
-      # Check PID file
       if test("[ -f #{shared_path}/tmp/pids/puma.pid ]")
-        pid = capture("cat #{shared_path}/tmp/pids/puma.pid")
-        info "PID file exists: #{pid}"
-
+        pid = capture("cat #{shared_path}/tmp/pids/puma.pid").strip
         if test("kill -0 #{pid} 2>/dev/null")
-          info "✓ Process #{pid} is running"
-        else
-          warn "✗ Process #{pid} is not running (stale PID file)"
+          execute "kill -TERM #{pid} 2>/dev/null || true"
+          sleep 3
+          if test("kill -0 #{pid} 2>/dev/null")
+            execute "kill -KILL #{pid} 2>/dev/null || true"
+          end
         end
-      else
-        info 'No PID file found'
+        execute "rm -f #{shared_path}/tmp/pids/puma.pid"
       end
 
-      # Check port
-      invoke 'puma:check_port'
+      # 清理所有 puma 进程
+      execute "pkill -f 'puma.*#{fetch(:application)}' 2>/dev/null || true"
 
-      # Check logs
-      if test("[ -f #{shared_path}/log/puma.stdout.log ]")
-        info 'Recent stdout log:'
-        execute "tail -10 #{shared_path}/log/puma.stdout.log || true"
-      end
-
-      if test("[ -f #{shared_path}/log/puma.stderr.log ]")
-        info 'Recent stderr log:'
-        execute "tail -10 #{shared_path}/log/puma.stderr.log || true"
-      end
+      info '✓ Puma stopped'
     end
+  end
+
+  desc 'Restart Puma without systemd (fallback)'
+  task :restart_nohup do
+    invoke 'puma:stop_nohup'
+    sleep 2
+    invoke 'puma:start_nohup'
   end
 end

@@ -1,11 +1,8 @@
 # config valid for current version and patch releases of Capistrano
-lock '~> 3.19.2'
+lock '~> 3.20.0'
 
 set :application, 'sci2'
 set :repo_url, 'git@gitee.com:dreamlx/sci2.git'
-
-# Default value for :scm is :git
-set :scm, :git
 
 # 添加详细日志输出
 set :log_level, :debug
@@ -31,7 +28,7 @@ set :deploy_to, '/opt/sci2'
 set :pty, true
 
 # Default value for :linked_files is []
-append :linked_files, 'config/database.production.yml', 'config/master.key', 'config/puma.rb'
+append :linked_files, 'config/database.yml', 'config/master.key', 'config/puma.rb'
 
 # Default value for linked_dirs is []
 append :linked_dirs, 'log', 'tmp/pids', 'tmp/cache', 'tmp/sockets', 'public/system', 'storage'
@@ -85,8 +82,7 @@ set :puma_preload_app, true
 set :puma_worker_timeout, nil
 set :puma_init_active_record, true
 
-# Default value for :linked_files is []
-# append :linked_files, "config/database.yml", 'config/master.key'
+# 已在上方追加 config/database.yml / master.key / puma.rb
 
 # Default value for linked_dirs is []
 append :linked_dirs, 'log', 'tmp/pids', 'tmp/cache', 'tmp/sockets', 'public/system', 'storage'
@@ -158,10 +154,6 @@ namespace :deploy do
     end
   end
 
-  after 'deploy:publishing', 'puma:restart'
-
-  after 'deploy:publishing', 'deploy:restart'
-
   desc 'Setup environment variables'
   task :setup_environment do
     on roles(:app) do
@@ -172,19 +164,26 @@ namespace :deploy do
       db_username = fetch(:database_username, nil)
       db_password = fetch(:database_password, nil)
 
-      if db_username.nil? || db_password.nil?
+      # Production uses PostgreSQL with credentials configured in database.yml on server
+      if fetch(:rails_env) == 'production'
+        puts 'Using PostgreSQL for production - database credentials configured on server'
+      elsif db_username.nil? || db_password.nil?
         puts 'Database credentials not set. Please set them in config/deploy/production.rb:'
-        puts "set :database_username, 'your_mysql_username'"
-        puts "set :database_password, 'your_mysql_password'"
+        puts "set :database_username, 'your_db_username'"
+        puts "set :database_password, 'your_db_password'"
         exit 1
       end
 
       # Create environment file
       env_content = <<~ENV
-        export SCI2_DATABASE_USERNAME='#{db_username}'
-        export SCI2_DATABASE_PASSWORD='#{db_password}'
         export RAILS_ENV=production
       ENV
+
+      # Add database credentials only if they exist (for non-production environments)
+      if db_username && db_password
+        env_content << "export SCI2_DATABASE_USERNAME='#{db_username}'\n"
+        env_content << "export SCI2_DATABASE_PASSWORD='#{db_password}'\n"
+      end
 
       upload! StringIO.new(env_content), "#{shared_path}/config/environment"
       execute :chmod, "600 #{shared_path}/config/environment"
@@ -199,21 +198,12 @@ namespace :deploy do
     end
   end
 
-  desc 'Setup database'
+  desc 'Setup database directories'
   task :setup_database do
     on roles(:db) do
-      # 确保 shared/db 目录存在
+      # 确保共享目录结构存在（PostgreSQL 数据库在服务器上已配置）
       execute :mkdir, "-p #{shared_path}/db"
-
-      # 检查 shared 路径下的数据库文件是否存在，如果不存在就创建它
-      # 这是为了让 Capistrano 的 linked_files 任务能够成功创建符号链接
-      if test("[ -f #{shared_path}/db/sci2_production.sqlite3 ]")
-        puts '✅ SQLite database already exists in shared path, skipping creation'
-      else
-        puts '🔧 Touching new SQLite database file in shared path...'
-        execute :touch, "#{shared_path}/db/sci2_production.sqlite3"
-        execute :chmod, '664', "#{shared_path}/db/sci2_production.sqlite3"
-      end
+      puts 'PostgreSQL database configured on server - skipping local database setup'
     end
   end
 
@@ -234,8 +224,6 @@ end
 
 # 资源预编译验证流程
 after 'deploy:assets:precompile', 'assets:verify'
-before 'deploy:restart', 'assets:verify'
 
-after 'deploy:finishing', 'deploy:restart'
-# Link puma restart task to deploy flow
+# Puma restart after deployment
 after 'deploy:publishing', 'puma:restart'

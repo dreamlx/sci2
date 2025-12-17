@@ -1,0 +1,24 @@
+[Unit]
+Description=Puma HTTP Server for <%= fetch(:application) %>
+After=network.target
+
+[Service]
+Type=simple
+User=<%= fetch(:puma_user, 'deploy') %>
+WorkingDirectory=<%= current_path %>
+Environment=RAILS_ENV=<%= fetch(:rails_env) %>
+Environment=PATH=/usr/local/rvm/gems/ruby-<%= fetch(:rvm_ruby_version) %>/bin:/usr/local/rvm/gems/ruby-<%= fetch(:rvm_ruby_version) %>@global/bin:/usr/local/rvm/rubies/ruby-<%= fetch(:rvm_ruby_version) %>/bin:/usr/local/rvm/bin:/usr/bin:/bin
+Environment=GEM_HOME=/usr/local/rvm/gems/ruby-<%= fetch(:rvm_ruby_version) %>
+Environment=GEM_PATH=/usr/local/rvm/gems/ruby-<%= fetch(:rvm_ruby_version) %>:/usr/local/rvm/gems/ruby-<%= fetch(:rvm_ruby_version) %>@global
+
+ExecStart=/usr/local/rvm/bin/rvm <%= fetch(:rvm_ruby_version) %> do bundle exec puma -C <%= shared_path %>/config/puma.rb
+ExecReload=/bin/kill -USR1 $MAINPID
+PIDFile=<%= shared_path %>/tmp/pids/puma.pid
+
+Restart=always
+RestartSec=5
+StandardOutput=append:<%= shared_path %>/log/puma.stdout.log
+StandardError=append:<%= shared_path %>/log/puma.stderr.log
+
+[Install]
+WantedBy=multi-user.target

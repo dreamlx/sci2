@@ -52,6 +52,14 @@ group :development do
   gem 'better_errors'
   gem 'binding_of_caller'
   gem 'web-console'
+
+  # Capistrano deployment
+  gem 'capistrano', '~> 3.20'
+  gem 'capistrano-bundler', '~> 2.0'
+  gem 'capistrano-rails', '~> 1.6'
+  gem 'capistrano-rvm'
+  gem 'ed25519', '>= 1.2', '< 2.0'
+  gem 'bcrypt_pbkdf', '>= 1.0', '< 2.0'
 end
 
 # === TEST ===================================================================

@@ -21,8 +21,9 @@ require 'capistrano/bundler'
 require 'capistrano/rails'
 
 # Load Puma integration.
-require 'capistrano/puma'
-install_plugin Capistrano::Puma
+# 使用自定义的 lib/capistrano/tasks/puma.rake 管理 Puma
+# require 'capistrano/puma'
+# install_plugin Capistrano::Puma
 
 # --- Custom Tasks ---
 # Load custom tasks from `lib/capistrano/tasks` if you have any.

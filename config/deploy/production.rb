@@ -8,8 +8,6 @@ set :branch, 'main'
 
 # 使用Gitee仓库 (国内访问更快)
 set :repo_url, 'https://gitee.com/dreamlx/sci2.git'
-set :scm, :git
-set :deploy_via, :remote_cache
 
 # SSH配置 - 使用密钥认证
 set :ssh_options, {
@@ -35,21 +33,16 @@ set :default_env, {
 # 确保使用正确的Ruby版本
 set :ruby_version, '3.4.2'
 
-# PostgreSQL配置
-set :database_config, 'config/database.production.yml'
+# PostgreSQL 配置
+set :database_config, 'config/database.yml'
 
-# 数据库凭据 (为了满足Capistrano要求)
-set :database_username, 'sci2_prod'
-set :database_password, 'your_secure_password'
-
-# 环境变量
 set :env_variables, {
   'RAILS_ENV' => 'production',
-  'DATABASE_HOST' => 'localhost',
+  'DATABASE_USERNAME' => 'sci2',
+  'DATABASE_PASSWORD' => 'password_123',
+  'DATABASE_HOST' => '127.0.0.1',
   'DATABASE_PORT' => '5432',
-  'DATABASE_USERNAME' => 'sci2_prod',
-  'DATABASE_PASSWORD' => 'your_secure_password',
-  'RAILS_MAX_THREADS' => '20'
+  'DATABASE_NAME_PROD' => 'sci2_production'
 }
 
 # 生产环境设置

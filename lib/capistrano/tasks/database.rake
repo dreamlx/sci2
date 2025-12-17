@@ -41,15 +41,11 @@ namespace :database do
   task :test_connection do
     on roles(:db) do
       within release_path do
-        # Source environment variables and test connection
-        # Source environment variables and test connection
         runner_command = <<~RUBY
           begin
             puts 'Testing database connection...'
             puts 'Adapter: ' + ActiveRecord::Base.connection.adapter_name
-            if ActiveRecord::Base.connection.adapter_name != 'SQLite'
-              puts 'Database: ' + ActiveRecord::Base.connection.current_database
-            end
+            puts 'Database: ' + ActiveRecord::Base.connection.current_database
             puts 'Connection successful!'
           rescue => e
             puts 'Connection failed: ' + e.message

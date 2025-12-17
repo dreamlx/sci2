@@ -144,6 +144,3 @@ end
 
 # 在资源预编译后自动运行验证
 after 'deploy:assets:precompile', 'assets:verify'
-
-# 如果验证失败，在重启前再次尝试修复
-before 'deploy:restart', 'assets:verify'
