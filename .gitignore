@@ -69,14 +69,11 @@ docs/user_data/*.xlsx
 db/*.sqlite3-shm
 db/*.sqlite3-wal
 
-# 临时文件和开发文件（已整理到temp目录）
+# 临时文件和开发文件
 temp/
-temp/debug/
-temp/test/
-temp/logs/
-temp/reports/
-temp/backup/
-temp/scripts/
+
+# 归档的废弃文件（不提交到 git）
+.archive/
 
 # 覆盖率报告
 coverage/
@@ -95,9 +92,6 @@ services_test_results.log
 
 # 代码质量报告
 rubocop_*.json
-
-# 启动脚本
-start_*.sh
 
 # 备份文件
 *.bak
