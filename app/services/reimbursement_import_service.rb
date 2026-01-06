@@ -162,9 +162,10 @@ class ReimbursementImportService
   def save_and_post_process(reimbursement, row, is_new_record, row_number)
     if reimbursement.save
       Rails.logger.debug "  Reimbursement saved successfully. Final external_status: #{reimbursement.external_status.inspect}, Final internal_status: #{reimbursement.status.inspect}"
-      
+
       assign_auditor_if_needed(reimbursement, row)
-      
+      assign_by_approver_if_needed(reimbursement, row)
+
       is_new_record ? @created_count += 1 : @updated_count += 1
     else
       @error_count += 1
@@ -181,31 +182,63 @@ class ReimbursementImportService
   end
 
   def assign_auditor_if_needed(reimbursement, row)
+    # 已分配的报销单不再重新分配
+    return if reimbursement.active_assignment.present?
+
     current_approval_node = row['当前审批节点']&.strip
     current_approver = row['当前审批人']&.strip
 
     return unless current_approval_node == '审核' && current_approver.present?
 
     # 查找匹配的审核员
-    auditor = AdminUser.find_by_name_substring(current_approver)
+    auditor = AdminUserRepository.find_by_name_substring(current_approver)
 
     if auditor
-      # 创建分配记录
-      assignment = ReimbursementAssignment.new(
-        reimbursement: reimbursement,
-        assignee: auditor,
-        assigner: @current_admin_user,
-        is_active: true,
-        notes: '自动分配：导入时检测到审核节点和审核人匹配'
-      )
-
-      if assignment.save
-        Rails.logger.info "  自动分配成功：报销单 #{reimbursement.invoice_number} 分配给 #{auditor.name}"
-      else
-        Rails.logger.warn "  自动分配失败：#{assignment.errors.full_messages.join(', ')}"
-      end
+      create_assignment(reimbursement, auditor, '自动分配：导入时检测到审核节点和审核人匹配')
     else
       Rails.logger.debug "  未找到匹配的审核员：#{current_approver}"
+    end
+  end
+
+  # 当外部状态为"待付款/已付款"时，按审核通过人分配
+  def assign_by_approver_if_needed(reimbursement, row)
+    # 已分配的报销单不再重新分配
+    return if reimbursement.active_assignment.present?
+
+    external_status = row['报销单状态']&.strip
+    approver_name = row['审核通过人']&.strip
+
+    # 仅当外部状态为"待付款"或"已付款"时触发
+    return unless external_status&.match?(/待付款|已付款/)
+    return unless approver_name.present?
+
+    # 跳过系统占位符
+    return if approver_name.match?(/系统审核|未维护信息/)
+
+    # 查找匹配的审核员
+    auditor = AdminUserRepository.find_by_name_substring(approver_name)
+
+    if auditor
+      create_assignment(reimbursement, auditor, "自动分配：外部状态为#{external_status}，按审核通过人分配")
+    else
+      Rails.logger.debug "  未找到匹配的审核通过人：#{approver_name}"
+    end
+  end
+
+  # 创建分配记录的通用方法
+  def create_assignment(reimbursement, auditor, notes)
+    assignment = ReimbursementAssignment.new(
+      reimbursement: reimbursement,
+      assignee: auditor,
+      assigner: @current_admin_user,
+      is_active: true,
+      notes: notes
+    )
+
+    if assignment.save
+      Rails.logger.info "  自动分配成功：报销单 #{reimbursement.invoice_number} 分配给 #{auditor.name}"
+    else
+      Rails.logger.warn "  自动分配失败：#{assignment.errors.full_messages.join(', ')}"
     end
   end
 end

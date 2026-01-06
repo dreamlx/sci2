@@ -376,6 +376,132 @@ RSpec.describe ReimbursementImportService do
           end
         end
       end
+
+      describe 'assignment by approver_name when external status is 待付款/已付款' do
+        let!(:approver) { create(:admin_user, name: 'Emily Li') }
+        let(:headers) do
+          ['报销单单号', '单据名称', '报销单申请人', '报销单申请人工号', '申请人公司',
+           '申请人部门', '报销金额（单据币种）', '报销单状态', '审核通过人']
+        end
+
+        context 'when external_status is "待付款" and approver_name matches' do
+          it 'automatically assigns the reimbursement based on approver_name' do
+            spreadsheet = double('spreadsheet')
+            allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+            allow(spreadsheet).to receive(:row).with(1).and_return(headers)
+            allow(spreadsheet).to receive(:each_with_index).and_yield(
+              ['R202501020', '测试报销单', '测试用户', 'TEST001', '测试公司', '测试部门', '100.00', '待付款', 'Emily Li'], 1
+            )
+
+            expect do
+              service.import(spreadsheet)
+            end.to change(ReimbursementAssignment, :count).by(1)
+
+            reimbursement = Reimbursement.find_by(invoice_number: 'R202501020')
+            assignment = reimbursement.active_assignment
+
+            expect(assignment).to be_present
+            expect(assignment.assignee).to eq(approver)
+            expect(assignment.notes).to include('自动分配：外部状态为待付款')
+          end
+        end
+
+        context 'when external_status is "已付款" and approver_name matches' do
+          it 'automatically assigns the reimbursement based on approver_name' do
+            spreadsheet = double('spreadsheet')
+            allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+            allow(spreadsheet).to receive(:row).with(1).and_return(headers)
+            allow(spreadsheet).to receive(:each_with_index).and_yield(
+              ['R202501021', '测试报销单', '测试用户', 'TEST001', '测试公司', '测试部门', '100.00', '已付款', 'Emily Li'], 1
+            )
+
+            expect do
+              service.import(spreadsheet)
+            end.to change(ReimbursementAssignment, :count).by(1)
+
+            reimbursement = Reimbursement.find_by(invoice_number: 'R202501021')
+            assignment = reimbursement.active_assignment
+
+            expect(assignment).to be_present
+            expect(assignment.assignee).to eq(approver)
+            expect(assignment.notes).to include('自动分配：外部状态为已付款')
+          end
+        end
+
+        context 'when external_status is neither "待付款" nor "已付款"' do
+          it 'does not assign by approver_name' do
+            spreadsheet = double('spreadsheet')
+            allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+            allow(spreadsheet).to receive(:row).with(1).and_return(headers)
+            allow(spreadsheet).to receive(:each_with_index).and_yield(
+              ['R202501022', '测试报销单', '测试用户', 'TEST001', '测试公司', '测试部门', '100.00', '审批中', 'Emily Li'], 1
+            )
+
+            expect do
+              service.import(spreadsheet)
+            end.not_to change(ReimbursementAssignment, :count)
+
+            reimbursement = Reimbursement.find_by(invoice_number: 'R202501022')
+            expect(reimbursement.active_assignment).to be_nil
+          end
+        end
+
+        context 'when approver_name is a system placeholder' do
+          it 'does not assign for "系统审核"' do
+            spreadsheet = double('spreadsheet')
+            allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+            allow(spreadsheet).to receive(:row).with(1).and_return(headers)
+            allow(spreadsheet).to receive(:each_with_index).and_yield(
+              ['R202501023', '测试报销单', '测试用户', 'TEST001', '测试公司', '测试部门', '100.00', '待付款', '系统审核'], 1
+            )
+
+            expect do
+              service.import(spreadsheet)
+            end.not_to change(ReimbursementAssignment, :count)
+          end
+
+          it 'does not assign for "未维护信息"' do
+            spreadsheet = double('spreadsheet')
+            allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+            allow(spreadsheet).to receive(:row).with(1).and_return(headers)
+            allow(spreadsheet).to receive(:each_with_index).and_yield(
+              ['R202501024', '测试报销单', '测试用户', 'TEST001', '测试公司', '测试部门', '100.00', '已付款', '未维护信息'], 1
+            )
+
+            expect do
+              service.import(spreadsheet)
+            end.not_to change(ReimbursementAssignment, :count)
+          end
+        end
+
+        context 'when reimbursement is already assigned' do
+          let!(:existing_reimbursement) do
+            create(:reimbursement, invoice_number: 'R202501025')
+          end
+          let!(:existing_assignment) do
+            create(:reimbursement_assignment,
+                   reimbursement: existing_reimbursement,
+                   assignee: admin_user,
+                   is_active: true)
+          end
+
+          it 'does not reassign the reimbursement' do
+            spreadsheet = double('spreadsheet')
+            allow(spreadsheet).to receive(:respond_to?).with(:sheet).and_return(false)
+            allow(spreadsheet).to receive(:row).with(1).and_return(headers)
+            allow(spreadsheet).to receive(:each_with_index).and_yield(
+              ['R202501025', '测试报销单', '测试用户', 'TEST001', '测试公司', '测试部门', '100.00', '待付款', 'Emily Li'], 1
+            )
+
+            expect do
+              service.import(spreadsheet)
+            end.not_to change(ReimbursementAssignment, :count)
+
+            existing_reimbursement.reload
+            expect(existing_reimbursement.active_assignment.assignee).to eq(admin_user)
+          end
+        end
+      end
     end
 
     context 'missing required columns validation' do

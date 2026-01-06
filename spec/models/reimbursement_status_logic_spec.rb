@@ -80,6 +80,16 @@ RSpec.describe Reimbursement, type: :model do
         expect(reimbursement.should_close_based_on_external_status?).to be_truthy
       end
 
+      it 'returns true for "del" external status (deleted/cancelled)' do
+        reimbursement.external_status = 'del'
+        expect(reimbursement.should_close_based_on_external_status?).to be_truthy
+      end
+
+      it 'returns true for "DEL" external status (case insensitive)' do
+        reimbursement.external_status = 'DEL'
+        expect(reimbursement.should_close_based_on_external_status?).to be_truthy
+      end
+
       it 'returns false for other external statuses' do
         %w[审批中 待审核].each do |status|
           reimbursement.external_status = status
@@ -102,7 +112,7 @@ RSpec.describe Reimbursement, type: :model do
 
       context 'when no manual override' do
         it 'returns "closed" for closing external statuses' do
-          %w[已付款 待付款].each do |ext_status|
+          %w[已付款 待付款 del DEL].each do |ext_status|
             expect(reimbursement.determine_internal_status_from_external(ext_status)).to eq('closed')
           end
         end

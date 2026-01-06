@@ -247,6 +247,16 @@ RSpec.describe Reimbursement, type: :model do
         expect(reimbursement.should_close_based_on_external_status?).to be true
       end
 
+      it 'returns true for "del" (deleted/cancelled)' do
+        reimbursement.external_status = 'del'
+        expect(reimbursement.should_close_based_on_external_status?).to be true
+      end
+
+      it 'returns true for "DEL" (case insensitive)' do
+        reimbursement.external_status = 'DEL'
+        expect(reimbursement.should_close_based_on_external_status?).to be true
+      end
+
       it 'returns false for other statuses' do
         reimbursement.external_status = '审批中'
         expect(reimbursement.should_close_based_on_external_status?).to be false
@@ -278,6 +288,14 @@ RSpec.describe Reimbursement, type: :model do
 
       it 'returns closed for "已付款"' do
         expect(reimbursement.determine_internal_status_from_external('已付款')).to eq('closed')
+      end
+
+      it 'returns closed for "del" (deleted/cancelled)' do
+        expect(reimbursement.determine_internal_status_from_external('del')).to eq('closed')
+      end
+
+      it 'returns closed for "DEL" (case insensitive)' do
+        expect(reimbursement.determine_internal_status_from_external('DEL')).to eq('closed')
       end
 
       it 'returns processing if active work orders exist' do

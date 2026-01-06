@@ -322,10 +322,11 @@ class Reimbursement < ApplicationRecord
   end
 
   # Check if external status should force closure
+  # 当外部状态为"待付款"、"已付款"或"del"(删除/作废)时，应自动关闭内部状态
   def should_close_based_on_external_status?
     return false unless external_status.present?
 
-    external_status.match?(/已付款|待付款/)
+    external_status.match?(/已付款|待付款|del/i)
   end
 
   # Check if reimbursement has active work orders
@@ -334,10 +335,11 @@ class Reimbursement < ApplicationRecord
   end
 
   # Determine internal status based on business rules
+  # 当外部状态为"待付款"、"已付款"或"del"时，内部状态应为 CLOSED
   def determine_internal_status_from_external(external_status_value)
     return status if manual_override?
 
-    if external_status_value&.match?(/已付款|待付款/)
+    if external_status_value&.match?(/已付款|待付款|del/i)
       STATUS_CLOSED
     elsif has_active_work_orders?
       STATUS_PROCESSING
