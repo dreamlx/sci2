@@ -70,24 +70,36 @@
   <% else %>
     <%# 新建模式：显示复选框 %>
     <div class="fee-details-selection">
-      <table class="index_table fee-details-table">
+      <table class="index_table fee-details-table" id="fee-details-sortable-table">
         <thead>
           <tr>
             <th class="checkbox-column"></th>
             <th>ID</th>
-            <th>费用类型</th>
-            <th>原始金额</th>
-            <th>费用日期</th>
+            <th class="sortable" data-sort-key="fee_type" data-sort-type="string">
+              费用类型 <span class="sort-indicator"></span>
+            </th>
+            <th class="sortable" data-sort-key="amount" data-sort-type="number">
+              原始金额 <span class="sort-indicator"></span>
+            </th>
+            <th class="sortable" data-sort-key="fee_date" data-sort-type="date">
+              费用日期 <span class="sort-indicator"></span>
+            </th>
             <th>单据名称</th>
             <th>产品</th>
-            <th>验证状态</th>
+            <th class="sortable" data-sort-key="verification_status" data-sort-type="string">
+              验证状态 <span class="sort-indicator"></span>
+            </th>
             <th>最新关联工单</th>
             <th>问题类型</th>
           </tr>
         </thead>
         <tbody>
           <% reimbursement.fee_details.each do |fee_detail| %>
-            <tr class="fee-detail-row">
+            <tr class="fee-detail-row"
+                data-fee-type="<%= fee_detail.fee_type %>"
+                data-amount="<%= fee_detail.amount.to_f %>"
+                data-fee-date="<%= fee_detail.fee_date&.to_s %>"
+                data-verification-status="<%= fee_detail.verification_status %>">
               <td class="checkbox-column">
                 <%
                   # For new work orders, determine the type from the controller name
@@ -200,6 +212,28 @@
   position: sticky;
   top: 0;
   z-index: 10;
+}
+
+.fee-details-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.fee-details-table th.sortable:hover {
+  background-color: #e8e8e8;
+}
+
+.fee-details-table th .sort-indicator {
+  margin-left: 5px;
+  font-size: 10px;
+}
+
+.fee-details-table th.sort-asc .sort-indicator::after {
+  content: '▲';
+}
+
+.fee-details-table th.sort-desc .sort-indicator::after {
+  content: '▼';
 }
 
 .fee-details-table tbody tr:hover {

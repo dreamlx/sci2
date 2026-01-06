@@ -28,6 +28,22 @@ ActiveAdmin.register AuditWorkOrder do
       if params[:reimbursement_id] && resource.reimbursement_id.nil?
         resource.reimbursement_id = params[:reimbursement_id]
       end
+
+      # 处理复制工单的情况
+      if params[:copy_from].present?
+        Rails.logger.debug "AuditWorkOrder build_new_resource: 复制工单 ##{params[:copy_from]}"
+        # 预选费用明细
+        if params[:fee_detail_ids].present?
+          resource.submitted_fee_detail_ids = Array(params[:fee_detail_ids]).map(&:to_s)
+          Rails.logger.debug "AuditWorkOrder build_new_resource: 复制费用明细 #{resource.submitted_fee_detail_ids.inspect}"
+        end
+        # 预选问题类型
+        if params[:problem_type_ids].present?
+          resource.problem_type_ids = Array(params[:problem_type_ids]).map(&:to_i)
+          Rails.logger.debug "AuditWorkOrder build_new_resource: 复制问题类型 #{resource.problem_type_ids.inspect}"
+        end
+      end
+
       # 如果是从表单提交的，设置 submitted_fee_detail_ids
       if params[:audit_work_order] && params[:audit_work_order][:submitted_fee_detail_ids] # Changed from :fee_detail_ids
         # 添加调试日志
@@ -204,6 +220,11 @@ ActiveAdmin.register AuditWorkOrder do
     link_to '审核拒绝', reject_admin_audit_work_order_path(resource) # Leads to a form
   end
 
+  action_item :copy, only: :show do
+    link_to '复制工单', copy_admin_audit_work_order_path(resource),
+            data: { confirm: '确定要复制此工单吗？将创建一个新工单，包含相同的费用明细和问题类型。' }
+  end
+
   # REMOVED: new_audit_work_order action item (already present in Reimbursement show page)
   # action_item :new_audit_work_order, only: :show, if: proc{ !resource.reimbursement.closed? } do
   #   link_to "新建审核工单", new_admin_audit_work_order_path(reimbursement_id: resource.reimbursement.id)
@@ -224,6 +245,22 @@ ActiveAdmin.register AuditWorkOrder do
   #     redirect_to admin_audit_work_order_path(resource), alert: "操作失败: #{resource.errors.full_messages.join(', ')}"
   #   end
   # end
+
+  # 复制工单 - 跳转到新建页面并预填数据
+  member_action :copy, method: :get do
+    source_work_order = resource
+
+    # 构建复制参数
+    copy_params = {
+      reimbursement_id: source_work_order.reimbursement_id,
+      copy_from: source_work_order.id,
+      fee_detail_ids: source_work_order.fee_details.pluck(:id),
+      problem_type_ids: source_work_order.problem_type_ids
+    }
+
+    redirect_to new_admin_audit_work_order_path(copy_params),
+                notice: "正在复制工单 ##{source_work_order.id}，请确认信息后提交。"
+  end
 
   member_action :approve, method: :get do
     if resource.approved? || resource.rejected?

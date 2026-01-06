@@ -265,6 +265,86 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
+  // --- Fee Details Sorting ---
+  function initializeFeeDetailsSorting() {
+    const table = document.getElementById('fee-details-sortable-table');
+    if (!table) return;
+
+    const sortableHeaders = table.querySelectorAll('th.sortable');
+    let currentSortKey = null;
+    let currentSortDirection = 'asc';
+
+    sortableHeaders.forEach(header => {
+      header.addEventListener('click', function() {
+        const sortKey = this.dataset.sortKey;
+        const sortType = this.dataset.sortType;
+
+        // Toggle direction if clicking same column
+        if (currentSortKey === sortKey) {
+          currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+          currentSortKey = sortKey;
+          currentSortDirection = 'asc';
+        }
+
+        // Update header classes
+        sortableHeaders.forEach(h => {
+          h.classList.remove('sort-asc', 'sort-desc');
+        });
+        this.classList.add(currentSortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+
+        // Sort the table
+        sortFeeDetailsTable(table, sortKey, sortType, currentSortDirection);
+      });
+    });
+
+    debugLog('Fee details sorting initialized');
+  }
+
+  function sortFeeDetailsTable(table, sortKey, sortType, direction) {
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr.fee-detail-row'));
+
+    // Map sort key to data attribute
+    const dataAttrMap = {
+      'fee_type': 'feeType',
+      'amount': 'amount',
+      'fee_date': 'feeDate',
+      'verification_status': 'verificationStatus'
+    };
+    const dataAttr = dataAttrMap[sortKey];
+
+    rows.sort((a, b) => {
+      let valA = a.dataset[dataAttr] || '';
+      let valB = b.dataset[dataAttr] || '';
+
+      // Convert based on type
+      if (sortType === 'number') {
+        valA = parseFloat(valA) || 0;
+        valB = parseFloat(valB) || 0;
+      } else if (sortType === 'date') {
+        valA = valA ? new Date(valA).getTime() : 0;
+        valB = valB ? new Date(valB).getTime() : 0;
+      } else {
+        // String comparison (case insensitive)
+        valA = valA.toString().toLowerCase();
+        valB = valB.toString().toLowerCase();
+      }
+
+      let result = 0;
+      if (valA < valB) result = -1;
+      else if (valA > valB) result = 1;
+
+      return direction === 'asc' ? result : -result;
+    });
+
+    // Re-append sorted rows
+    rows.forEach(row => tbody.appendChild(row));
+
+    debugLog(`Sorted by ${sortKey} (${sortType}) ${direction}`);
+  }
+
   // --- Initializer Call ---
   initializeApp();
+  initializeFeeDetailsSorting();
 });
