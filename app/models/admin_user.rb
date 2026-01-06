@@ -6,6 +6,7 @@ class AdminUser < ApplicationRecord
 
   # Associations
   has_many :work_order_operations, dependent: :nullify
+  has_many :created_work_orders, class_name: 'WorkOrder', foreign_key: 'created_by', dependent: :nullify
 
   # 报销单分配关联
   has_many :assigned_reimbursements, class_name: 'ReimbursementAssignment', foreign_key: 'assignee_id'
@@ -73,8 +74,8 @@ class AdminUser < ApplicationRecord
   end
 
   def self.ransackable_associations(_auth_object = nil)
-    %w[active_assigned_reimbursements assigned_reimbursements reimbursement_assignments_made
-       reimbursements_to_process work_order_operations]
+    %w[active_assigned_reimbursements assigned_reimbursements created_work_orders
+       reimbursement_assignments_made reimbursements_to_process work_order_operations]
   end
 
   # Complex queries moved to AdminUserRepository
