@@ -3,20 +3,28 @@
 
 # 从 SQLite 导入数据到 PostgreSQL
 # 这个脚本处理 SQLite 和 PostgreSQL 之间的数据类型差异
+# 包括 Boolean 类型转换 (0/1 -> FALSE/TRUE)
 
 require 'sqlite3'
 require 'pg'
 
-SQLITE_DB = './db_backups/sci2_production_sqlite_20260106_180951.sqlite3'
+# SQLite 数据库路径（可通过命令行参数指定）
+SQLITE_DB = ARGV[0] || './db_backups/sci2_production.sqlite3'
 
-# PostgreSQL 连接
-conn = PG.connect(
-  host: 'localhost',
-  port: 55_000,
-  dbname: 'sci2_development',
-  user: 'sci2_test',
-  password: 'test_password_123'
-)
+unless File.exist?(SQLITE_DB)
+  puts "错误: 找不到 SQLite 文件: #{SQLITE_DB}"
+  puts "用法: ruby import_sqlite_to_pg.rb [sqlite_db_path]"
+  exit 1
+end
+
+# PostgreSQL 连接参数（可通过环境变量覆盖）
+PG_CONFIG = {
+  host: ENV['DATABASE_HOST'] || 'localhost',
+  port: (ENV['DATABASE_PORT'] || 55_000).to_i,
+  dbname: ENV['DATABASE_NAME'] || 'sci2_development',
+  user: ENV['DATABASE_USERNAME'] || 'sci2_test',
+  password: ENV['DATABASE_PASSWORD'] || 'test_password_123'
+}.freeze
 
 # 要导入的表（按依赖顺序）
 TABLES = %w[
@@ -92,12 +100,8 @@ def import_table(sqlite_db, conn, table_name)
 
   return if rows.empty?
 
-  # 禁用外键检查（如果支持）
-  begin
-    conn.exec('SET FOREIGN_KEY_CHECKS = 0')
-  rescue StandardError
-    nil
-  end
+  # PostgreSQL: 禁用外键约束检查
+  # 注意: session_replication_role = replica 会禁用触发器和外键检查
 
   # 批量插入
   batch_size = 1000
@@ -118,13 +122,6 @@ def import_table(sqlite_db, conn, table_name)
   # 插入剩余的数据
   conn.exec(batch.join(';')) unless batch.empty?
 
-  # 启用外键检查
-  begin
-    conn.exec('SET FOREIGN_KEY_CHECKS = 1')
-  rescue StandardError
-    nil
-  end
-
   puts " (#{rows.count} 行)"
 rescue PG::Error => e
   puts " 错误: #{e.message}"
@@ -132,34 +129,62 @@ end
 
 # 主程序
 puts '=== 从 SQLite 导入数据到 PostgreSQL ==='
+puts "SQLite: #{SQLITE_DB}"
+puts "PostgreSQL: #{PG_CONFIG[:user]}@#{PG_CONFIG[:host]}:#{PG_CONFIG[:port]}/#{PG_CONFIG[:dbname]}"
 puts ''
 
+conn = PG.connect(PG_CONFIG)
 sqlite_db = SQLite3::Database.new(SQLITE_DB)
+
+# 禁用外键约束
+conn.exec('SET session_replication_role = replica')
 
 TABLES.each do |table|
   import_table(sqlite_db, conn, table)
 end
 
-sqlite_db.close
-conn.close
+# 恢复外键约束
+conn.exec('SET session_replication_role = DEFAULT')
 
+sqlite_db.close
+
+# 重置所有表的 sequence
 puts ''
-puts '=== 导入完成 ==='
+puts '=== 重置 sequence ==='
+reset_sql = <<~SQL
+  DO $$
+  DECLARE
+      tbl RECORD;
+      max_id BIGINT;
+      seq_name TEXT;
+  BEGIN
+      FOR tbl IN
+          SELECT tablename FROM pg_tables
+          WHERE schemaname = 'public'
+          AND tablename NOT IN ('schema_migrations', 'ar_internal_metadata')
+      LOOP
+          seq_name := tbl.tablename || '_id_seq';
+          IF EXISTS (SELECT 1 FROM pg_sequences WHERE schemaname = 'public' AND sequencename = seq_name) THEN
+              EXECUTE format('SELECT COALESCE(MAX(id), 0) FROM %I', tbl.tablename) INTO max_id;
+              IF max_id > 0 THEN
+                  EXECUTE format('SELECT setval(%L, %s, true)', seq_name, max_id);
+                  RAISE NOTICE 'Reset % to %', seq_name, max_id;
+              END IF;
+          END IF;
+      END LOOP;
+  END $$;
+SQL
+conn.exec(reset_sql)
+puts 'Sequence 重置完成'
 
 # 验证结果
 puts ''
 puts '=== 数据统计 ==='
-conn = PG.connect(
-  host: 'localhost',
-  port: 55_000,
-  dbname: 'sci2_development',
-  user: 'sci2_test',
-  password: 'test_password_123'
-)
-
-%w[reimbursements work_orders admin_users fee_details reimbursement_assignments work_order_operations].each do |table|
+%w[reimbursements work_orders admin_users fee_details operation_histories reimbursement_assignments].each do |table|
   result = conn.exec("SELECT COUNT(*) as count FROM #{table}")
   puts "#{table}: #{result.first['count']} 行"
 end
 
 conn.close
+puts ''
+puts '=== 导入完成 ==='
