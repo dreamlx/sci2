@@ -212,12 +212,19 @@ graph TB
 ### 快速部署
 
 ```bash
-# 使用部署脚本
-./scripts/deploy/deploy_production.sh
+# 1. 确保代码已推送到 Gitee（Capistrano 从 Gitee 拉取）
+git push gitee main
 
-# 或直接使用 Capistrano
+# 2. 执行 Capistrano 部署
 RBENV_VERSION=3.4.2 bundle exec cap production deploy
+
+# 3. 部署后重启服务（使用 systemd）
+ssh deploy@tickmytime.com "sudo systemctl restart puma-sci2"
 ```
+
+> **注意**:
+> - 服务名是 `puma-sci2`，不是 `puma`
+> - Capistrano 从 Gitee 拉取代码，确保先 `git push gitee main`
 
 ### 部署流程
 
