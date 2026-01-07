@@ -6,14 +6,17 @@ SCI2 是一个基于 Rails 7 + ActiveAdmin 的企业报销单管理系统，提�
 
 ## 🛠️ 技术栈
 
-- **后端框架**: Ruby on Rails 7.x
-- **Ruby版本**: ruby 3.4.2(rbenv)
+- **后端框架**: Ruby on Rails 7.1.3
+- **Ruby版本**: 3.4.2 (开发环境使用 rbenv，生产环境使用系统 RVM)
 - **管理界面**: ActiveAdmin
-- **数据库**: PostgreSQL (测试/开发) / MySQL (生产)
+- **数据库**: PostgreSQL (开发/测试/生产环境)
 - **测试框架**: RSpec + Capybara + Selenium WebDriver
 - **状态机**: state_machines gem
 - **认证系统**: Devise
 - **容器化**: Docker & Docker Compose
+- **部署工具**: Capistrano 3.20
+- **应用服务器**: Puma 6.0
+- **Web 服务器**: Nginx
 
 ## 🏗️ 核心架构
 
@@ -68,10 +71,10 @@ SCI2 是一个基于 Rails 7 + ActiveAdmin 的企业报销单管理系统，提�
 
 ### 环境要求
 ```bash
-Ruby 3.4.2 (使用 rbenv 管理)
-Rails 7.x
+Ruby 3.4.2 (开发环境使用 rbenv，生产环境使用系统 RVM)
+Rails 7.1.3
 Docker & Docker Compose
-PostgreSQL (测试/开发)
+PostgreSQL (开发/测试/生产环境)
 ```
 
 ### Ruby 环境设置
@@ -127,13 +130,31 @@ docker ps --format "table {{.Names}}\t{{.Ports}}"
 ```
 
 ### 传统数据库设置（备选）
+
+如需使用本地 PostgreSQL 而非 Docker Compose：
+
 ```bash
-# 开发环境 (SQLite)
-rails db:create
+# 安装 PostgreSQL
+# macOS
+brew install postgresql@15
+brew services start postgresql@15
+
+# Ubuntu
+sudo apt-get install postgresql postgresql-contrib
+
+# 创建数据库
+createdb sci2_development
+createdb sci2_test
+
+# 配置环境变量
+export DATABASE_HOST=localhost
+export DATABASE_PORT=5432
+export DATABASE_USERNAME=your_username
+export DATABASE_PASSWORD=your_password
+
+# 运行迁移
 rails db:migrate
 rails db:seed
-
-# 生产环境 (MySQL) - 通过部署脚本自动处理
 ```
 
 ### 启动服务
@@ -157,109 +178,67 @@ DATABASE_PORT=55000 RAILS_ENV=test bundle exec rspec spec/features/admin/communi
 DATABASE_PORT=55000 RAILS_ENV=test bundle exec rspec spec/models/reimbursement_notification_spec.rb
 ```
 
-## 🌐 生产部署数据库策略
+## 🌐 生产部署
 
-### 生产环境数据库选项
+### 部署架构
 
-#### 选项1：云数据库服务（推荐）
-- **阿里云 RDS PostgreSQL**
-- **腾讯云 PostgreSQL**
-- **AWS RDS PostgreSQL**
-
-**优势**：
-- 自动备份和容灾
-- 高可用性
-- 运维成本低
-- 安全性高
-
-#### 选项2：自建 PostgreSQL 容器
-```yaml
-# docker-compose.prod.yml
-version: '3.8'
-services:
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_DB: sci2_production
-      POSTGRES_USER: sci2
-      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./backups:/backups
-    ports:
-      - "5432:5432"
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
+```mermaid
+graph TB
+    subgraph "开发环境"
+        A[Mac M3 开发环境] --> B[rbenv + Ruby 3.4.2]
+        B --> C[Docker Compose PostgreSQL]
+    end
+    
+    subgraph "生产环境"
+        D[Capistrano 部署] --> E[生产服务器 tickmytime.com]
+        E --> F[系统 RVM + Ruby 3.4.2]
+        F --> G[PostgreSQL 直接安装]
+        G --> H[Puma 6.0 + Nginx]
+    end
+    
+    A --> D
 ```
 
-#### 选项3：混合架构
-- **生产环境**: 云数据库服务
-- **测试环境**: 本地容器
-- **开发环境**: 本地容器
+### 生产环境配置
 
-### 数据库迁移策略
-
-#### 开发到生产迁移
-```bash
-# 1. 导出开发数据（如果需要）
-pg_dump -h localhost -p 55000 -U sci2_test sci2_test > dev_data.sql
-
-# 2. 生产环境执行迁移
-RAILS_ENV=production bundle exec rails db:migrate
-
-# 3. 导入基础数据（可选）
-psql -h $PROD_DB_HOST -U $PROD_DB_USER -d $PROD_DB_NAME < dev_data.sql
-```
-
-#### 备份策略
-```bash
-# 自动备份脚本
-#!/bin/bash
-DATE=$(date +%Y%m%d_%H%M%S)
-pg_dump -h $DB_HOST -U $DB_USER -d $DB_NAME > backup_$DATE.sql
-aws s3 cp backup_$DATE.sql s3://sci2-backups/
-```
-
-## 🚀 部署指南
-
-### 部署概述
-项目使用 Capistrano 进行自动化部署，支持从本地开发环境直接推送到服务器。
-
-### 环境配置
-- **生产环境**: 阿里云服务器 (8.136.10.88)
-- **测试环境**: 阿里云服务器 (47.97.35.0)
+- **服务器**: tickmytime.com
 - **部署用户**: deploy
-- **数据库**: 云 PostgreSQL 或 MySQL
+- **Ruby 版本**: 3.4.2 (系统 RVM)
+- **数据库**: PostgreSQL (直接安装在服务器上)
+- **应用服务器**: Puma 6.0
+- **Web 服务器**: Nginx
+- **部署工具**: Capistrano 3.20
 
 ### 快速部署
 
-#### 方法一：使用部署脚本（推荐）
 ```bash
-# 生产环境部署
-./scripts/deploy_production.sh
+# 使用部署脚本
+./scripts/deploy/deploy_production.sh
 
-# 测试环境部署
-./scripts/deploy_staging.sh
-```
-
-#### 方法二：手动部署
-```bash
-# 生产环境
+# 或直接使用 Capistrano
 RBENV_VERSION=3.4.2 bundle exec cap production deploy
-
-# 测试环境
-RBENV_VERSION=3.4.2 bundle exec cap staging deploy
 ```
 
 ### 部署流程
+
 1. **代码推送**: 从本地 Git 仓库推送到服务器
 2. **依赖安装**: 自动安装 gem 依赖
 3. **数据库迁移**: 执行数据库迁移
 4. **资产预编译**: 编译静态资源
 5. **服务重启**: 重启 Puma 服务
 6. **健康检查**: 验证服务正常运行
+
+详细部署指南请参考 [docs/04-deployment/](docs/04-deployment/)
+
+### 数据库备份策略
+
+```bash
+# 备份生产数据库
+pg_dump -h 127.0.0.1 -U sci2 -d sci2_production > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# 恢复数据库
+psql -h 127.0.0.1 -U sci2 -d sci2_production < backup_file.sql
+```
 
 ## 📊 数据库结构
 
@@ -337,7 +316,10 @@ RBENV_VERSION=3.4.2 bundle exec cap staging deploy
 
 ## 🐳 Docker 容器管理
 
-### 测试容器配置
+### 测试环境容器配置
+
+项目使用 Docker Compose 运行 PostgreSQL 测试数据库：
+
 ```yaml
 # docker-compose.yml
 version: '3.8'
@@ -359,19 +341,36 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+volumes:
+  postgres_test_data:
+    driver: local
 ```
 
-### 容器故障排除
+### 容器管理命令
+
 ```bash
+# 启动测试数据库
+docker compose up -d
+
+# 查看容器状态
+docker ps | grep sci2_test_db
+
 # 查看容器日志
-docker compose logs postgres_test
+docker compose logs -f postgres_test
 
 # 进入容器
 docker compose exec postgres_test psql -U sci2_test -d sci2_test
 
-# 重建容器
+# 停止容器
 docker compose down
-docker volume rm sci2_postgres_test_data  # 删除数据（谨慎）
+
+# 重启容器
+docker compose down && docker compose up -d
+
+# 重建容器（会删除数据）
+docker compose down
+docker volume rm sci2_postgres_test_data
 docker compose up -d
 ```
 
@@ -392,9 +391,16 @@ git log --oneline --graph
 
 ---
 
-**最后更新**: 2025-10-29
-**版本**: v2.3.0
-**状态**: PostgreSQL 集成完成 ✅
+**最后更新**: 2026-01-04
+**版本**: v2.4.0
+**状态**: 生产环境 PostgreSQL 部署完成 ✅
+
+### v2.4.0 (2026-01-04) ✅
+- **生产环境 PostgreSQL 部署**
+  - 生产环境迁移到 PostgreSQL
+  - 更新 Capistrano 配置支持 PostgreSQL
+  - 优化部署流程和数据库迁移策略
+  - 更新文档以反映实际配置
 
 ### v2.3.0 (2025-10-29) ✅
 - **PostgreSQL 集成**
