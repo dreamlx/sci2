@@ -156,6 +156,13 @@ graph TB
 
 ## 更新日志
 
+### 2026-01-07
+
+- 添加 dotenv-rails 环境变量配置说明
+- 添加 macOS + Ruby 3.4 fork 安全问题解决方案
+- 添加 SQLite 到 PostgreSQL 数据迁移脚本使用说明
+- 更新迁移脚本支持 Docker 模式（自动检测 psql）
+
 ### 2026-01-04
 
 - 重新组织部署文档结构
