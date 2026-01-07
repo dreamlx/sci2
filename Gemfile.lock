@@ -187,6 +187,10 @@ GEM
       rails-i18n
     diff-lcs (1.6.1)
     docile (1.4.1)
+    dotenv (3.2.0)
+    dotenv-rails (3.2.0)
+      dotenv (= 3.2.0)
+      railties (>= 6.1)
     drb (2.2.1)
     ed25519 (1.4.0)
     erubi (1.13.1)
@@ -566,6 +570,7 @@ DEPENDENCIES
   debug
   devise
   devise-i18n
+  dotenv-rails
   ed25519 (>= 1.2, < 2.0)
   factory_bot_rails
   faker

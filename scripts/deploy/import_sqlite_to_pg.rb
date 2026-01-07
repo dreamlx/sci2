@@ -44,16 +44,17 @@ TABLES = %w[
 def escape_value(value, column_name = nil)
   return 'NULL' if value.nil?
 
+  # 清理列名（移除引号）
+  clean_column_name = column_name&.gsub('"', '')
+
   # 检查是否是布尔类型字段
-  boolean_fields = %w[is_electronic active is_active vat_verified needs_communication]
-  if column_name && boolean_fields.include?(column_name)
+  boolean_fields = %w[is_electronic active is_active vat_verified needs_communication manual_override has_updates]
+  if clean_column_name && boolean_fields.include?(clean_column_name)
     case value
     when 0, '0', false, 'false', 'FALSE'
-      'FALSE'
+      return 'FALSE'
     when 1, '1', true, 'true', 'TRUE'
-      'TRUE'
-    else
-      value.to_s
+      return 'TRUE'
     end
   end
 

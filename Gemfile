@@ -31,6 +31,7 @@ gem 'tzinfo-data', platforms: %i[mingw x64_mingw mswin]
 
 # === DEVELOPMENT & TEST =========================================================
 group :development, :test do
+  gem 'dotenv-rails'
   gem 'bundler-audit'
   gem 'codecov', require: false
   gem 'database_cleaner-active_record'
