@@ -75,18 +75,6 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000024) do
     t.index ["status"], name: "index_admin_users_on_status"
   end
 
-  create_table "communication_records", force: :cascade do |t|
-    t.bigint "communication_work_order_id", null: false
-    t.text "content", null: false
-    t.string "communicator_role"
-    t.string "communicator_name"
-    t.string "communication_method"
-    t.datetime "recorded_at", null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["communication_work_order_id"], name: "index_communication_records_on_communication_work_order_id"
-  end
-
   create_table "fee_details", force: :cascade do |t|
     t.string "document_number", null: false
     t.string "fee_type"
@@ -337,7 +325,6 @@ ActiveRecord::Schema[7.1].define(version: 2025_17_26_000024) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
-  add_foreign_key "communication_records", "work_orders", column: "communication_work_order_id"
   add_foreign_key "problem_types", "fee_types"
   add_foreign_key "reimbursement_assignments", "admin_users", column: "assignee_id"
   add_foreign_key "reimbursement_assignments", "admin_users", column: "assigner_id"

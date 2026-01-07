@@ -95,3 +95,4 @@ rubocop_*.json
 
 # 备份文件
 *.bak
+db_backups/
